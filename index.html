@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nested Idle</title>
+<title>Strata</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
@@ -639,12 +639,105 @@
     background: linear-gradient(90deg, rgba(217,70,239,0.1), rgba(217,70,239,0.2));
   }
   .prestige-btn-full.hidden { display: none; }
+
+  /* Ending screen */
+  .ending-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--bg-deep); z-index: 2000; display: flex;
+    flex-direction: column; align-items: center; justify-content: center;
+    padding: 30px; text-align: center;
+  }
+  .ending-overlay.hidden { display: none; }
+  .ending-text {
+    font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-dim);
+    line-height: 2; max-width: 440px; margin-bottom: 30px;
+  }
+  .ending-text .highlight { color: var(--text-bright); }
+  .ending-choices {
+    display: flex; gap: 16px; width: 100%; max-width: 440px;
+  }
+  .ending-choice {
+    flex: 1; padding: 18px 16px; border-radius: var(--radius);
+    border: 1px solid var(--border); background: var(--bg-card);
+    cursor: pointer; transition: all var(--transition); text-align: center;
+  }
+  .ending-choice:hover { transform: translateY(-2px); }
+  .ending-choice.choice-endless { border-color: var(--cyan-dim); }
+  .ending-choice.choice-endless:hover { border-color: var(--cyan); box-shadow: 0 4px 20px rgba(0,228,255,0.2); }
+  .ending-choice.choice-retire { border-color: var(--magenta-dim); }
+  .ending-choice.choice-retire:hover { border-color: var(--magenta); box-shadow: 0 4px 20px rgba(217,70,239,0.2); }
+  .ending-choice-title {
+    font-family: var(--font-mono); font-size: 0.9rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;
+  }
+  .choice-endless .ending-choice-title { color: var(--cyan); }
+  .choice-retire .ending-choice-title { color: var(--magenta); }
+  .ending-choice-desc { font-size: 0.7rem; color: var(--text-dim); line-height: 1.5; }
+  .retired-screen { text-align: center; padding: 40px; }
+  .retired-title { font-family: var(--font-mono); font-size: 1.2rem; color: var(--text-bright); margin-bottom: 10px; }
+  .retired-stats { font-size: 0.75rem; color: var(--text-dim); line-height: 1.8; font-family: var(--font-mono); }
+
+  /* Start screen */
+  .start-screen {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--bg-deep); z-index: 3000;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 30px;
+  }
+  .start-screen.hidden { display: none; }
+  .start-title {
+    font-family: var(--font-mono); font-size: 2.4rem; font-weight: 700;
+    color: var(--text-bright); letter-spacing: 0.2em; text-transform: uppercase;
+    margin-bottom: 4px; opacity: 0; animation: start-fade-in 1.5s ease forwards;
+  }
+  .start-sub {
+    font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-dim);
+    letter-spacing: 0.3em; text-transform: lowercase; margin-bottom: 50px;
+    opacity: 0; animation: start-fade-in 1.5s ease 0.5s forwards;
+  }
+  .start-buttons {
+    display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 300px;
+    opacity: 0; animation: start-fade-in 1s ease 1.2s forwards;
+  }
+  .start-btn {
+    padding: 14px 20px; border-radius: var(--radius);
+    border: 1px solid var(--border); background: var(--bg-card);
+    color: var(--text); font-family: var(--font-mono); font-size: 0.8rem;
+    font-weight: 600; cursor: pointer; transition: all var(--transition);
+    text-transform: uppercase; letter-spacing: 0.1em; text-align: center;
+  }
+  .start-btn:hover {
+    border-color: var(--cyan); color: var(--cyan);
+    transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,228,255,0.15);
+  }
+  .start-btn.start-continue {
+    border-color: var(--magenta-dim);
+  }
+  .start-btn.start-continue:hover {
+    border-color: var(--magenta); color: var(--magenta);
+    box-shadow: 0 4px 20px rgba(217,70,239,0.15);
+  }
+  .start-version {
+    position: absolute; bottom: 16px; font-family: var(--font-mono);
+    font-size: 0.55rem; color: #333; letter-spacing: 0.1em;
+  }
+  @keyframes start-fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 </style>
 </head>
 <body>
 
+<div class="start-screen" id="startScreen">
+  <div class="start-title">strata</div>
+  <div class="start-sub">an incremental experience</div>
+  <div class="start-buttons" id="startButtons"></div>
+  <div class="start-version">v0.1</div>
+</div>
+
 <div class="top-section">
-  <h1>Nested Idle</h1>
+  <h1>Strata</h1>
 
   <div class="prestige-prompt hidden" id="prestigePrompt">
     <div>
@@ -767,6 +860,11 @@
   <div class="perm-overlay-sub" id="permSub">Choose a permanent Lv.1 buff. This applies to ALL dimensions forever.</div>
   <div class="perm-options" id="permOptions"></div>
 </div>
+
+<div class="ending-overlay hidden" id="endingOverlay">
+  <div class="ending-text" id="endingText"></div>
+  <div class="ending-choices" id="endingChoices"></div>
+</div>
 <div class="dim-unlock-banner hidden" id="dimUnlockBanner">
   <div class="dim-unlock-title" id="dimUnlockTitle"></div>
   <div class="dim-unlock-sub" id="dimUnlockSub"></div>
@@ -863,20 +961,20 @@ var BASE_MAX_LEVEL = 5;
 var UPGRADE_DEFS = [
   { id: "upgrade_boost",  name: "Upgrade Boost",  icon: "Σ", descFn: function(l) { return "+0.2 buy base (" + (2 + 0.2*l).toFixed(1) + "x base)"; } },
   { id: "prestige_boost", name: "Prestige Boost", icon: "Ω", descFn: function(l) { return "x" + (2*l) + " prestige points"; } },
-  { id: "discount",       name: "Discount",       icon: "Δ", descFn: function(l) { return "cost base " + (10*Math.pow(0.9,l)).toFixed(1) + "x per buy"; } },
-  { id: "gen_expansion",  name: "Gen Expansion",  icon: "∞", descFn: function(l) { var curSum = getUpgradeSum("gen_expansion"); var withThis = curSum + l; var gain = withThis > 0 ? Math.max(1, 250*(1 - 1/(1 + withThis/250))) : 0; return "more gens (" + Math.floor(50 + gain) + " total)"; } },
+  { id: "discount",       name: "Discount",       icon: "Δ", descFn: function(l) { return "cost base " + (10*Math.pow(0.8,l)).toFixed(1) + "x per buy"; } },
+  { id: "gen_expansion",  name: "Gen Expansion",  icon: "∞", descFn: function(l) { var curSum = getUpgradeSum("gen_expansion"); var withThis = curSum + l; var gain = withThis > 0 ? Math.max(1, 250*(1 - 1/(1 + withThis/50))) : 0; return "more gens (" + Math.floor(50 + gain) + " total)"; } },
   { id: "auto_buy",       name: "Auto Buy",       icon: "α", descFn: function(l) { return "auto-buy " + l + "/sec"; } },
   { id: "break_infinity", name: "Break Infinity",  icon: "∅", descFn: function(l) { return "remove point cap"; } },
   { id: "gen_boost",      name: "Generator Boost", icon: "μ", descFn: function(l) { return "x" + (10*l) + " all output"; } },
   { id: "synergy",        name: "Synergy",         icon: "φ", descFn: function(l) { return "+" + (10*l) + "% per gen (by amount)"; } },
-  { id: "fast_start",     name: "Fast Start",      icon: "λ", descFn: function(l) { return "keep 1e" + (l-1) + " on prestige"; } },
+  { id: "fast_start",     name: "Fast Start",      icon: "λ", descFn: function(l) { return "keep 1e" + (3*l) + " on prestige"; } },
   { id: "upgrade_count",  name: "Upgrade Count",   icon: "π", descFn: function(l) { return "+" + (3 + Math.floor(0.5*l)) + " slots (max 20)"; } },
   { id: "luck",           name: "Luck",            icon: "ψ", descFn: function(l) { return "better roll odds"; } },
   { id: "ascend",         name: "Ascend",          icon: "Ξ", descFn: function(l) { return "higher max upgrade lv (max 25)"; } },
   { id: "overclock",      name: "Overclock",       icon: "θ", descFn: function(l) { return "more max gen buys (max 500)"; } },
   { id: "momentum",       name: "Momentum",        icon: "χ", descFn: function(l) { return "x" + (l+1) + "^sqrt(tier) output"; } }
-  ,{ id: "interest",       name: "Interest",        icon: "ε", descFn: function(l) { return "+" + l + "% points/sec"; } }
-  ,{ id: "head_start",     name: "Head Start",      icon: "β", descFn: function(l) { return "start with gens (max 50)"; } }
+  ,{ id: "interest",       name: "Interest",        icon: "ε", descFn: function(l) { return "+" + (l*l+l) + "% points/sec"; } }
+  ,{ id: "head_start",     name: "Head Start",      icon: "β", descFn: function(l) { return "start with gens (max 100)"; } }
   ,{ id: "wide_selection",  name: "Wide Selection",   icon: "Π", descFn: function(l) { return "more upgrade choices (max 15)"; } }
   ,{ id: "echo",             name: "Echo",              icon: "∂", descFn: function(l) { return "copy owned upgrade at lv." + l; } }
 ];
@@ -933,10 +1031,10 @@ function getUpgradeBoostBonus(dim) {
 function getPrestigeBoostMult(dim) { var sum = getUpgradeSum("prestige_boost", dim) * 2; return Math.max(1, sum); }
 function getDiscountMult(dim) {
   // Returns the effective cost base (default 10). Discount reduces it, defect increases it.
-  // Lv.1 discount: 10 × 0.9 = 9× per buy. Lv.5: 10 × 0.59 = 5.9× per buy.
-  var base = 10 * Math.pow(0.9, getUpgradeSum("discount", dim));
+  // Lv.1 discount: 10 × 0.8 = 8× per buy. Lv.5: 10 × 0.33 = 3.3× per buy.
+  var base = 10 * Math.pow(0.8, getUpgradeSum("discount", dim));
   var defLvl = getDefectSum("discount", dim);
-  if (defLvl > 0) base *= Math.pow(1/0.9, defLvl);  // defect INCREASES cost base
+  if (defLvl > 0) base *= Math.pow(1/0.8, defLvl);  // defect INCREASES cost base
   return base;
 }
 function getMaxTier(dim) {
@@ -944,8 +1042,8 @@ function getMaxTier(dim) {
   // Defect: same curve negative, caps at -250 (min 1 gen).
   var upgSum = getUpgradeSum("gen_expansion", dim);
   var defSum = getDefectSum("gen_expansion", dim);
-  var gain = upgSum > 0 ? Math.max(1, 250 * (1 - 1 / (1 + upgSum / 250))) : 0;
-  var loss = defSum > 0 ? Math.max(1, 250 * (1 - 1 / (1 + defSum / 250))) : 0;
+  var gain = upgSum > 0 ? Math.max(1, 250 * (1 - 1 / (1 + upgSum / 50))) : 0;
+  var loss = defSum > 0 ? Math.max(1, 250 * (1 - 1 / (1 + defSum / 50))) : 0;
   return Math.max(1, Math.floor(50 + gain - loss));
 }
 function getAutoBuyCount(dim) { return getUpgradeSum("auto_buy", dim); }
@@ -964,10 +1062,10 @@ function getFastStartPoints(dim) {
   var d = dim || D(); var t = bn(0, 0);
   for (var i = 0; i < d.upgradeSlots.length; i++) {
     var s = d.upgradeSlots[i];
-    if (s && s.id === "fast_start") t = bnAdd(t, bn(1, s.level - 1));
+    if (s && s.id === "fast_start") t = bnAdd(t, bn(1, 3 * s.level));
   }
   // Include perm buff (Lv.1 = keep 1e0 = 1 point)
-  if (getPermBuffSum("fast_start") > 0) t = bnAdd(t, bn(1, 0));
+  if (getPermBuffSum("fast_start") > 0) t = bnAdd(t, bn(1, 3));
   return t;
 }
 function getSynergyMult(amt, dim) {
@@ -1003,8 +1101,8 @@ function getMaxBuy(dim) {
   // Asymptotic: approaches 500 (base 100 + up to 400). Defect mirrors.
   var upgSum = getUpgradeSum("overclock", dim);
   var defSum = getDefectSum("overclock", dim);
-  var gain = upgSum > 0 ? Math.max(1, 400 * (1 - 1 / (1 + upgSum / 400))) : 0;
-  var loss = defSum > 0 ? Math.max(1, 400 * (1 - 1 / (1 + defSum / 400))) : 0;
+  var gain = upgSum > 0 ? Math.max(1, 400 * (1 - 1 / (1 + upgSum / 50))) : 0;
+  var loss = defSum > 0 ? Math.max(1, 400 * (1 - 1 / (1 + defSum / 50))) : 0;
   return Math.max(1, Math.floor(BASE_MAX_BUY + gain - loss));
 }
 function getHighestGenTierBought(dim) {
@@ -1027,16 +1125,19 @@ function getMomentumMult(dim) {
   return 1 / Math.max(1, mult);
 }
 function getInterestRate(dim) {
-  // 1% per level per second. Defect: drain points at same rate.
+  // (L^2+L)% per level per second. Defect: drain at same rate.
   var lvl = getUpgradeSum("interest", dim);
   var defLvl = getDefectSum("interest", dim);
-  return (lvl - defLvl) * 0.01; // can be negative (defect drain)
+  var net = lvl - defLvl;
+  if (net >= 0) return (net * net + net) * 0.01;
+  var abs = Math.abs(net);
+  return -(abs * abs + abs) * 0.01;
 }
 function getHeadStartTier(dim) {
-  // Asymptotic: approaches 50 gens pre-bought.
+  // Asymptotic: approaches 100 gens pre-bought. Strong early, diminishing.
   var sum = getUpgradeSum("head_start", dim);
   if (sum <= 0) return 0;
-  return Math.max(1, Math.floor(50 * (1 - 1 / (1 + sum / 50))));
+  return Math.max(1, Math.floor(100 * (1 - 1 / (1 + sum / 10))));
 }
 function applyHeadStart(dim) {
   var d = dim || D();
@@ -1328,7 +1429,8 @@ function showPermBuffOverlay(dimNum) {
     html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + def.name + takenBadge + '</div>';
     html += '<div class="upgrade-slot-desc">' + def.descFn(1) + '</div></div></div>';
   }
-  document.getElementById("permSub").textContent = "Dimension " + dimNum + " complete! Choose a permanent Lv.1 buff. Applies to ALL dimensions forever.";
+  var storyComplete = (dimNum <= 10 && STORY_COMPLETE[dimNum]) ? STORY_COMPLETE[dimNum] : "";
+  document.getElementById("permSub").textContent = storyComplete ? (storyComplete + "\n\nchoose a permanent buff.") : "dimension " + dimNum + " complete. choose a permanent buff.";
   document.getElementById("permOptions").innerHTML = html;
   document.getElementById("permOverlay").classList.remove("hidden");
 }
@@ -1348,18 +1450,57 @@ function getPermBuffSum(id) {
   return permBuffs.indexOf(id) >= 0 ? 1 : 0;
 }
 
+
+// ============================================================
+// Story — fragments revealed across 10 dimensions
+// ============================================================
+var STORY_UNLOCK = [
+  "", // dim 0 (unused)
+  "", // dim 1 — no unlock text for the first dimension
+  "a second layer. weaker, but yours.",
+  "another layer. the pattern repeats.",
+  "deeper still. the rules bend here.",
+  "halfway. the resistance is deliberate.",
+  "the dimensions respond to your choices.",
+  "the structure mirrors itself. strata.",
+  "almost there. the walls are thin.",
+  "one more layer. but you could stay.",
+  "this is the last one."
+];
+var STORY_COMPLETE = [
+  "", // dim 0 (unused)
+  "there\'s more beneath this.",
+  "you shaped it. it shaped you back.",
+  "who built the first one?",
+  "you didn\'t make the rules. you just learned them.",
+  "the challenges aren\'t random. they\'re tests.",
+  "every reset, you kept what mattered. who decided what matters?",
+  "the first dimension looks different from here.",
+  "the permanent buffs. the kept upgrades. they were always yours.",
+  "what\'s outside the last dimension?",
+  "" // dim 10 complete — handled by ending screen
+];
+var gameRetired = false;
+
 function checkDimensionUnlock() {
   var d = D();
   var allDone = d.challenges.filter(function(c) { return c.completed; }).length >= 5;
   if (allDone && activeDimIdx === unlockedDims - 1) {
+    // Check if this is dimension 10 completion
+    var completedDimNum = unlockedDims; // the dim we just completed (before incrementing)
     unlockedDims++;
     var newDim = createFreshDimension();
     dimensions.push(newDim);
     initUpgradeSlots(newDim);
     initGenerators(newDim);
+    // Dim 10 completion — show ending screen
+    if (completedDimNum === 10 && !gameRetired) {
+      showEndingScreen();
+      return; // skip normal perm buff for dim 10
+    }
     // Award permanent buff for completing this dimension
     if (dimCompletionCount < unlockedDims - 1) {
-      showPermBuffOverlay(unlockedDims - 1);
+      showPermBuffOverlay(completedDimNum);
     }
     // Unlock cross-dim upgrades on first dimension 2 unlock
     if (!multiDimUnlocked) {
@@ -1374,11 +1515,66 @@ function checkDimensionUnlock() {
   }
 }
 
+
+function showEndingScreen() {
+  var text = '<span class="highlight">you completed the tenth dimension.</span><br><br>';
+  text += "you\'ve been building this whole time.<br>";
+  text += "generators, upgrades, dimensions — layers of a system.<br><br>";
+  text += '<span class="highlight">this system.</span><br><br>';
+  text += "the game you\'re playing was built by the choices you made.<br>";
+  text += "every restart was a revision.<br>";
+  text += "every kept upgrade, a decision about what matters.<br><br>";
+  text += '<span class="highlight">you are the strata.</span><br><br>';
+  text += "...";
+  document.getElementById("endingText").innerHTML = text;
+  var choices = '<div class="ending-choice choice-endless" onclick="chooseEndless()">';
+  choices += '<div class="ending-choice-title">endless</div>';
+  choices += '<div class="ending-choice-desc">keep building. infinite dimensions.<br>no end. no limit.</div></div>';
+  choices += '<div class="ending-choice choice-retire" onclick="chooseRetire()">';
+  choices += '<div class="ending-choice-title">retire</div>';
+  choices += '<div class="ending-choice-desc">stop here. your run is complete.<br>rest.</div></div>';
+  document.getElementById("endingChoices").innerHTML = choices;
+  document.getElementById("endingOverlay").classList.remove("hidden");
+}
+
+function chooseEndless() {
+  document.getElementById("endingOverlay").classList.add("hidden");
+  // Award dim 10 perm buff
+  if (dimCompletionCount < unlockedDims - 1) {
+    showPermBuffOverlay(10);
+  }
+  showDimUnlock(unlockedDims);
+  showSaveMsg("endless mode unlocked.");
+}
+
+function chooseRetire() {
+  gameRetired = true;
+  document.getElementById("endingOverlay").classList.add("hidden");
+  // Show retirement screen
+  var totalPrestiges = 0;
+  for (var i = 0; i < dimensions.length; i++) totalPrestiges += dimensions[i].prestigeCount;
+  var html = '<div class="retired-screen">';
+  html += '<div class="retired-title">strata — complete</div>';
+  html += '<div class="retired-stats">';
+  html += 'dimensions completed: 10<br>';
+  html += 'total prestige points earned: ' + totalPrestiges + '<br>';
+  html += 'permanent buffs collected: ' + permBuffs.length + '<br>';
+  html += '<br>thank you for playing.<br><br>';
+  html += '<span style="color:var(--text-bright);">you built something.</span>';
+  html += '</div></div>';
+  document.getElementById("endingText").innerHTML = html;
+  document.getElementById("endingChoices").innerHTML = '<div class="ending-choice choice-endless" onclick="document.getElementById(\'endingOverlay\').classList.add(\'hidden\')"><div class="ending-choice-title">close</div></div>';
+  document.getElementById("endingOverlay").classList.remove("hidden");
+  saveGame();
+}
+
 function showDimUnlock(dimNum) {
-  document.getElementById("dimUnlockTitle").textContent = "Dimension " + dimNum + " Unlocked!";
-  document.getElementById("dimUnlockSub").textContent = "Navigate with the arrows below to explore it.";
+  var storyText = (dimNum <= 10 && STORY_UNLOCK[dimNum]) ? STORY_UNLOCK[dimNum] : "";
+  document.getElementById("dimUnlockTitle").textContent = storyText || ("dimension " + dimNum + " unlocked");
+  document.getElementById("dimUnlockSub").textContent = storyText ? "" : "navigate with the arrows below.";
   document.getElementById("dimUnlockBanner").classList.remove("hidden");
-  setTimeout(function() { document.getElementById("dimUnlockBanner").classList.add("hidden"); }, 3000);
+  var delay = storyText ? 5000 : 3000; // longer for story text
+  setTimeout(function() { document.getElementById("dimUnlockBanner").classList.add("hidden"); }, delay);
 }
 
 function failChallenge() {
@@ -1673,13 +1869,13 @@ function switchDim(dir) {
 function getDefectDescription(defId, level) {
   switch (defId) {
     case "upgrade_boost": return "buy base " + (2 - 0.2 * level).toFixed(1) + "x (weaker)";
-    case "discount": return "cost base " + (10 * Math.pow(1/0.9, level)).toFixed(1) + "x per buy";
+    case "discount": return "cost base " + (10 * Math.pow(1/0.8, level)).toFixed(1) + "x per buy";
     case "gen_expansion": return "-" + (10 * level) + " generators";
     case "gen_boost": return "all output /" + (10 * level);
     case "synergy": return "gens weaken each other (/" + level + ")";
     case "overclock": return "-" + (25 * level) + " max gen buys";
     case "momentum": return "/" + (level+1) + "^sqrt(tier) output";
-    case "interest": return "lose " + level + "% points/sec";
+    case "interest": return "lose " + (level*level+level) + "% points/sec";
     default: return "Unknown defect";
   }
 }
@@ -1937,18 +2133,18 @@ function renderUpgrades() {
       var _ts = getUpgradeSum(slot.id);
       if (def && def.id === "upgrade_boost") { desc = "+0.2 buy base (total " + (2 + _ts*0.2).toFixed(1) + "x base)"; }
       if (def && def.id === "prestige_boost") { desc = "x" + (2*slot.level) + " pp (total x" + (_ts*2) + ")"; }
-      if (def && def.id === "discount") { desc = "cost base " + (10*Math.pow(0.9,_ts)).toFixed(1) + "x per buy"; }
+      if (def && def.id === "discount") { desc = "cost base " + (10*Math.pow(0.8,_ts)).toFixed(1) + "x per buy"; }
       if (def && def.id === "gen_expansion") { desc = "more gens (" + getMaxTier() + " total)"; }
       if (def && def.id === "gen_boost") { desc = "x" + (10*slot.level) + " output (total x" + (10*_ts) + ")"; }
       if (def && def.id === "synergy") { desc = "+" + (10*slot.level) + "% per gen (total +" + (10*_ts) + "%)"; }
-      if (def && def.id === "fast_start") { desc = "keep 1e" + (slot.level-1) + " on prestige"; }
+      if (def && def.id === "fast_start") { desc = "keep 1e" + (3*slot.level) + " on prestige"; }
       if (def && def.id === "upgrade_count") { desc = getMaxUpgradeSlots() + " upgrade slots (max 20)"; }
       if (def && def.id === "luck") { desc = "better odds (base " + getLuckBase().toFixed(3) + ")"; }
       if (def && def.id === "ascend") { desc = "max upgrade lv." + getMaxLevel() + " (max 25)"; }
       if (def && def.id === "overclock") { desc = "+" + (25*slot.level) + " buys (total " + getMaxBuy() + " max)"; }
       if (def && def.id === "momentum") { var h = getHighestGenTierBought(); var sqH = Math.sqrt(h).toFixed(1); desc = "x" + (slot.level+1) + "^sqrt(tier) (total x" + (_ts+1) + "^" + sqH + " = x" + Math.pow(_ts+1, Math.sqrt(h)).toExponential(1) + ")"; }
-      if (def && def.id === "interest") { desc = "+" + slot.level + "%/sec (total +" + _ts + "%/sec)"; }
-      if (def && def.id === "head_start") { desc = "start with " + getHeadStartTier() + " gens (max 50)"; }
+      if (def && def.id === "interest") { var _ir = _ts*_ts+_ts; desc = "+" + (slot.level*slot.level+slot.level) + "%/sec (total +" + _ir + "%/sec)"; }
+      if (def && def.id === "head_start") { desc = "start with " + getHeadStartTier() + " gens (max 100)"; }
       if (def && def.id === "wide_selection") { desc = getSelectionCount() + " upgrade choices (max 15)"; }
       html += '<div class="upgrade-slot filled"><div class="upgrade-icon">' + (def ? def.icon : "?") + '</div>';
       html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + (def ? def.name : "?") + ' <span class="upgrade-level-badge">Lv.' + slot.level + '</span></div>';
@@ -2584,6 +2780,7 @@ function saveGame() {
     activeDimIdx: activeDimIdx,
     unlockedDims: unlockedDims,
     multiDimUnlocked: multiDimUnlocked,
+    gameRetired: gameRetired || false,
     permBuffs: permBuffs,
     dimCompletionCount: dimCompletionCount,
     currentTab: currentTab,
@@ -2618,6 +2815,7 @@ function loadGame() {
     activeDimIdx = data.activeDimIdx || 0;
     unlockedDims = data.unlockedDims || 1;
     multiDimUnlocked = !!data.multiDimUnlocked;
+    gameRetired = !!data.gameRetired;
     permBuffs = data.permBuffs || [];
     dimCompletionCount = data.dimCompletionCount || 0;
     if (data.currentTab) currentTab = data.currentTab;
@@ -2729,18 +2927,55 @@ function safeGetItem(k) { try { return storageAvailable ? localStorage.getItem(k
 function safeSetItem(k, v) { try { if (storageAvailable) localStorage.setItem(k, v); } catch(e) {} }
 function safeRemoveItem(k) { try { if (storageAvailable) localStorage.removeItem(k); } catch(e) {} }
 
+
+// ============================================================
+// Start Screen
+// ============================================================
+var gameStarted = false;
+
+function showStartScreen() {
+  var hasSave = !!safeGetItem("nestedIdleSave2");
+  var html = "";
+  if (hasSave) {
+    html += '<button class="start-btn start-continue" onclick="startContinue()">continue</button>';
+    html += '<button class="start-btn" onclick="startNew()">new game</button>';
+  } else {
+    html += '<button class="start-btn" onclick="startNew()">begin</button>';
+  }
+  document.getElementById("startButtons").innerHTML = html;
+  document.getElementById("startScreen").classList.remove("hidden");
+}
+
+function startContinue() {
+  document.getElementById("startScreen").classList.add("hidden");
+  gameStarted = true;
+  loadGame();
+  invalidateRenderKeys();
+  updateUI();
+  requestAnimationFrame(gameTick);
+}
+
+function startNew() {
+  document.getElementById("startScreen").classList.add("hidden");
+  gameStarted = true;
+  safeRemoveItem("nestedIdleSave2");
+  dimensions = [createFreshDimension()];
+  activeDimIdx = 0; unlockedDims = 1; multiDimUnlocked = false;
+  permBuffs = []; dimCompletionCount = 0; gameRetired = false;
+  UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return u.id !== "boost_above" && u.id !== "boost_below"; });
+  initUpgradeSlots(); initGenerators();
+  currentTab = "generators";
+  switchTab("generators");
+  invalidateRenderKeys();
+  updateUI();
+  requestAnimationFrame(gameTick);
+}
+
 // ============================================================
 // Init
 // ============================================================
-setInterval(saveGame, AUTO_SAVE_INTERVAL);
-var loaded = loadGame();
-if (!loaded) {
-  dimensions = [createFreshDimension()];
-  initUpgradeSlots(); initGenerators();
-}
-invalidateRenderKeys();
-updateUI();
-requestAnimationFrame(gameTick);
+setInterval(function() { if (gameStarted) saveGame(); }, AUTO_SAVE_INTERVAL);
+showStartScreen();
 </script>
 
 </body>
