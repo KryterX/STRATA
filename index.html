@@ -727,9 +727,12 @@
   }
 
   /* Mobile safe area — bottom bar accessibility */
-  .tab-bar { padding-bottom: env(safe-area-inset-bottom, 0px); }
-  .dim-nav { padding-bottom: env(safe-area-inset-bottom, 0px); }
-  body { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .tab-bar { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); }
+  .dim-nav { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); }
+  @media (max-width: 768px) {
+    .tab-bar { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 50px); }
+    .dim-nav { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 50px); }
+  }
 
   .gen-buy { touch-action: manipulation; -webkit-touch-callout: none; user-select: none; }
 </style>
@@ -1221,7 +1224,6 @@ function getTotalRateForDim(gen, dimIdx) {
   if (bnIsZero(total)) return bn(0, 0);
   var rate = bnMul(total, getPurchaseMultiplier(gen, d));
   rate = bnMul(rate, bnFromNum(getGenBoostMult(d)));
-  rate = bnMul(rate, bnFromNum(getSynergyMult(gen.amount, d)));
   rate = bnMul(rate, bnFromNum(getMomentumMult(d)));
   rate = bnMul(rate, bnFromNum(getDimPenalty(dimIdx)));
   rate = bnMul(rate, bnFromNum(getCrossDimBoost(dimIdx)));
@@ -1530,7 +1532,7 @@ function failChallenge() {
   d.challengeStartTime = 0;
   var fs = getFastStartPoints(); var ms = bn(10, 0);
   d.points = bnGte(fs, ms) ? fs : ms;
-  initGenerators(); applyHeadStart();
+  initGenerators();
   invalidateRenderKeys(); updateUI();
   showSaveMsg("Time's up! Challenge failed.");
 }
@@ -2659,8 +2661,7 @@ function gameTick() {
         var total = gen.bought > 0 ? bnAdd(bn(1, 0), gen.amount) : gen.amount;
         if (bnIsZero(total)) continue;
         var pm = getPurchaseMultiplier(gen, d);
-        var sy = bnFromNum(getSynergyMult(gen.amount, d));
-        var prod = bnMul(bnMul(bnMul(total, pm), sy), sharedMult);
+        var prod = bnMul(bnMul(total, pm), sharedMult);
         if (gen.tier === 1) {
           d.points = bnAdd(d.points, prod);
           if (!hasBreakInfinity(d) && bnGte(d.points, BASE_POINT_CAP)) { d.points = { m: BASE_POINT_CAP.m, e: BASE_POINT_CAP.e }; }
