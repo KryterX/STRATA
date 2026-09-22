@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Strata</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -725,6 +725,13 @@
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
   }
+
+  /* Mobile safe area — bottom bar accessibility */
+  .tab-bar { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .dim-nav { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  body { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+  .gen-buy { touch-action: manipulation; -webkit-touch-callout: none; user-select: none; }
 </style>
 </head>
 <body>
@@ -949,7 +956,7 @@ function bnFormat(a) {
 // ============================================================
 // Constants & Upgrade Definitions
 // ============================================================
-var DEBUG_AUTO_BUY_ALL = true; // TEST MODE: auto-buy all gens every second
+var DEBUG_AUTO_BUY_ALL = false; // set true for testing
 var BASE_MAX_TIER = 50;
 var BASE_POINT_CAP = bn(1, 308);
 var PRESTIGE_EXP_THRESHOLD = 308;
@@ -966,20 +973,17 @@ var UPGRADE_DEFS = [
   { id: "auto_buy",       name: "Auto Buy",       icon: "α", descFn: function(l) { return "auto-buy " + l + "/sec"; } },
   { id: "break_infinity", name: "Break Infinity",  icon: "∅", descFn: function(l) { return "remove point cap"; } },
   { id: "gen_boost",      name: "Generator Boost", icon: "μ", descFn: function(l) { return "x" + (10*l) + " all output"; } },
-  { id: "synergy",        name: "Synergy",         icon: "φ", descFn: function(l) { return "+" + (10*l) + "% per gen (by amount)"; } },
   { id: "fast_start",     name: "Fast Start",      icon: "λ", descFn: function(l) { return "keep 1e" + (3*l) + " on prestige"; } },
   { id: "upgrade_count",  name: "Upgrade Count",   icon: "π", descFn: function(l) { return "+" + (3 + Math.floor(0.5*l)) + " slots (max 20)"; } },
   { id: "luck",           name: "Luck",            icon: "ψ", descFn: function(l) { return "better roll odds"; } },
   { id: "ascend",         name: "Ascend",          icon: "Ξ", descFn: function(l) { return "higher max upgrade lv (max 25)"; } },
   { id: "overclock",      name: "Overclock",       icon: "θ", descFn: function(l) { return "more max gen buys (max 500)"; } },
-  { id: "momentum",       name: "Momentum",        icon: "χ", descFn: function(l) { return "x" + (l+1) + "^sqrt(tier) output"; } }
-  ,{ id: "interest",       name: "Interest",        icon: "ε", descFn: function(l) { return "+" + (l*l+l) + "% points/sec"; } }
-  ,{ id: "head_start",     name: "Head Start",      icon: "β", descFn: function(l) { return "start with gens (max 100)"; } }
-  ,{ id: "wide_selection",  name: "Wide Selection",   icon: "Π", descFn: function(l) { return "more upgrade choices (max 15)"; } }
+  { id: "momentum",       name: "Momentum",        icon: "χ", descFn: function(l) { return "x" + (l+1) + "^sqrt(tier) output"; } },
+  { id: "wide_selection",  name: "Wide Selection",   icon: "Π", descFn: function(l) { return "more upgrade choices (max 15)"; } }
   ,{ id: "echo",             name: "Echo",              icon: "∂", descFn: function(l) { return "copy owned upgrade at lv." + l; } }
 ];
 
-var DEFECT_POOL = ["upgrade_boost","discount","gen_expansion","gen_boost","synergy","overclock","momentum","interest"];
+var DEFECT_POOL = ["upgrade_boost","discount","gen_expansion","gen_boost","overclock","momentum"];
 
 // ============================================================
 // Dimension State
@@ -1068,17 +1072,7 @@ function getFastStartPoints(dim) {
   if (getPermBuffSum("fast_start") > 0) t = bnAdd(t, bn(1, 3));
   return t;
 }
-function getSynergyMult(amt, dim) {
-  // Upgrade: ×(1 + log10(amt) × 10 × L / 100). Defect: divide by same.
-  var tl = getUpgradeSum("synergy", dim);
-  tl -= getDefectSum("synergy", dim);
-  var log = bnLog10(amt); if (log <= 0) return 1;
-  if (tl === 0) return 1;
-  if (tl > 0) return 1 + (log * 10 * tl) / 100;
-  // Negative: defect dominates → divide by same factor
-  var posMult = 1 + (log * 10 * Math.abs(tl)) / 100;
-  return 1 / posMult;
-}
+
 function getMaxUpgradeSlots(dim) {
   // Asymptotic: approaches 20 (base 4 + up to 16).
   var d = dim || D(); var rawSum = 0;
@@ -1124,30 +1118,8 @@ function getMomentumMult(dim) {
   if (mSum > 0) return Math.max(1, mult);
   return 1 / Math.max(1, mult);
 }
-function getInterestRate(dim) {
-  // (L^2+L)% per level per second. Defect: drain at same rate.
-  var lvl = getUpgradeSum("interest", dim);
-  var defLvl = getDefectSum("interest", dim);
-  var net = lvl - defLvl;
-  if (net >= 0) return (net * net + net) * 0.01;
-  var abs = Math.abs(net);
-  return -(abs * abs + abs) * 0.01;
-}
-function getHeadStartTier(dim) {
-  // Asymptotic: approaches 100 gens pre-bought. Strong early, diminishing.
-  var sum = getUpgradeSum("head_start", dim);
-  if (sum <= 0) return 0;
-  return Math.max(1, Math.floor(100 * (1 - 1 / (1 + sum / 10))));
-}
-function applyHeadStart(dim) {
-  var d = dim || D();
-  var tier = getHeadStartTier(d);
-  if (tier <= 0) return;
-  var maxBuy = getMaxBuy(d);
-  for (var i = 0; i < d.generators.length && i < tier; i++) {
-    if (d.generators[i].bought < 1) d.generators[i].bought = Math.min(1, maxBuy);
-  }
-}
+
+
 function getLevelWeights(dim) {
   var maxLvl = getMaxLevel(dim); var base = getLuckBase(dim); var weights = [];
   for (var i = 1; i <= maxLvl; i++) weights.push(Math.pow(base, maxLvl - i));
@@ -1381,7 +1353,6 @@ function startChallenge(idx) {
   var fs = getFastStartPoints(); var ms = bn(10, 0);
   d.points = bnGte(fs, ms) ? fs : ms;
   initGenerators();
-  applyHeadStart();
   invalidateRenderKeys();
   updateUI();
 }
@@ -1401,7 +1372,6 @@ function completeChallenge() {
   var fs = getFastStartPoints(); var ms = bn(10, 0);
   d.points = bnGte(fs, ms) ? fs : ms;
   initGenerators();
-  applyHeadStart();
   invalidateRenderKeys();
   // Check dimension unlock
   checkDimensionUnlock();
@@ -1413,7 +1383,7 @@ function completeChallenge() {
 // ============================================================
 // Permanent Buffs — earned by completing dimensions
 // ============================================================
-var PERM_BUFF_POOL = ["prestige_boost","discount","gen_expansion","auto_buy","break_infinity","synergy","fast_start","upgrade_count","luck","ascend","overclock","interest","head_start","wide_selection","boost_above","boost_below"];
+var PERM_BUFF_POOL = ["prestige_boost","discount","gen_expansion","auto_buy","break_infinity","fast_start","upgrade_count","luck","ascend","overclock","wide_selection","boost_above","boost_below"];
 
 function showPermBuffOverlay(dimNum) {
   var html = "";
@@ -1454,32 +1424,8 @@ function getPermBuffSum(id) {
 // ============================================================
 // Story — fragments revealed across 10 dimensions
 // ============================================================
-var STORY_UNLOCK = [
-  "", // dim 0 (unused)
-  "", // dim 1 — no unlock text for the first dimension
-  "a second layer. weaker, but yours.",
-  "another layer. the pattern repeats.",
-  "deeper still. the rules bend here.",
-  "halfway. the resistance is deliberate.",
-  "the dimensions respond to your choices.",
-  "the structure mirrors itself. strata.",
-  "almost there. the walls are thin.",
-  "one more layer. but you could stay.",
-  "this is the last one."
-];
-var STORY_COMPLETE = [
-  "", // dim 0 (unused)
-  "there\'s more beneath this.",
-  "you shaped it. it shaped you back.",
-  "who built the first one?",
-  "you didn\'t make the rules. you just learned them.",
-  "the challenges aren\'t random. they\'re tests.",
-  "every reset, you kept what mattered. who decided what matters?",
-  "the first dimension looks different from here.",
-  "the permanent buffs. the kept upgrades. they were always yours.",
-  "what\'s outside the last dimension?",
-  "" // dim 10 complete — handled by ending screen
-];
+var STORY_UNLOCK = [];
+var STORY_COMPLETE = [];
 var gameRetired = false;
 
 function checkDimensionUnlock() {
@@ -1596,7 +1542,6 @@ function quitChallenge() {
   var fs = getFastStartPoints(); var ms = bn(10, 0);
   d.points = bnGte(fs, ms) ? fs : ms;
   initGenerators();
-  applyHeadStart();
   invalidateRenderKeys();
   updateUI();
 }
@@ -1872,18 +1817,18 @@ function getDefectDescription(defId, level) {
     case "discount": return "cost base " + (10 * Math.pow(1/0.8, level)).toFixed(1) + "x per buy";
     case "gen_expansion": return "-" + (10 * level) + " generators";
     case "gen_boost": return "all output /" + (10 * level);
-    case "synergy": return "gens weaken each other (/" + level + ")";
+    
     case "overclock": return "-" + (25 * level) + " max gen buys";
     case "momentum": return "/" + (level+1) + "^sqrt(tier) output";
-    case "interest": return "lose " + (level*level+level) + "% points/sec";
+    
     default: return "Unknown defect";
   }
 }
 function getDefectIcon(defId) {
   var map = {
     "upgrade_boost":"∇", "discount":"Λ", "gen_expansion":"⊘",
-    "gen_boost":"ω", "synergy":"Ψ", "overclock":"Φ",
-    "momentum":"ζ", "interest":"δ"
+    "gen_boost":"ω", "overclock":"Φ",
+    "momentum":"ζ"
   };
   return map[defId] || "?";
 }
@@ -1893,10 +1838,10 @@ function getDefectName(defId) {
     case "discount": return "Markup";
     case "gen_expansion": return "Lockdown";
     case "gen_boost": return "Burnout";
-    case "synergy": return "Interference";
+    
     case "overclock": return "Bottleneck";
     case "momentum": return "Drag";
-    case "interest": return "Debt";
+    
     default: return "???";
   }
 }
@@ -1998,7 +1943,6 @@ function doPrestige() {
   var fs = getFastStartPoints(); var ms = bn(10, 0);
   d.points = bnGte(fs, ms) ? fs : ms;
   initGenerators();
-  applyHeadStart();
   invalidateRenderKeys();
   switchTab("generators"); updateUI();
 }
@@ -2136,15 +2080,12 @@ function renderUpgrades() {
       if (def && def.id === "discount") { desc = "cost base " + (10*Math.pow(0.8,_ts)).toFixed(1) + "x per buy"; }
       if (def && def.id === "gen_expansion") { desc = "more gens (" + getMaxTier() + " total)"; }
       if (def && def.id === "gen_boost") { desc = "x" + (10*slot.level) + " output (total x" + (10*_ts) + ")"; }
-      if (def && def.id === "synergy") { desc = "+" + (10*slot.level) + "% per gen (total +" + (10*_ts) + "%)"; }
       if (def && def.id === "fast_start") { desc = "keep 1e" + (3*slot.level) + " on prestige"; }
       if (def && def.id === "upgrade_count") { desc = getMaxUpgradeSlots() + " upgrade slots (max 20)"; }
       if (def && def.id === "luck") { desc = "better odds (base " + getLuckBase().toFixed(3) + ")"; }
       if (def && def.id === "ascend") { desc = "max upgrade lv." + getMaxLevel() + " (max 25)"; }
       if (def && def.id === "overclock") { desc = "+" + (25*slot.level) + " buys (total " + getMaxBuy() + " max)"; }
       if (def && def.id === "momentum") { var h = getHighestGenTierBought(); var sqH = Math.sqrt(h).toFixed(1); desc = "x" + (slot.level+1) + "^sqrt(tier) (total x" + (_ts+1) + "^" + sqH + " = x" + Math.pow(_ts+1, Math.sqrt(h)).toExponential(1) + ")"; }
-      if (def && def.id === "interest") { var _ir = _ts*_ts+_ts; desc = "+" + (slot.level*slot.level+slot.level) + "%/sec (total +" + _ir + "%/sec)"; }
-      if (def && def.id === "head_start") { desc = "start with " + getHeadStartTier() + " gens (max 100)"; }
       if (def && def.id === "wide_selection") { desc = getSelectionCount() + " upgrade choices (max 15)"; }
       html += '<div class="upgrade-slot filled"><div class="upgrade-icon">' + (def ? def.icon : "?") + '</div>';
       html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + (def ? def.name : "?") + ' <span class="upgrade-level-badge">Lv.' + slot.level + '</span></div>';
@@ -2611,11 +2552,44 @@ function renderGenerators() {
       if (gen.tier > 1) html += '<span class="gen-count" id="genAmt' + i + '">' + (!bnIsZero(gen.amount) ? ' | Amount: ' + bnFormat(gen.amount) : '') + '</span>';
     } else { html += '<span class="gen-stats">Produces ' + produces + '</span>'; }
     if (isMaxed) html += '</div><button class="gen-buy maxed-btn" disabled>MAXED</button>';
-    else html += '</div><button class="gen-buy" ' + (canAfford ? 'onclick="buyGen(' + i + ')"' : 'disabled') + '>Buy (' + bnFormat(cost) + ')</button>';
+    else html += '</div><button class="gen-buy" ' + (canAfford ? 'onpointerdown="startHoldBuy(' + i + ')" onpointerup="stopHoldBuy()" onpointerleave="stopHoldBuy()"' : 'disabled') + '>Buy (' + bnFormat(cost) + ')</button>';
     html += '<div class="progress-bar" id="genBar' + i + '" style="width:' + prog.toFixed(1) + '%"></div></div>';
   }
   c.innerHTML = html;
 }
+
+
+// ============================================================
+// Hold-to-buy system (desktop: hold click, mobile: press & hold)
+// ============================================================
+var holdBuyIndex = -1;
+var holdBuyDelay = null;
+var holdBuyInterval = null;
+
+function startHoldBuy(index) {
+  holdBuyIndex = index;
+  // First: do one immediate buy
+  buyGen(index);
+  // After 1 second of holding, start auto-buy every 300ms
+  holdBuyDelay = setTimeout(function() {
+    holdBuyInterval = setInterval(function() {
+      buyGen(holdBuyIndex);
+    }, 300);
+  }, 1000);
+}
+
+function stopHoldBuy() {
+  holdBuyIndex = -1;
+  if (holdBuyDelay) { clearTimeout(holdBuyDelay); holdBuyDelay = null; }
+  if (holdBuyInterval) { clearInterval(holdBuyInterval); holdBuyInterval = null; }
+}
+
+// Prevent context menu on long-press (mobile)
+document.addEventListener("contextmenu", function(e) {
+  if (e.target && e.target.classList && e.target.classList.contains("gen-buy")) {
+    e.preventDefault();
+  }
+});
 
 function buyGen(index) {
   var d = D(); if (isCapped()) return;
@@ -2692,16 +2666,6 @@ function gameTick() {
           if (!hasBreakInfinity(d) && bnGte(d.points, BASE_POINT_CAP)) { d.points = { m: BASE_POINT_CAP.m, e: BASE_POINT_CAP.e }; }
         } else { d.generators[i - 1].amount = bnAdd(d.generators[i - 1].amount, prod); }
       }
-    }
-
-    // Interest: gain (or lose) a % of current points per second
-    var intRate = getInterestRate(d);
-    if (intRate !== 0 && !bnIsZero(d.points) && !cap) {
-      var intAmt = bnMul(d.points, bnFromNum(intRate * bgDt));
-      d.points = bnAdd(d.points, intAmt);
-      // Floor at 0 (negative interest can't go below zero)
-      if (d.points.m < 0) d.points = bn(0, 0);
-      if (!hasBreakInfinity(d) && bnGte(d.points, BASE_POINT_CAP)) { d.points = { m: BASE_POINT_CAP.m, e: BASE_POINT_CAP.e }; }
     }
 
     // Snap to cap: if points are very close to 1e308, round up
@@ -2877,7 +2841,7 @@ function loadGame() {
               if (gen.bought === 0 && bnIsZero(gen.amount)) continue;
               var total = gen.bought > 0 ? bnAdd(bn(1, 0), gen.amount) : gen.amount;
               if (bnIsZero(total)) continue;
-              var prod = bnMul(bnMul(bnMul(total, getPurchaseMultiplier(gen, d)), bnFromNum(getSynergyMult(gen.amount, d))), oShared);
+              var prod = bnMul(bnMul(total, getPurchaseMultiplier(gen, d)), oShared);
               if (gen.tier === 1) {
                 d.points = bnAdd(d.points, prod);
                 if (!hasBreakInfinity(d) && bnGte(d.points, BASE_POINT_CAP)) { d.points = { m: BASE_POINT_CAP.m, e: BASE_POINT_CAP.e }; break; }
