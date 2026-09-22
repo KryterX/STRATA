@@ -732,9 +732,22 @@
   @media (max-width: 768px) {
     .tab-bar { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 50px); }
     .dim-nav { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 50px); }
+    .content-area { padding-bottom: 80px; }
   }
 
-  .gen-buy { touch-action: manipulation; -webkit-touch-callout: none; user-select: none; }
+
+  /* Buy All button */
+  .buy-all-btn {
+    width: 100%; max-width: 500px; padding: 10px; margin-bottom: 6px;
+    border-radius: var(--radius); border: 1px solid var(--cyan-dim);
+    background: transparent; color: var(--cyan); font-family: var(--font-mono);
+    font-size: 0.7rem; font-weight: 600; cursor: pointer;
+    transition: all var(--transition); text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .buy-all-btn:hover { background: var(--cyan); color: var(--bg-deep);
+    box-shadow: 0 0 12px rgba(0,228,255,0.25); }
+  .buy-all-btn.hidden { display: none; }
 </style>
 </head>
 <body>
@@ -784,6 +797,7 @@
 
 <div class="content-area">
   <div class="tab-panel active" id="tabGenerators">
+    <button class="buy-all-btn hidden" id="buyAllBtn" onclick="buyAllGens()">buy all</button>
     <div class="generators" id="genList"></div>
   </div>
   <div class="tab-panel" id="tabUpgrades">
@@ -1931,6 +1945,8 @@ function updateUI() {
   if (isCapped()) { pointsEl.classList.add("capped"); rateEl.classList.add("capped"); rateEl.textContent = "CAPPED"; }
   else { pointsEl.classList.remove("capped"); rateEl.classList.remove("capped"); }
 
+  var buyAllEl = document.getElementById("buyAllBtn");
+  if (buyAllEl) { if (d.hasPrestigedOnce || getFilledSlotCount() > 0 || permBuffs.length > 0) buyAllEl.classList.remove("hidden"); else buyAllEl.classList.add("hidden"); }
   if (currentTab === "generators") updateGeneratorsLive();
   if (currentTab === "upgrades") updateUpgradesLive();
   if (currentTab === "challenges") updateChallengesLive();
@@ -2554,44 +2570,31 @@ function renderGenerators() {
       if (gen.tier > 1) html += '<span class="gen-count" id="genAmt' + i + '">' + (!bnIsZero(gen.amount) ? ' | Amount: ' + bnFormat(gen.amount) : '') + '</span>';
     } else { html += '<span class="gen-stats">Produces ' + produces + '</span>'; }
     if (isMaxed) html += '</div><button class="gen-buy maxed-btn" disabled>MAXED</button>';
-    else html += '</div><button class="gen-buy" ' + (canAfford ? 'onpointerdown="startHoldBuy(' + i + ')" onpointerup="stopHoldBuy()" onpointerleave="stopHoldBuy()"' : 'disabled') + '>Buy (' + bnFormat(cost) + ')</button>';
+    else html += '</div><button class="gen-buy" ' + (canAfford ? 'onclick="buyGen(' + i + ')"' : 'disabled') + '>Buy (' + bnFormat(cost) + ')</button>';
     html += '<div class="progress-bar" id="genBar' + i + '" style="width:' + prog.toFixed(1) + '%"></div></div>';
   }
   c.innerHTML = html;
 }
 
 
-// ============================================================
-// Hold-to-buy system (desktop: hold click, mobile: press & hold)
-// ============================================================
-var holdBuyIndex = -1;
-var holdBuyDelay = null;
-var holdBuyInterval = null;
 
-function startHoldBuy(index) {
-  holdBuyIndex = index;
-  // First: do one immediate buy
-  buyGen(index);
-  // After 1 second of holding, start auto-buy every 300ms
-  holdBuyDelay = setTimeout(function() {
-    holdBuyInterval = setInterval(function() {
-      buyGen(holdBuyIndex);
-    }, 300);
-  }, 1000);
-}
-
-function stopHoldBuy() {
-  holdBuyIndex = -1;
-  if (holdBuyDelay) { clearTimeout(holdBuyDelay); holdBuyDelay = null; }
-  if (holdBuyInterval) { clearInterval(holdBuyInterval); holdBuyInterval = null; }
-}
-
-// Prevent context menu on long-press (mobile)
-document.addEventListener("contextmenu", function(e) {
-  if (e.target && e.target.classList && e.target.classList.contains("gen-buy")) {
-    e.preventDefault();
+function buyAllGens() {
+  var d = D();
+  if (isCapped()) return;
+  var maxBuy = getMaxBuy();
+  var bought = false;
+  for (var i = 0; i < d.generators.length; i++) {
+    var gen = d.generators[i];
+    if (gen.bought >= maxBuy) continue;
+    var cost = getCost(gen.tier, gen.bought);
+    if (bnGte(d.points, cost)) {
+      d.points = bnSub(d.points, cost);
+      gen.bought++;
+      bought = true;
+    }
   }
-});
+  if (bought) { lastGenRenderKey = ""; renderGenerators(); }
+}
 
 function buyGen(index) {
   var d = D(); if (isCapped()) return;
