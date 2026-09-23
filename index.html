@@ -773,28 +773,38 @@
     position: sticky; top: 0; z-index: 10;
   }
 
-  /* Upgrade summary strip */
-  .upgrade-summary {
-    width: 100%; display: flex; flex-direction: column; gap: 3px;
-    margin-bottom: 4px;
+  /* Upgrade effect chips */
+  .upgrade-chips {
+    width: 100%; display: flex; flex-wrap: wrap; gap: 4px;
+    margin-bottom: 6px;
   }
-  .upgrade-summary.hidden { display: none; }
-  .summary-row {
-    display: flex; align-items: center; gap: 8px; padding: 4px 8px;
-    background: var(--bg-card); border-radius: 4px; font-size: 0.65rem;
+  .upgrade-chips.hidden { display: none; }
+  .effect-chip {
+    display: flex; align-items: center; gap: 4px;
+    padding: 3px 8px; background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 5px; font-size: 0.62rem; font-family: var(--font-mono);
+    color: var(--text); position: relative; overflow: hidden;
+    transition: border-color 0.3s, transform 0.2s;
   }
-  .summary-icon { width: 20px; text-align: center; font-size: 0.8rem; flex-shrink: 0; }
-  .summary-name { color: var(--text-dim); width: 80px; flex-shrink: 0; font-family: var(--font-mono); letter-spacing: 0.02em; }
-  .summary-bar-track {
-    flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
-    position: relative;
+  .effect-chip.animating { border-color: var(--magenta); }
+  .effect-chip.draining { border-color: var(--red); }
+  .chip-icon { font-size: 0.75rem; flex-shrink: 0; }
+  .chip-value { white-space: nowrap; }
+  .chip-bar {
+    position: absolute; bottom: 0; left: 0; height: 2px; width: 0%;
+    background: var(--magenta); border-radius: 0 0 5px 5px;
+    transition: none;
   }
-  .summary-bar-fill {
-    height: 100%; border-radius: 3px;
-    background: linear-gradient(90deg, var(--magenta-dim), var(--magenta));
-    transition: width 0.3s;
-  }
-  .summary-value { color: var(--text-dim); font-size: 0.6rem; font-family: var(--font-mono); min-width: 36px; text-align: right; }
+  .chip-bar.drain { background: var(--red); }
+  .chip-bar.fill { background: var(--magenta); }
+  .chip-bar.threshold { background: var(--amber); }
+
+  /* Chip appear/disappear */
+  @keyframes chipAppear { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+  @keyframes chipPulse { 0% { transform: scale(1); } 50% { transform: scale(1.06); } 100% { transform: scale(1); } }
+  @keyframes chipShrink { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.7); } }
+  .effect-chip.appearing { animation: chipAppear 0.3s ease-out; }
+  .effect-chip.pulse { animation: chipPulse 0.25s ease-in-out; }
 
   /* Selection card description update */
   .selection-card-plain { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 2px; }
@@ -868,7 +878,7 @@
         <button class="sub-tab-btn hidden-tab" id="permaSubBtn" onclick="switchUpgradeSub('perma')">perma buffs <span id="permCount">(0)</span></button>
       </div>
     </div>
-    <div class="upgrade-summary hidden" id="upgradeSummary"></div>
+    <div class="upgrade-chips hidden" id="upgradeChips"></div>
     <div id="upgradeSubSlots">
       <div class="upgrade-sort-bar" id="upgradeSortBar">
         <button class="sort-btn active-sort" onclick="setUpgradeSort('default')">Default</button>
@@ -1702,6 +1712,7 @@ function pickReward(index) {
     d.pendingReward = null; d.pendingRewardOptions = null;
     document.getElementById("rewardOverlay").classList.add("hidden");
     ensureGeneratorCount(); invalidateRenderKeys(); switchTab("challenges"); updateUI();
+    triggerUpgradeAnimation(def.id, opt.level, null, 0);
   } else {
     // Slots full — switch to replace/discard mode
     d.pendingReward = { defIdx: opt.defIdx, level: opt.level };
@@ -1738,11 +1749,15 @@ function showRewardReplaceOverlay() {
 function replaceSlot(index) {
   var d = D(); if (!d.pendingReward) return;
   var def = UPGRADE_DEFS[d.pendingReward.defIdx];
+  var oldSlot = d.upgradeSlots[index];
+  var drainId = oldSlot ? oldSlot.id : null;
+  var drainLvl = oldSlot ? oldSlot.level : 0;
   d.upgradeSlots[index] = { id: def.id, level: d.pendingReward.level };
+  var gainLvl = d.pendingReward.level;
   d.pendingReward = null;
-  document.getElementById("rewardOverlay").classList.remove("hidden");
   document.getElementById("rewardOverlay").classList.add("hidden");
   ensureGeneratorCount(); switchTab("challenges"); updateUI();
+  triggerUpgradeAnimation(def.id, gainLvl, drainId, drainLvl);
 }
 
 function discardReward() {
@@ -1789,6 +1804,7 @@ function pickOption(index) {
     showUpgradeReplaceOverlay();
   } else {
     initUpgradeSlots(); ensureGeneratorCount(); invalidateRenderKeys(); updateUI();
+    triggerUpgradeAnimation(def.id, opt.level, null, 0);
   }
 }
 function discardSelection() {
@@ -1828,10 +1844,16 @@ function showUpgradeReplaceOverlay() {
 function replaceUpgradeSlot(index) {
   var d = D();
   if (!d.pendingUpgrade) return;
-  d.upgradeSlots[index] = { id: d.pendingUpgrade.id, level: d.pendingUpgrade.level };
+  var oldSlot = d.upgradeSlots[index];
+  var drainId = oldSlot ? oldSlot.id : null;
+  var drainLvl = oldSlot ? oldSlot.level : 0;
+  var gainId = d.pendingUpgrade.id;
+  var gainLvl = d.pendingUpgrade.level;
+  d.upgradeSlots[index] = { id: gainId, level: gainLvl };
   d.pendingUpgrade = null;
   document.getElementById("rewardOverlay").classList.add("hidden");
   ensureGeneratorCount(); invalidateRenderKeys(); updateUI();
+  triggerUpgradeAnimation(gainId, gainLvl, drainId, drainLvl);
 }
 function discardPendingUpgrade() {
   var d = D();
@@ -1974,41 +1996,97 @@ function getUpgradeBeforeAfter(id, newLevel) {
   }
 }
 
-function getUpgradeProgress(id) {
+function getNetEffect(id) {
+  var d = D();
   var sum = getUpgradeSum(id);
-  if (sum === 0) return 0;
+  if (sum === 0) return "";
   switch(id) {
-    case "discount": return Math.min(100, (1 - Math.pow(0.8, sum)) * 100 / (1 - Math.pow(0.8, 15)) * 100 / 100);
-    case "gen_expansion": var g = 250 * (1 - 1/(1+sum/50)); return Math.min(100, g / 250 * 100);
-    case "upgrade_count": var r = 0; var d = D(); for (var i=0;i<d.upgradeSlots.length;i++){var s=d.upgradeSlots[i]; if(s&&s.id==="upgrade_count") r+=3+Math.floor(0.7*s.level);} r+=getPermBuffSum("upgrade_count")*3; var ug=r>0?16*(1-1/(1+r/16)):0; return Math.min(100, ug/16*100);
-    case "ascend": var ag = sum > 0 ? 20*(1-1/(1+sum/20)) : 0; return Math.min(100, ag/20*100);
-    case "overclock": var og = sum > 0 ? 400*(1-1/(1+sum/50)) : 0; return Math.min(100, og/400*100);
-    case "break_infinity": return sum > 0 ? 100 : 0;
-    case "luck": return Math.min(100, sum / (sum + 1) * 100);
-    case "wide_selection": return Math.min(100, sum / 12 * 100);
-    default: return Math.min(100, sum * 10); // linear fallback for unbounded upgrades
+    case "upgrade_boost": return (2 + sum * 0.2).toFixed(1) + "x buy";
+    case "prestige_boost": return "x" + Math.max(1, sum * 2) + " PP";
+    case "discount": return (10 * Math.pow(0.8, sum)).toFixed(1) + "x cost";
+    case "gen_expansion": return getMaxTier() + " gens";
+    case "auto_buy": return sum + "/sec";
+    case "break_infinity": return "uncapped";
+    case "gen_boost": var gb = getGenBoostMult(); return gb >= 1 ? "x" + gb.toFixed(0) + " out" : "\u00f7" + (1/gb).toFixed(0) + " out";
+    case "fast_start": return "1e" + (3 * sum) + " kept";
+    case "upgrade_count": return getMaxUpgradeSlots() + " slots";
+    case "luck": return (1 + 1/(1+sum)).toFixed(2) + " luck";
+    case "ascend": return "Lv." + getMaxLevel() + " max";
+    case "overclock": return getMaxBuy() + " buys";
+    case "momentum": var mm = getMomentumMult(); return mm >= 1 ? "x" + (mm < 100 ? mm.toFixed(1) : mm.toFixed(0)) + " mom" : "\u00f7" + (1/mm).toFixed(1) + " mom";
+    case "wide_selection": return getSelectionCount() + " picks";
+    case "echo": return "";
+    default: return "";
   }
 }
 
-function renderUpgradeSummary() {
+function getNetEffectAtSum(id, sum) {
+  // Calculate what the net effect WOULD be at a given total sum
+  switch(id) {
+    case "upgrade_boost": return (2 + sum * 0.2).toFixed(1) + "x buy";
+    case "prestige_boost": return "x" + Math.max(1, sum * 2) + " PP";
+    case "discount": return (10 * Math.pow(0.8, sum)).toFixed(1) + "x cost";
+    case "gen_expansion":
+      var gain = sum > 0 ? Math.max(1, 250 * (1 - 1 / (1 + sum / 50))) : 0;
+      return Math.floor(50 + gain) + " gens";
+    case "auto_buy": return sum + "/sec";
+    case "break_infinity": return sum > 0 ? "uncapped" : "capped";
+    case "gen_boost":
+      if (sum === 0) return "x1 out";
+      if (sum > 0) return "x" + (10 * sum) + " out";
+      return "\u00f7" + (10 * Math.abs(sum)) + " out";
+    case "fast_start": return sum > 0 ? "1e" + (3 * sum) + " kept" : "10 kept";
+    case "upgrade_count":
+      var rawSum = 0; var d = D();
+      for (var i = 0; i < d.upgradeSlots.length; i++) {
+        var s = d.upgradeSlots[i]; if (s && s.id === "upgrade_count") rawSum += 3 + Math.floor(0.7 * s.level);
+      }
+      rawSum += getPermBuffSum("upgrade_count") * 3;
+      var ug = rawSum > 0 ? Math.max(1, 16 * (1 - 1 / (1 + rawSum / 16))) : 0;
+      return Math.floor(BASE_UPGRADE_SLOTS + ug) + " slots";
+    case "luck": return (1 + 1/(1+sum)).toFixed(2) + " luck";
+    case "ascend":
+      var ag = sum > 0 ? Math.max(1, 20 * (1 - 1 / (1 + sum / 20))) : 0;
+      return "Lv." + Math.floor(BASE_MAX_LEVEL + ag) + " max";
+    case "overclock":
+      var og = sum > 0 ? Math.max(1, 400 * (1 - 1 / (1 + sum / 50))) : 0;
+      return Math.floor(BASE_MAX_BUY + og) + " buys";
+    case "momentum": return "x? mom"; // can't easily calc without tier context
+    case "wide_selection": return Math.min(15, 3 + sum) + " picks";
+    default: return "";
+  }
+}
+
+function getThresholdProgress(id, oldSum, newSum) {
+  // For threshold upgrades (upgrade_count, wide_selection), return 0-100% progress to next change
+  // For linear upgrades, return 100 (every level changes)
+  switch(id) {
+    case "upgrade_count":
+      var oldSlots = getMaxUpgradeSlots();
+      // Temporarily simulate adding levels
+      var testSlots = oldSlots; // we'd need to calc — for now, approximate
+      if (testSlots > oldSlots) return 100;
+      // Calc how far to next slot
+      return 60; // placeholder — will refine
+    case "wide_selection":
+      var cur = getSelectionCount ? getSelectionCount() : 3;
+      return 100; // each level of wide_selection always changes count
+    default:
+      return 100; // linear — every level is a full change
+  }
+}
+
+function renderChips() {
   var d = D();
-  var el = document.getElementById("upgradeSummary");
+  var el = document.getElementById("upgradeChips");
   if (!el) return;
-  // Collect owned upgrade types
   var owned = {};
   for (var i = 0; i < d.upgradeSlots.length; i++) {
     var s = d.upgradeSlots[i]; if (!s) continue;
-    if (!owned[s.id]) owned[s.id] = { totalLevel: 0, count: 0 };
-    owned[s.id].totalLevel += s.level;
-    owned[s.id].count++;
+    if (s.id === "echo") continue;
+    if (!owned[s.id]) owned[s.id] = true;
   }
-  // Add perm buffs
-  for (var p = 0; p < permBuffs.length; p++) {
-    var pb = permBuffs[p];
-    if (!owned[pb.id]) owned[pb.id] = { totalLevel: 0, count: 0 };
-    owned[pb.id].totalLevel += 1;
-    owned[pb.id].count++;
-  }
+  for (var p = 0; p < permBuffs.length; p++) { owned[permBuffs[p].id] = true; }
   var keys = Object.keys(owned);
   if (keys.length === 0) { el.classList.add("hidden"); return; }
   el.classList.remove("hidden");
@@ -2017,17 +2095,137 @@ function renderUpgradeSummary() {
     var id = keys[k];
     var def = UPGRADE_DEFS.find(function(u) { return u.id === id; });
     if (!def) continue;
-    var pct = getUpgradeProgress(id);
-    var info = owned[id];
-    html += '<div class="summary-row">';
-    html += '<div class="summary-icon">' + def.icon + '</div>';
-    html += '<div class="summary-name">' + def.name + '</div>';
-    html += '<div class="summary-bar-track"><div class="summary-bar-fill" style="width:' + pct.toFixed(0) + '%"></div></div>';
-    html += '<div class="summary-value">' + info.count + 'x Lv' + '</div>';
+    var effect = getNetEffect(id);
+    if (!effect) continue;
+    html += '<div class="effect-chip" id="chip-' + id + '">';
+    html += '<span class="chip-icon">' + def.icon + '</span>';
+    html += '<span class="chip-value">' + effect + '</span>';
+    html += '<div class="chip-bar" id="chipbar-' + id + '"></div>';
     html += '</div>';
   }
   el.innerHTML = html;
 }
+
+// ============================================================
+// Chip Animation Engine
+// ============================================================
+var chipAnimQueue = [];
+var chipAnimRunning = false;
+
+function queueChipAnim(type, id, levels) {
+  // type: "gain" or "drain"
+  chipAnimQueue.push({ type: type, id: id, levels: levels });
+  if (!chipAnimRunning) runNextChipAnim();
+}
+
+function runNextChipAnim() {
+  if (chipAnimQueue.length === 0) { chipAnimRunning = false; return; }
+  chipAnimRunning = true;
+  var anim = chipAnimQueue.shift();
+  if (anim.type === "drain") {
+    animateDrain(anim.id, anim.levels, function() { runNextChipAnim(); });
+  } else {
+    animateGain(anim.id, anim.levels, function() { runNextChipAnim(); });
+  }
+}
+
+function animateGain(id, levels, done) {
+  renderChips(); // ensure chip exists
+  var chip = document.getElementById("chip-" + id);
+  var bar = document.getElementById("chipbar-" + id);
+  if (!chip || !bar) { if (done) done(); return; }
+  chip.classList.add("animating");
+  bar.className = "chip-bar fill";
+  var step = 0;
+  var stepDuration = Math.max(120, 600 / levels); // faster for multi-level
+  function doStep() {
+    step++;
+    bar.style.transition = "width " + (stepDuration * 0.8) + "ms ease-out";
+    bar.style.width = "100%";
+    setTimeout(function() {
+      // Update chip value to reflect this step
+      var valEl = chip.querySelector(".chip-value");
+      if (valEl) valEl.textContent = getNetEffect(id);
+      chip.classList.add("pulse");
+      setTimeout(function() { chip.classList.remove("pulse"); }, 250);
+      if (step < levels) {
+        bar.style.transition = "none";
+        bar.style.width = "0%";
+        setTimeout(doStep, 60);
+      } else {
+        // Final — fade bar out
+        setTimeout(function() {
+          bar.style.transition = "width 0.4s ease-in, opacity 0.4s";
+          bar.style.opacity = "0";
+          setTimeout(function() {
+            bar.style.width = "0%";
+            bar.style.opacity = "1";
+            bar.style.transition = "none";
+            chip.classList.remove("animating");
+            if (done) done();
+          }, 400);
+        }, 200);
+      }
+    }, stepDuration * 0.85);
+  }
+  // Start from 0
+  bar.style.transition = "none";
+  bar.style.width = "0%";
+  setTimeout(doStep, 50);
+}
+
+function animateDrain(id, levels, done) {
+  var chip = document.getElementById("chip-" + id);
+  var bar = document.getElementById("chipbar-" + id);
+  if (!chip || !bar) { if (done) done(); return; }
+  chip.classList.add("draining");
+  bar.className = "chip-bar drain";
+  // Start full, drain down
+  bar.style.transition = "none";
+  bar.style.width = "100%";
+  var step = 0;
+  var stepDuration = Math.max(120, 500 / levels);
+  function doStep() {
+    step++;
+    var pct = 100 - (step / levels * 100);
+    bar.style.transition = "width " + (stepDuration * 0.8) + "ms ease-in";
+    bar.style.width = pct + "%";
+    setTimeout(function() {
+      var valEl = chip.querySelector(".chip-value");
+      if (valEl) valEl.textContent = getNetEffect(id);
+      if (step < levels) {
+        setTimeout(doStep, 60);
+      } else {
+        setTimeout(function() {
+          bar.style.transition = "none";
+          bar.style.width = "0%";
+          chip.classList.remove("draining");
+          // If upgrade no longer owned, remove chip
+          var effect = getNetEffect(id);
+          if (!effect) {
+            chip.style.animation = "chipShrink 0.3s ease-in forwards";
+            setTimeout(function() { renderChips(); if (done) done(); }, 300);
+          } else {
+            if (done) done();
+          }
+        }, 200);
+      }
+    }, stepDuration * 0.85);
+  }
+  setTimeout(doStep, 50);
+}
+
+function triggerUpgradeAnimation(gainId, gainLevels, drainId, drainLevels) {
+  // Called after an upgrade is placed or replaced
+  if (drainId && drainLevels > 0) {
+    queueChipAnim("drain", drainId, drainLevels);
+  }
+  if (gainId && gainLevels > 0) {
+    queueChipAnim("gain", gainId, gainLevels);
+  }
+}
+
+
 
 function renderSelectionOverlay() {
   var d = D(); var c = document.getElementById("selectionOptions"); var html = "";
@@ -2122,7 +2320,7 @@ function switchTab(tab) {
   document.getElementById("btnTabUpg").classList.toggle("active", tab === "upgrades");
   document.getElementById("btnTabCh").classList.toggle("active", tab === "challenges");
   updateTopBars();
-  if (tab === "upgrades") renderUpgrades();
+  if (tab === "upgrades") { renderUpgrades(); renderChips(); }
   if (tab === "challenges") renderChallenges();
 }
 
@@ -2279,6 +2477,8 @@ function switchUpgradeSub(sub) {
   currentUpgradeSub = sub;
   document.getElementById("upgradeSubSlots").style.display = sub === "slots" ? "" : "none";
   document.getElementById("upgradeSubPerma").style.display = sub === "perma" ? "" : "none";
+  var chipsEl = document.getElementById("upgradeChips");
+  if (chipsEl) chipsEl.style.display = sub === "slots" ? "" : "none";
   var btns = document.querySelectorAll(".sub-tab-btn");
   for (var i = 0; i < btns.length; i++) {
     btns[i].classList.remove("active-sub");
@@ -2341,18 +2541,7 @@ function renderUpgrades() {
       var desc = def ? def.descFn(slot.level) : "Unknown";
       // Show totals for stacking upgrades
       var _ts = getUpgradeSum(slot.id);
-      if (def && def.id === "upgrade_boost") { desc = "+0.2 buy base (total " + (2 + _ts*0.2).toFixed(1) + "x base)"; }
-      if (def && def.id === "prestige_boost") { desc = "x" + (2*slot.level) + " pp (total x" + (_ts*2) + ")"; }
-      if (def && def.id === "discount") { desc = "cost base " + (10*Math.pow(0.8,_ts)).toFixed(1) + "x per buy"; }
-      if (def && def.id === "gen_expansion") { desc = "more gens (" + getMaxTier() + " total)"; }
-      if (def && def.id === "gen_boost") { desc = "x" + (10*slot.level) + " output (total x" + (10*_ts) + ")"; }
-      if (def && def.id === "fast_start") { desc = "keep 1e" + (3*slot.level) + " on prestige"; }
-      if (def && def.id === "upgrade_count") { desc = getMaxUpgradeSlots() + " upgrade slots (max 20)"; }
-      if (def && def.id === "luck") { desc = "better odds (base " + getLuckBase().toFixed(3) + ")"; }
-      if (def && def.id === "ascend") { desc = "max upgrade lv." + getMaxLevel() + " (max 25)"; }
-      if (def && def.id === "overclock") { desc = "+" + (25*slot.level) + " buys (total " + getMaxBuy() + " max)"; }
-      if (def && def.id === "momentum") { var h = getHighestGenTierBought(); var sqH = Math.sqrt(h).toFixed(1); desc = "x" + (slot.level+1) + "^sqrt(tier) (total x" + (_ts+1) + "^" + sqH + " = x" + Math.pow(_ts+1, Math.sqrt(h)).toExponential(1) + ")"; }
-      if (def && def.id === "wide_selection") { desc = getSelectionCount() + " upgrade choices (max 15)"; }
+      desc = getUpgradePlainDesc(def ? def.id : "");
       html += '<div class="upgrade-slot filled"><div class="upgrade-icon">' + (def ? def.icon : "?") + '</div>';
       html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + (def ? def.name : "?") + ' <span class="upgrade-level-badge">Lv.' + slot.level + '</span></div>';
       html += '<div class="upgrade-slot-desc">' + desc + '</div></div></div>';
@@ -2597,6 +2786,7 @@ function pickEchoTarget(upgradeId) {
     } else {
       d.pendingReward = null; d.pendingRewardOptions = null;
       ensureGeneratorCount(); invalidateRenderKeys(); switchTab("challenges"); updateUI();
+      triggerUpgradeAnimation(upgradeId, pendingEchoLevel, null, 0);
     }
   } else {
     // Normal upgrade purchase — place or show replace overlay
@@ -2612,6 +2802,7 @@ function pickEchoTarget(upgradeId) {
       showUpgradeReplaceOverlay();
     } else {
       initUpgradeSlots(); ensureGeneratorCount(); invalidateRenderKeys(); updateUI();
+      triggerUpgradeAnimation(upgradeId, pendingEchoLevel, null, 0);
     }
   }
   pendingEchoLevel = 0;
@@ -2769,7 +2960,7 @@ function updateGeneratorsLive() {
 
 function updateUpgradesLive() {
   var d = D(); var key = activeDimIdx + ":" + d.prestigeCount + ":" + getFilledSlotCount() + ":" + getMaxUpgradeSlots();
-  if (key !== lastUpgRenderKey) { lastUpgRenderKey = key; renderUpgrades(); renderUpgradeSummary(); return; }
+  if (key !== lastUpgRenderKey) { lastUpgRenderKey = key; renderUpgrades(); renderChips(); return; }
   document.getElementById("upgradesPP").textContent = d.prestigeCount;
 }
 
