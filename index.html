@@ -142,7 +142,7 @@
   /* Content area */
   .content-area {
     flex: 1; overflow-y: auto; display: flex; flex-direction: column;
-    align-items: center; padding: 12px 20px 20px;
+    align-items: center; padding: 12px 20px 110px;
     scrollbar-width: thin; scrollbar-color: var(--border) transparent;
   }
   .content-area::-webkit-scrollbar { width: 6px; }
@@ -293,7 +293,10 @@
   .tab-bar {
     flex-shrink: 0; background: var(--bg-deep);
     border-top: 1px solid var(--border);
-    display: flex; width: 100%; z-index: 100;
+    display: flex; flex-wrap: wrap; width: 100%;
+    position: fixed; bottom: 0; left: 0;
+    z-index: 1000;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .tab-bar.hidden { display: none; }
   .tab-btn {
@@ -465,10 +468,9 @@
 
   /* Dimension nav */
   .dim-nav {
-    flex-shrink: 0; background: var(--bg-deep);
+    width: 100%; background: var(--bg-main);
     border-top: 1px solid var(--border); display: flex;
-    align-items: center; justify-content: center; padding: 8px 16px; gap: 16px;
-    z-index: 100;
+    align-items: center; justify-content: center; padding: 6px 16px; gap: 16px;
   }
   .dim-nav.hidden { display: none; }
   .dim-nav-btn {
@@ -731,8 +733,6 @@
 
   /* Mobile safe area — bottom bar accessibility */
   @media (max-width: 768px) {
-    .tab-bar { padding-bottom: env(safe-area-inset-bottom, 0px); }
-    .dim-nav { padding-bottom: env(safe-area-inset-bottom, 0px); }
     .top-section { padding: 10px 12px 6px; }
     h1 { font-size: 1.3rem; }
     .points-value { font-size: 1.6rem; }
@@ -741,6 +741,8 @@
     .reward-slots-container { max-height: 40vh; }
     .echo-slots-container { max-height: 45vh; }
     .restart-slots-container { max-height: 40vh; }
+    .dim-nav { padding: 5px 12px; }
+    .dim-nav-btn { width: 32px; height: 32px; font-size: 0.85rem; }
   }
 
 
@@ -902,19 +904,18 @@
   <div class="dim-unlock-sub" id="dimUnlockSub"></div>
 </div>
 
-<div class="dim-nav hidden" id="dimNav">
-  <button class="dim-nav-btn" id="dimPrevBtn" onclick="switchDim(-1)">&#x25C0;</button>
-  <div>
-    <div class="dim-nav-text" id="dimNavText">Dimension 1 / 1</div>
-    <div class="dim-nav-sub" id="dimNavSub"></div>
-  </div>
-  <button class="dim-nav-btn" id="dimNextBtn" onclick="switchDim(1)">&#x25B6;</button>
-</div>
-
 <div class="tab-bar hidden" id="tabBar">
   <button class="tab-btn active" id="btnTabGen" onclick="switchTab('generators')">Generators</button>
   <button class="tab-btn tab-upgrades" id="btnTabUpg" onclick="switchTab('upgrades')">Upgrades</button>
   <button class="tab-btn tab-challenges hidden-tab" id="btnTabCh" onclick="switchTab('challenges')">Challenges</button>
+  <div class="dim-nav hidden" id="dimNav">
+    <button class="dim-nav-btn" id="dimPrevBtn" onclick="switchDim(-1)">&#x25C0;</button>
+    <div>
+      <div class="dim-nav-text" id="dimNavText">Dimension 1 / 1</div>
+      <div class="dim-nav-sub" id="dimNavSub"></div>
+    </div>
+    <button class="dim-nav-btn" id="dimNextBtn" onclick="switchDim(1)">&#x25B6;</button>
+  </div>
 </div>
 
 <script>
