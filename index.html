@@ -1042,7 +1042,7 @@ var BASE_MAX_TIER = 50;
 var BASE_POINT_CAP = bn(1, 308);
 var PRESTIGE_EXP_THRESHOLD = 308;
 var AUTO_SAVE_INTERVAL = 30000;
-var BASE_UPGRADE_SLOTS = 4;
+var BASE_UPGRADE_SLOTS = 5;
 var BASE_MAX_BUY = 100;
 var BASE_MAX_LEVEL = 5;
 
@@ -1738,7 +1738,7 @@ function showRewardReplaceOverlay() {
     var sDef = UPGRADE_DEFS.find(function(u) { return u.id === slot.id; }); if (!sDef) continue;
     html += '<div class="reward-slot-option" onclick="replaceSlot(' + i + ')">';
     html += '<div class="upgrade-icon">' + sDef.icon + '</div>';
-    html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + sDef.name + ' <span class="upgrade-level-badge">Lv.' + slot.level + '</span></div>';
+    html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + sDef.name + ' <span class="upgrade-level-badge lvl-' + Math.min(slot.level, 10) + '">Lv.' + slot.level + '</span></div>';
     html += '<div class="upgrade-slot-desc">' + sDef.descFn(slot.level) + '</div></div></div>';
   }
   document.getElementById("rewardSlots").innerHTML = html;
@@ -1833,7 +1833,7 @@ function showUpgradeReplaceOverlay() {
     if (!sDef) continue;
     html += '<div class="reward-slot-option" onclick="replaceUpgradeSlot(' + i + ')">';
     html += '<div class="upgrade-icon">' + sDef.icon + '</div>';
-    html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + sDef.name + ' <span class="upgrade-level-badge">Lv.' + slot.level + '</span></div>';
+    html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + sDef.name + ' <span class="upgrade-level-badge lvl-' + Math.min(slot.level, 10) + '">Lv.' + slot.level + '</span></div>';
     html += '<div class="upgrade-slot-desc">' + sDef.descFn(slot.level) + '</div></div></div>';
   }
   document.getElementById("rewardSlots").innerHTML = html;
@@ -1919,6 +1919,8 @@ function getUpgradePlainDesc(id) {
     case "momentum": return "Output scales with highest gen tier";
     case "wide_selection": return "More choices when buying upgrades";
     case "echo": return "Copies one of your existing upgrades";
+    case "boost_above": return "Boosts higher dimensions";
+    case "boost_below": return "Boosts lower dimensions";
     default: return "";
   }
 }
@@ -1934,8 +1936,8 @@ function getUpgradeBeforeAfter(id, newLevel) {
       var curPP = Math.max(1, curSum * 2); var afterPP = Math.max(1, afterSum * 2);
       return "x" + curPP + " \u2192 x" + afterPP + " PP earned";
     case "discount":
-      var curCost = (10 * Math.pow(0.8, curSum)).toFixed(1);
-      var afterCost = (10 * Math.pow(0.8, afterSum)).toFixed(1);
+      var curCost = Math.pow(0.8, curSum).toFixed(2);
+      var afterCost = Math.pow(0.8, afterSum).toFixed(2);
       return curCost + "x \u2192 " + afterCost + "x cost per buy";
     case "gen_expansion":
       var curGens = getMaxTier();
@@ -1992,6 +1994,14 @@ function getUpgradeBeforeAfter(id, newLevel) {
       return curSel + " \u2192 " + afterSel + " choices";
     case "echo":
       return "copies at Lv." + newLevel;
+    case "boost_above":
+      var curBA = (2 - 1/(1+curSum*0.1)).toFixed(2);
+      var afterBA = (2 - 1/(1+afterSum*0.1)).toFixed(2);
+      return "x" + curBA + " \u2192 x" + afterBA + " higher dims";
+    case "boost_below":
+      var curBB = (2 - 1/(1+curSum*0.1)).toFixed(2);
+      var afterBB = (2 - 1/(1+afterSum*0.1)).toFixed(2);
+      return "x" + curBB + " \u2192 x" + afterBB + " lower dims";
     default: return "";
   }
 }
@@ -2003,7 +2013,7 @@ function getNetEffect(id) {
   switch(id) {
     case "upgrade_boost": return (2 + sum * 0.2).toFixed(1) + "x buy";
     case "prestige_boost": return "x" + Math.max(1, sum * 2) + " PP";
-    case "discount": return (10 * Math.pow(0.8, sum)).toFixed(1) + "x cost";
+    case "discount": return Math.pow(0.8, sum).toFixed(2) + "x cost";
     case "gen_expansion": return getMaxTier() + " gens";
     case "auto_buy": return sum + "/sec";
     case "break_infinity": return "uncapped";
@@ -2013,9 +2023,11 @@ function getNetEffect(id) {
     case "luck": return (1 + 1/(1+sum)).toFixed(2) + " luck";
     case "ascend": return "Lv." + getMaxLevel() + " max";
     case "overclock": return getMaxBuy() + " buys";
-    case "momentum": var mm = getMomentumMult(); return mm >= 1 ? "x" + (mm < 100 ? mm.toFixed(1) : mm.toFixed(0)) + " mom" : "\u00f7" + (1/mm).toFixed(1) + " mom";
+    case "momentum": var _mSum = getUpgradeSum("momentum") - getDefectSum("momentum"); var _mTier = getMaxTier(); var _mMult = _mSum === 0 ? 1 : (_mSum > 0 ? Math.pow(Math.abs(_mSum)+1, Math.sqrt(_mTier)) : 1/Math.pow(Math.abs(_mSum)+1, Math.sqrt(_mTier))); return _mMult >= 1 ? "x" + (_mMult < 100 ? _mMult.toFixed(1) : _mMult.toExponential(1)) + " mom" : "\u00f7" + (1/_mMult).toFixed(1) + " mom";
     case "wide_selection": return getSelectionCount() + " picks";
     case "echo": return "";
+    case "boost_above": return "x" + (2 - 1/(1+sum*0.1)).toFixed(2) + " up";
+    case "boost_below": return "x" + (2 - 1/(1+sum*0.1)).toFixed(2) + " dn";
     default: return "";
   }
 }
@@ -2025,7 +2037,7 @@ function getNetEffectAtSum(id, sum) {
   switch(id) {
     case "upgrade_boost": return (2 + sum * 0.2).toFixed(1) + "x buy";
     case "prestige_boost": return "x" + Math.max(1, sum * 2) + " PP";
-    case "discount": return (10 * Math.pow(0.8, sum)).toFixed(1) + "x cost";
+    case "discount": return Math.pow(0.8, sum).toFixed(2) + "x cost";
     case "gen_expansion":
       var gain = sum > 0 ? Math.max(1, 250 * (1 - 1 / (1 + sum / 50))) : 0;
       return Math.floor(50 + gain) + " gens";
@@ -2543,7 +2555,7 @@ function renderUpgrades() {
       var _ts = getUpgradeSum(slot.id);
       desc = getUpgradePlainDesc(def ? def.id : "");
       html += '<div class="upgrade-slot filled"><div class="upgrade-icon">' + (def ? def.icon : "?") + '</div>';
-      html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + (def ? def.name : "?") + ' <span class="upgrade-level-badge">Lv.' + slot.level + '</span></div>';
+      html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + (def ? def.name : "?") + ' <span class="upgrade-level-badge lvl-' + Math.min(slot.level, 10) + '">Lv.' + slot.level + '</span></div>';
       html += '<div class="upgrade-slot-desc">' + desc + '</div></div></div>';
     } else {
       html += '<div class="upgrade-slot empty"><div class="upgrade-icon">—</div>';
@@ -2570,12 +2582,12 @@ function getRestartKeepCount(dim) {
   if (maxExp < 308) return 0;
   var count = 1;
   var threshold = 308;
-  var gap = 100;
+  var gap = 50;
   while (true) {
     threshold += gap;
     if (maxExp < threshold) break;
     count++;
-    gap *= 2;
+    gap += 50;
   }
   return count;
 }
