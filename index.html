@@ -1,3 +1,6020 @@
+
+
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+<title>Strata</title>
+
+<style>
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+
+    --bg-deep: #06060c;
+
+    --bg-main: #0a0a12;
+
+    --bg-card: #0f0f1a;
+
+    --bg-card-hover: #141420;
+
+    --border: #1a1a2e;
+
+    --border-hover: #2a2a4a;
+
+    --text: #c8c8d4;
+
+    --text-dim: #6a6a7a;
+
+    --text-bright: #eeeef4;
+
+    --cyan: #00e4ff;
+
+    --cyan-dim: #0088aa;
+
+    --magenta: #d946ef;
+
+    --magenta-dim: #8b2fa0;
+
+    --amber: #f0a030;
+
+    --amber-dim: #a06810;
+
+    --green: #00ff88;
+
+    --green-dim: #00aa55;
+
+    --red: #ff3344;
+
+    --red-dim: #aa1122;
+
+    --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+
+    --font-ui: system-ui, -apple-system, sans-serif;
+
+    --radius: 8px;
+
+    --transition: 0.2s ease;
+
+  }
+
+  body {
+
+    font-family: var(--font-ui);
+
+    background: var(--bg-deep);
+
+    color: var(--text);
+
+    height: 100vh;
+
+    display: flex;
+
+    flex-direction: column;
+
+    overflow: hidden;
+
+  }
+
+  /* Subtle scanline overlay */
+
+  body::after {
+
+    content: '';
+
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+
+    pointer-events: none; z-index: 9999;
+
+  }
+
+  .debug-banner {
+
+    background: var(--red-dim); color: var(--amber); font-size: 0.7rem; font-weight: 700;
+
+    text-align: center; padding: 4px; width: 100%; letter-spacing: 0.1em; text-transform: uppercase;
+
+  }
+
+  .top-section {
+
+    flex-shrink: 0; background: var(--bg-main); width: 100%; display: flex; flex-direction: column;
+
+    align-items: center; padding: 12px 20px 8px;
+
+    border-bottom: 1px solid var(--border); z-index: 100;
+
+  }
+
+  h1 {
+
+    font-size: 1.6rem; margin-bottom: 1px; color: var(--text-bright);
+
+    letter-spacing: 0.12em; text-transform: uppercase;
+
+    font-family: var(--font-mono); font-weight: 700;
+
+  }
+
+  .subtitle { color: var(--text-dim); font-size: 0.7rem; margin-bottom: 8px; letter-spacing: 0.15em; text-transform: uppercase; }
+
+  .points-bar {
+
+    width: 100%; max-width: 500px; background: var(--bg-card);
+
+    border: 1px solid var(--border); border-radius: var(--radius);
+
+    padding: 14px 16px; display: flex; align-items: center;
+
+    justify-content: space-between; margin-bottom: 8px;
+
+    transition: border-color var(--transition);
+
+  }
+
+  .points-bar:hover { border-color: var(--cyan-dim); }
+
+  .points-bar.hidden { display: none; }
+
+  .points-info { text-align: center; flex: 1; }
+
+  .points-label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 2px; }
+
+  .points-value {
+
+    font-size: 2rem; font-weight: 700; color: var(--cyan);
+
+    font-family: var(--font-mono); transition: color var(--transition);
+
+  }
+
+  .points-value.capped { color: var(--amber); }
+
+  .points-rate { font-size: 0.8rem; color: var(--green); margin-top: 2px; font-family: var(--font-mono); }
+
+  .points-rate.capped { color: var(--red); }
+
+ 
+
+  /* Prestige button */
+
+  .prestige-btn {
+
+    padding: 8px 18px; border-radius: var(--radius); border: 1px solid var(--magenta-dim);
+
+    font-weight: 700; font-size: 0.75rem; cursor: pointer;
+
+    transition: all var(--transition);
+
+    background: linear-gradient(135deg, var(--magenta-dim), var(--magenta));
+
+    color: #fff; text-transform: uppercase; letter-spacing: 0.08em; flex-shrink: 0;
+
+  }
+
+  .prestige-btn:hover:not(:disabled) {
+
+    transform: translateY(-1px);
+
+    box-shadow: 0 0 20px rgba(217,70,239,0.35);
+
+    border-color: var(--magenta);
+
+  }
+
+  .prestige-btn:disabled { background: var(--bg-card); color: #444; border-color: var(--border); cursor: not-allowed; box-shadow: none; }
+
+  .prestige-btn.hidden { display: none; }
+
+ 
+
+  /* Prestige bar */
+
+  .prestige-bar {
+
+    width: 100%; max-width: 500px; background: var(--bg-card);
+
+    border: 1px solid #2a1a3a; border-radius: var(--radius);
+
+    padding: 14px 16px; display: flex; align-items: center;
+
+    justify-content: space-between; margin-bottom: 8px;
+
+    transition: border-color var(--transition);
+
+  }
+
+  .prestige-bar:hover { border-color: var(--magenta-dim); }
+
+  .prestige-bar.hidden { display: none; }
+
+  .prestige-info { display: flex; flex-direction: column; }
+
+  .prestige-label { font-size: 0.6rem; color: var(--magenta-dim); text-transform: uppercase; letter-spacing: 0.15em; }
+
+  .prestige-value { font-size: 1.2rem; font-weight: 700; color: var(--magenta); font-family: var(--font-mono); }
+
+ 
+
+  /* Prestige prompt */
+
+  .prestige-prompt {
+
+    width: 100%; max-width: 500px; background: linear-gradient(135deg, #12081c, #1c0a2a);
+
+    border: 1px solid var(--magenta); border-radius: var(--radius);
+
+    padding: 14px 20px; display: flex; align-items: center;
+
+    justify-content: space-between; margin-bottom: 8px;
+
+    animation: pulse-border 2s ease-in-out infinite alternate;
+
+  }
+
+  .prestige-prompt.hidden { display: none; }
+
+  @keyframes pulse-border {
+
+    from { box-shadow: 0 0 6px rgba(217,70,239,0.2); }
+
+    to { box-shadow: 0 0 18px rgba(217,70,239,0.45); }
+
+  }
+
+  @keyframes glow { from { box-shadow: 0 0 6px rgba(217,70,239,0.2); } to { box-shadow: 0 0 18px rgba(217,70,239,0.45); } }
+
+  .prestige-prompt-text { color: var(--magenta); font-size: 0.85rem; font-weight: 600; }
+
+  .prestige-prompt-sub { color: #7a5a8a; font-size: 0.7rem; margin-top: 2px; }
+
+ 
+
+  /* Controls */
+
+  .controls { display: flex; gap: 8px; margin-bottom: 4px; }
+
+  .ctrl-btn {
+
+    background: var(--bg-card); border: 1px solid var(--border); color: var(--text-dim);
+
+    padding: 4px 12px; border-radius: var(--radius); cursor: pointer;
+
+    font-size: 0.65rem; transition: all var(--transition); text-transform: uppercase;
+
+    letter-spacing: 0.08em; font-family: var(--font-mono);
+
+  }
+
+  .ctrl-btn:hover { background: var(--bg-card-hover); color: var(--text-bright); border-color: var(--border-hover); }
+
+  .save-msg { color: var(--green); font-size: 0.6rem; height: 14px; font-family: var(--font-mono); }
+
+ 
+
+  /* Content area */
+
+  .content-area {
+
+    flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+
+    align-items: center; padding: 12px 20px 120px;
+
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+
+  }
+
+  .content-area::-webkit-scrollbar { width: 6px; }
+
+  .content-area::-webkit-scrollbar-track { background: transparent; }
+
+  .content-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .tab-panel { display: none; width: 100%; max-width: 500px; }
+
+  .tab-panel.active { display: flex; flex-direction: column; gap: 8px; }
+
+  .generators { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+
+ 
+
+  /* Generator cards */
+
+  .gen-card {
+
+    background: var(--bg-card); border: 1px solid var(--border);
+
+    border-radius: var(--radius); padding: 12px 14px;
+
+    display: flex; align-items: center; gap: 10px;
+
+    transition: all var(--transition); position: relative; overflow: hidden;
+
+  }
+
+  .gen-card:hover { border-color: var(--cyan-dim); background: var(--bg-card-hover); }
+
+  .gen-card.maxed { border-color: var(--amber-dim); }
+
+  .gen-tier {
+
+    width: 40px; height: 40px; border-radius: 6px; display: flex; align-items: center;
+
+    justify-content: center; font-weight: 700; font-size: 0.85rem; color: #fff;
+
+    flex-shrink: 0; font-family: var(--font-mono);
+
+    transition: transform var(--transition);
+
+  }
+
+  .gen-card:hover .gen-tier { transform: scale(1.08); }
+
+  .gen-info { flex: 1; min-width: 0; }
+
+  .gen-name { font-weight: 600; font-size: 0.85rem; color: var(--text-bright); margin-bottom: 2px; }
+
+  .gen-name span { color: var(--text-dim) !important; font-size: 0.72rem !important; }
+
+  .gen-output { font-size: 0.72rem; color: var(--green); font-family: var(--font-mono); }
+
+  .gen-stats { font-size: 0.72rem; color: var(--text-dim); }
+
+  .gen-count { font-size: 0.72rem; color: var(--text-dim); font-family: var(--font-mono); display: block; }
+
+  .gen-buy {
+
+    padding: 7px 12px; border-radius: 6px; border: 1px solid var(--cyan-dim);
+
+    font-weight: 600; font-size: 0.72rem; cursor: pointer;
+
+    transition: all var(--transition); background: transparent;
+
+    color: var(--cyan); white-space: nowrap; flex-shrink: 0;
+
+    font-family: var(--font-mono); text-transform: uppercase;
+
+  }
+
+  .gen-buy:hover:not(:disabled) {
+
+    background: var(--cyan); color: var(--bg-deep);
+
+    box-shadow: 0 0 12px rgba(0,228,255,0.25);
+
+    transform: translateY(-1px);
+
+  }
+
+  .gen-buy:disabled { border-color: #1a1a28; color: #333; cursor: not-allowed; }
+
+  .gen-buy.maxed-btn { border-color: var(--amber-dim); color: var(--amber-dim); cursor: default; }
+
+  .progress-bar {
+
+    position: absolute; bottom: 0; left: 0; height: 2px;
+
+    background: linear-gradient(90deg, var(--cyan-dim), var(--cyan));
+
+    transition: width 0.3s; border-radius: 0 0 0 var(--radius); opacity: 0.6;
+
+  }
+
+ 
+
+  /* Upgrade tab */
+
+  .upgrades-header {
+
+    background: var(--bg-card); border: 1px solid #2a1a3a;
+
+    border-radius: var(--radius); padding: 14px 16px;
+
+    display: flex; align-items: center; justify-content: space-between; width: 100%;
+
+    transition: border-color var(--transition);
+
+  }
+
+  .upgrades-header:hover { border-color: var(--magenta-dim); }
+
+  .upgrades-pp-info { display: flex; flex-direction: column; }
+
+  .upgrades-pp-label { font-size: 0.6rem; color: var(--magenta-dim); text-transform: uppercase; letter-spacing: 0.15em; }
+
+  .upgrades-pp-value { font-size: 1.3rem; font-weight: 700; color: var(--magenta); font-family: var(--font-mono); }
+
+  .upgrade-buy-btn {
+
+    padding: 10px 20px; border-radius: var(--radius); border: 1px solid var(--magenta-dim);
+
+    font-weight: 700; font-size: 0.75rem; cursor: pointer;
+
+    transition: all var(--transition);
+
+    background: linear-gradient(135deg, var(--magenta-dim), var(--magenta));
+
+    color: #fff; text-transform: uppercase; letter-spacing: 0.05em;
+
+  }
+
+  .upgrade-buy-btn:hover:not(:disabled) {
+
+    transform: translateY(-1px);
+
+    box-shadow: 0 0 20px rgba(217,70,239,0.35);
+
+  }
+
+  .upgrade-buy-btn:disabled { background: var(--bg-card); color: #444; border-color: var(--border); cursor: not-allowed; box-shadow: none; }
+
+  .upgrade-slots { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+
+  .upgrade-slot {
+
+    background: var(--bg-card); border: 1px solid var(--border);
+
+    border-radius: var(--radius); padding: 14px; display: flex;
+
+    align-items: center; gap: 10px; transition: all var(--transition);
+
+  }
+
+  .upgrade-slot:hover { border-color: var(--border-hover); }
+
+  .upgrade-slot.empty { opacity: 0.25; border-style: dashed; }
+
+  .upgrade-slot.filled { border-color: #2a1a3a; }
+
+  .upgrade-slot.filled:hover { border-color: var(--magenta-dim); }
+
+  .upgrade-icon {
+
+    width: 40px; height: 40px; border-radius: 6px; background: var(--bg-card-hover);
+
+    display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0;
+
+    border: 1px solid var(--border);
+
+  }
+
+  .upgrade-slot.filled .upgrade-icon { background: #1a0a2a; border-color: #3a1a5a; }
+
+  .upgrade-slot-info { flex: 1; }
+
+  .upgrade-slot-name { font-weight: 600; font-size: 0.85rem; color: var(--text-bright); margin-bottom: 2px; }
+
+  .upgrade-slot-desc { font-size: 0.72rem; color: var(--text-dim); }
+
+  .upgrade-slot.filled .upgrade-slot-desc { color: var(--magenta-dim); }
+
+  .upgrade-level-badge {
+
+    font-size: 0.6rem; font-weight: 700; color: var(--amber);
+
+    background: #1a1408; border: 1px solid var(--amber-dim);
+
+    padding: 2px 8px; border-radius: 4px; margin-left: 6px;
+
+    font-family: var(--font-mono);
+
+  }
+
+ 
+
+  /* Selection overlay */
+
+  .selection-overlay {
+
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+
+    background: rgba(4,4,8,0.92); z-index: 1000; display: flex;
+
+    flex-direction: column; align-items: center; justify-content: center;
+
+    padding: 20px; backdrop-filter: blur(8px);
+
+  }
+
+  .selection-overlay.hidden { display: none; }
+
+  .selection-title { font-size: 1.3rem; font-weight: 700; color: var(--magenta); margin-bottom: 6px; font-family: var(--font-mono); letter-spacing: 0.08em; }
+
+  .selection-sub { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 20px; }
+
+  .selection-options { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 420px; max-height: 55vh; overflow-y: auto; }
+
+  .selection-card {
+
+    background: var(--bg-card); border: 1px solid var(--border);
+
+    border-radius: var(--radius); padding: 16px 14px;
+
+    display: flex; align-items: center; gap: 12px;
+
+    cursor: pointer; transition: all var(--transition);
+
+  }
+
+  .selection-card:hover {
+
+    border-color: var(--magenta); background: var(--bg-card-hover);
+
+    transform: translateY(-2px);
+
+    box-shadow: 0 4px 20px rgba(217,70,239,0.2);
+
+  }
+
+  .selection-card-icon {
+
+    width: 44px; height: 44px; border-radius: 8px; background: #1a0a2a;
+
+    border: 1px solid #3a1a5a;
+
+    display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0;
+
+  }
+
+  .selection-card-info { flex: 1; }
+
+  .selection-card-name { font-weight: 700; font-size: 0.95rem; color: var(--text-bright); margin-bottom: 3px; }
+
+  .selection-card-desc { font-size: 0.75rem; color: var(--text-dim); }
+
+  .selection-card-level {
+
+    font-size: 0.65rem; font-weight: 700; padding: 3px 10px;
+
+    border-radius: 4px; flex-shrink: 0; font-family: var(--font-mono);
+
+  }
+
+ .lvl-1 { background: #0a1a0a; color: var(--green); border: 1px solid var(--green-dim); }
+
+  .lvl-2 { background: #0a1420; color: #4488ff; border: 1px solid #2244aa; }
+
+  .lvl-3 { background: #140a20; color: var(--magenta); border: 1px solid var(--magenta-dim); }
+
+  .lvl-4 { background: #1a1408; color: var(--amber); border: 1px solid var(--amber-dim); }
+
+  .lvl-5 { background: #1a0808; color: var(--red); border: 1px solid var(--red-dim); }
+
+  .lvl-6 { background: #1a0812; color: #ff4488; border: 1px solid #aa2244; }
+
+  .lvl-7 { background: #081a1a; color: #22ddbb; border: 1px solid #118866; }
+
+  .lvl-8 { background: #121a08; color: #88ee33; border: 1px solid #448811; }
+
+  .lvl-9 { background: #1a0a0a; color: #ff8866; border: 1px solid #aa4422; }
+
+  .lvl-10 { background: #12081c; color: #bb88ff; border: 1px solid #6633aa; }
+
+ 
+
+  /* Tab bar */
+
+  .tab-bar {
+
+    flex-shrink: 0; background: var(--bg-deep);
+
+    border-top: 1px solid var(--border);
+
+    display: flex; width: 100%; z-index: 100;
+
+    position: fixed;
+
+  bottom: 0;
+
+  left: 0;
+
+  width: 100%;
+
+  z-index: 1000;
+
+  }
+
+  .tab-bar.hidden { display: none; }
+
+  .tab-btn {
+
+    flex: 1; padding: 11px 0; background: none; border: none;
+
+    color: var(--text-dim); font-size: 0.7rem; font-weight: 600;
+
+    cursor: pointer; transition: all var(--transition);
+
+    text-transform: uppercase; letter-spacing: 0.1em;
+
+    border-top: 2px solid transparent; font-family: var(--font-mono);
+
+  }
+
+  .tab-btn:hover { color: var(--text); background: var(--bg-card); }
+
+  .tab-btn.active { color: var(--cyan); border-top-color: var(--cyan); background: var(--bg-main); }
+
+  .tab-btn.active.tab-upgrades { color: var(--magenta); border-top-color: var(--magenta); }
+
+  .tab-btn.active.tab-challenges { color: var(--amber); border-top-color: var(--amber); }
+
+  .tab-btn.hidden-tab { display: none; }
+
+ 
+
+  /* Tier colors — dark bg with neon border accent */
+
+ 
+
+  /* =========== CHALLENGE SYSTEM =========== */
+
+  .challenge-status {
+
+    width: 100%; text-align: center; padding: 10px; font-size: 0.8rem;
+
+    font-weight: 700; color: var(--amber); text-transform: uppercase;
+
+    letter-spacing: 0.15em; font-family: var(--font-mono);
+
+  }
+
+  .challenge-card {
+
+    background: var(--bg-card); border: 1px solid var(--border);
+
+    border-radius: var(--radius); padding: 16px 14px; width: 100%;
+
+    transition: all var(--transition);
+
+  }
+
+  .challenge-card:hover { border-color: var(--border-hover); }
+
+  .challenge-card.active-challenge { border-color: var(--amber); box-shadow: 0 0 14px rgba(240,160,48,0.15); }
+
+  .challenge-card.completed { border-color: var(--green-dim); opacity: 0.5; }
+
+  .challenge-card.locked { border-color: var(--border); opacity: 0.3; }
+
+  .challenge-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+
+  .challenge-title { font-weight: 700; font-size: 0.95rem; color: var(--text-bright); font-family: var(--font-mono); }
+
+  .challenge-badge { font-size: 0.6rem; font-weight: 700; padding: 3px 10px; border-radius: 4px; font-family: var(--font-mono); letter-spacing: 0.05em; }
+
+  .badge-available { background: #1a1408; color: var(--amber); border: 1px solid var(--amber-dim); }
+
+  .badge-active { background: #1a1408; color: var(--amber); border: 1px solid var(--amber); animation: pulse-border 2s ease-in-out infinite alternate; }
+
+  .badge-completed { background: #0a1a0a; color: var(--green); border: 1px solid var(--green-dim); }
+
+ .badge-locked { background: var(--bg-card); color: #333; border: 1px solid var(--border); }
+
+  .defect-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+
+  .defect-item {
+
+    background: #12080a; border: 1px solid #3a1a1a;
+
+    border-radius: 6px; padding: 8px 10px;
+
+    display: flex; align-items: center; gap: 8px;
+
+    transition: border-color var(--transition);
+
+  }
+
+  .defect-item:hover { border-color: var(--red-dim); }
+
+  .defect-icon { font-size: 1rem; flex-shrink: 0; }
+
+  .defect-info { flex: 1; }
+
+  .defect-name { font-weight: 600; font-size: 0.75rem; color: var(--red); font-family: var(--font-mono); }
+
+  .defect-desc { font-size: 0.65rem; color: #884444; }
+
+  .defect-level { font-size: 0.55rem; font-weight: 700; color: var(--red); background: #1a0808; border: 1px solid #3a1111; padding: 2px 6px; border-radius: 3px; font-family: var(--font-mono); }
+
+  .challenge-reward {
+
+    background: #08120a; border: 1px solid #1a3a1a;
+
+    border-radius: 6px; padding: 8px 10px;
+
+    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+
+    transition: border-color var(--transition);
+
+  }
+
+  .challenge-reward:hover { border-color: var(--green-dim); }
+
+  .reward-icon { font-size: 1rem; flex-shrink: 0; }
+
+  .reward-info { flex: 1; }
+
+  .reward-name { font-weight: 600; font-size: 0.75rem; color: var(--green); }
+
+  .reward-desc { font-size: 0.65rem; color: #448844; }
+
+  .reward-level { font-size: 0.55rem; font-weight: 700; color: var(--green); background: #081208; border: 1px solid #113a11; padding: 2px 6px; border-radius: 3px; font-family: var(--font-mono); }
+
+  .challenge-btn {
+
+    width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--amber-dim);
+
+    font-weight: 700; font-size: 0.75rem; cursor: pointer;
+
+    transition: all var(--transition);
+
+    background: transparent; color: var(--amber);
+
+    text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--font-mono);
+
+  }
+
+  .challenge-btn:hover:not(:disabled) {
+
+    background: var(--amber); color: var(--bg-deep);
+
+    box-shadow: 0 0 14px rgba(240,160,48,0.3);
+
+    transform: translateY(-1px);
+
+  }
+
+  .challenge-btn:disabled { border-color: var(--border); color: #333; cursor: not-allowed; box-shadow: none; }
+
+  .challenge-btn.quit-btn { border-color: var(--red-dim); color: var(--red); margin-top: 6px; }
+
+  .challenge-btn.quit-btn:hover { background: var(--red); color: #fff; box-shadow: 0 0 14px rgba(255,51,68,0.3); }
+
+  .challenge-progress { width: 100%; height: 6px; background: #1a1a22; border-radius: 3px; margin: 8px 0 4px; overflow: hidden; }
+
+  .challenge-progress-fill {
+
+    height: 100%; background: linear-gradient(90deg, var(--amber-dim), var(--amber));
+
+    border-radius: 3px; transition: width 0.5s;
+
+  }
+
+  .challenge-progress-text { font-size: 0.6rem; color: var(--text-dim); text-align: center; font-family: var(--font-mono); }
+
+  .challenge-all-done { text-align: center; padding: 40px 20px; color: var(--green); font-size: 1rem; font-weight: 700; font-family: var(--font-mono); }
+
+  .challenge-all-done-sub { color: var(--text-dim); font-size: 0.75rem; font-weight: 400; margin-top: 6px; font-family: var(--font-ui); }
+
+ 
+
+  /* Reward overlay */
+
+  .reward-overlay {
+
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+
+    background: rgba(4,4,8,0.92); z-index: 1001; display: flex;
+
+    flex-direction: column; align-items: center; justify-content: center;
+
+    padding: 20px; backdrop-filter: blur(8px);
+
+  }
+
+  .reward-overlay.hidden { display: none; }
+
+  .reward-overlay-title { font-size: 1.3rem; font-weight: 700; color: var(--green); margin-bottom: 4px; font-family: var(--font-mono); letter-spacing: 0.08em; }
+
+  .reward-overlay-sub { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 16px; text-align: center; }
+
+  .reward-preview {
+
+    background: #08120a; border: 1px solid var(--green-dim);
+
+    border-radius: var(--radius); padding: 16px 14px;
+
+    display: flex; align-items: center; gap: 12px;
+
+    width: 100%; max-width: 420px; margin-bottom: 20px;
+
+  }
+
+  .reward-preview-icon {
+
+    width: 44px; height: 44px; border-radius: 8px; background: #0a1a0a;
+
+    border: 1px solid var(--green-dim);
+
+    display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0;
+
+  }
+
+  .reward-preview-info { flex: 1; }
+
+  .reward-preview-name { font-weight: 700; font-size: 0.95rem; color: var(--green); margin-bottom: 3px; }
+
+  .reward-preview-desc { font-size: 0.75rem; color: #448844; }
+
+  .reward-preview-level { font-size: 0.65rem; font-weight: 700; padding: 3px 10px; border-radius: 4px; background: #081208; color: var(--green); border: 1px solid var(--green-dim); flex-shrink: 0; font-family: var(--font-mono); }
+
+  .reward-slots-container { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
+
+  .reward-slot-option {
+
+    background: var(--bg-card); border: 1px solid var(--border);
+
+    border-radius: var(--radius); padding: 12px 10px;
+
+    display: flex; align-items: center; gap: 10px;
+
+    cursor: pointer; transition: all var(--transition);
+
+  }
+
+  .reward-slot-option:hover { border-color: var(--red); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(255,51,68,0.15); }
+
+  .reward-slot-option .upgrade-icon { width: 36px; height: 36px; font-size: 0.9rem; }
+
+  .reward-discard-btn {
+
+    margin-top: 12px; padding: 10px 28px; border-radius: var(--radius);
+
+    border: 1px solid var(--border); background: transparent;
+
+    color: var(--text-dim); font-weight: 600; font-size: 0.75rem;
+
+    cursor: pointer; transition: all var(--transition);
+
+    font-family: var(--font-mono); text-transform: uppercase;
+
+  }
+
+  .reward-discard-btn:hover { border-color: var(--red); color: var(--red); }
+
+ 
+
+  /* Restart dimension */
+
+  .restart-overlay {
+
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+
+    background: rgba(4,4,8,0.92); z-index: 1002; display: flex;
+
+    flex-direction: column; align-items: center; justify-content: center;
+
+    padding: 20px; backdrop-filter: blur(8px);
+
+  }
+
+  .restart-overlay.hidden { display: none; }
+
+  .restart-overlay-title { font-size: 1.2rem; font-weight: 700; color: var(--amber); margin-bottom: 4px; font-family: var(--font-mono); letter-spacing: 0.08em; }
+
+  .restart-overlay-sub { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 14px; text-align: center; max-width: 420px; }
+
+  .restart-overlay-warn { font-size: 0.7rem; color: var(--red); margin-bottom: 14px; text-align: center; font-weight: 600; font-family: var(--font-mono); }
+
+  .restart-slots-container { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
+
+  .restart-slot-option {
+
+    background: var(--bg-card); border: 1px solid var(--border);
+
+    border-radius: var(--radius); padding: 12px 10px;
+
+    display: flex; align-items: center; gap: 10px;
+
+    cursor: pointer; transition: all var(--transition);
+
+  }
+
+  .restart-slot-option:hover { border-color: var(--amber); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(240,160,48,0.15); }
+
+ .restart-slot-option .upgrade-icon { width: 36px; height: 36px; font-size: 0.9rem; }
+
+  .restart-cancel-btn {
+
+    margin-top: 12px; padding: 10px 28px; border-radius: var(--radius);
+
+    border: 1px solid var(--border); background: transparent;
+
+    color: var(--text-dim); font-weight: 600; font-size: 0.75rem;
+
+    cursor: pointer; transition: all var(--transition);
+
+    font-family: var(--font-mono); text-transform: uppercase;
+
+  }
+
+  .restart-cancel-btn:hover { border-color: var(--text); color: var(--text-bright); }
+
+  .restart-dim-btn {
+
+    width: 100%; padding: 10px; border-radius: 6px;
+
+    border: 1px dashed var(--amber-dim); background: transparent;
+
+    color: var(--amber-dim); font-weight: 600; font-size: 0.72rem;
+
+    cursor: pointer; transition: all var(--transition); margin-top: 14px;
+
+    text-align: center; font-family: var(--font-mono); text-transform: uppercase;
+
+    letter-spacing: 0.05em;
+
+  }
+
+ .restart-dim-btn:hover { border-color: var(--amber); color: var(--amber); background: #0f0c06; }
+
+ 
+
+  /* Dimension nav */
+
+  .dim-nav {
+
+    flex-shrink: 0; background: var(--bg-deep);
+
+    border-top: 1px solid var(--border); display: flex;
+
+    align-items: center; justify-content: center; padding: 8px 16px; gap: 16px;
+
+    position: fixed; bottom: 56px; left: 0; width: 100%; z-index: 999;
+
+  }
+
+  .dim-nav.hidden { display: none; }
+
+  .dim-nav-btn {
+
+    background: var(--bg-card); border: 1px solid var(--border);
+
+    color: var(--text-dim); width: 36px; height: 36px;
+
+    border-radius: 6px; cursor: pointer; font-size: 1rem;
+
+    transition: all var(--transition); display: flex;
+
+    align-items: center; justify-content: center;
+
+  }
+
+  .dim-nav-btn:hover:not(:disabled) { border-color: var(--cyan); color: var(--cyan); background: var(--bg-card-hover); }
+
+  .dim-nav-btn:disabled { opacity: 0.2; cursor: not-allowed; }
+
+  .dim-nav-label, .dim-nav-text {
+
+    font-family: var(--font-mono); font-size: 0.75rem;
+
+    color: var(--text); font-weight: 600; text-align: center; min-width: 120px;
+
+    letter-spacing: 0.05em;
+
+  }
+
+  .dim-nav-penalty { font-size: 0.6rem; color: var(--text-dim); font-weight: 400; display: block; margin-top: 1px; }
+
+  .dim-nav-sub { font-size: 0.6rem; color: var(--text-dim); font-weight: 400; text-align: center; margin-top: 1px; font-family: var(--font-mono); }
+
+  .dim-penalty { font-size: 0.65rem; color: var(--amber-dim); font-family: var(--font-mono); margin-top: 2px; }
+
+ 
+
+  /* Dimension unlock banner */
+
+  .dim-unlock-banner {
+
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+
+    background: linear-gradient(135deg, #0a1a0a, #0f2a0f);
+
+    border: 1px solid var(--green); border-radius: var(--radius);
+
+    padding: 16px 32px; z-index: 2000; text-align: center;
+
+    box-shadow: 0 4px 30px rgba(0,255,136,0.2);
+
+    animation: slide-down 0.3s ease-out;
+
+  }
+
+  .dim-unlock-banner.hidden { display: none; }
+
+  @keyframes slide-down { from { transform: translateX(-50%) translateY(-20px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
+
+  .dim-unlock-title { font-size: 1.1rem; font-weight: 700; color: var(--green); font-family: var(--font-mono); letter-spacing: 0.08em; }
+
+ 
+
+  /* Echo overlay — choose which upgrade to copy */
+
+  .echo-overlay {
+
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+
+    background: rgba(4,4,8,0.92); z-index: 1003; display: flex;
+
+    flex-direction: column; align-items: center; justify-content: center;
+
+    padding: 20px; backdrop-filter: blur(8px);
+
+  }
+
+  .echo-overlay.hidden { display: none; }
+
+  .echo-overlay-title { font-size: 1.2rem; font-weight: 700; color: var(--cyan); margin-bottom: 4px; font-family: var(--font-mono); letter-spacing: 0.08em; }
+
+  .echo-overlay-sub { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 16px; text-align: center; max-width: 420px; }
+
+  .echo-slots-container { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 6px; max-height: 55vh; overflow-y: auto; }
+
+  .echo-slot-option {
+
+    background: var(--bg-card); border: 1px solid var(--border);
+
+    border-radius: var(--radius); padding: 12px 10px;
+
+    display: flex; align-items: center; gap: 10px;
+
+    cursor: pointer; transition: all var(--transition);
+
+  }
+
+  .echo-slot-option:hover { border-color: var(--cyan); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,228,255,0.15); }
+
+  .echo-slot-option .upgrade-icon { width: 36px; height: 36px; font-size: 0.9rem; }
+
+  .echo-cancel-btn {
+
+    margin-top: 12px; padding: 10px 28px; border-radius: var(--radius);
+
+    border: 1px solid var(--border); background: transparent;
+
+    color: var(--text-dim); font-weight: 600; font-size: 0.75rem;
+
+    cursor: pointer; transition: all var(--transition);
+
+    font-family: var(--font-mono); text-transform: uppercase;
+
+  }
+
+  .echo-cancel-btn:hover { border-color: var(--text); color: var(--text-bright); }
+
+ 
+
+  /* Upgrade sort buttons */
+
+  .upgrade-sort-bar {
+
+    display: flex; gap: 6px; width: 100%; margin-bottom: 4px;
+
+  }
+
+  .sort-btn {
+
+    flex: 1; padding: 6px 0; background: var(--bg-card); border: 1px solid var(--border);
+
+    color: var(--text-dim); font-size: 0.6rem; font-weight: 600; cursor: pointer;
+
+    border-radius: 4px; transition: all var(--transition); text-transform: uppercase;
+
+    letter-spacing: 0.08em; font-family: var(--font-mono);
+
+  }
+
+  .sort-btn:hover { border-color: var(--magenta-dim); color: var(--text); }
+
+  .sort-btn.active-sort { border-color: var(--magenta); color: var(--magenta); background: #1a0a20; }
+
+ 
+
+  /* Permanent buff selection overlay */
+
+  .perm-overlay {
+
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+
+    background: rgba(4,4,8,0.94); z-index: 1005; display: flex;
+
+    flex-direction: column; align-items: center; justify-content: center;
+
+    padding: 20px; backdrop-filter: blur(10px);
+
+  }
+
+  .perm-overlay.hidden { display: none; }
+
+  .perm-overlay-title {
+
+    font-size: 1.3rem; font-weight: 700; color: var(--green);
+
+    margin-bottom: 4px; font-family: var(--font-mono); letter-spacing: 0.1em;
+
+  }
+
+  .perm-overlay-sub {
+
+    font-size: 0.75rem; color: var(--text-dim); margin-bottom: 16px;
+
+    text-align: center; max-width: 420px;
+
+  }
+
+  .perm-options {
+
+    width: 100%; max-width: 420px; display: flex; flex-direction: column;
+
+    gap: 6px; max-height: 60vh; overflow-y: auto;
+
+  }
+
+  .perm-option {
+
+    background: var(--bg-card); border: 1px solid var(--border);
+
+    border-radius: var(--radius); padding: 12px 10px;
+
+    display: flex; align-items: center; gap: 10px;
+
+    cursor: pointer; transition: all var(--transition);
+
+  }
+
+  .perm-option:hover { border-color: var(--green); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,255,136,0.15); }
+
+  .perm-option.taken {
+
+    opacity: 0.25; cursor: not-allowed; pointer-events: none;
+
+    border-style: dashed;
+
+  }
+
+  .perm-option .upgrade-icon { width: 36px; height: 36px; font-size: 0.9rem; }
+
+  .perm-badge {
+
+    font-size: 0.55rem; color: var(--green); background: #0a1a0a;
+
+    border: 1px solid var(--green-dim); padding: 1px 6px; border-radius: 3px;
+
+    font-family: var(--font-mono); margin-left: 6px;
+
+  }
+
+ 
+
+  /* Perma buffs panel in upgrades tab */
+
+ 
+
+  .perm-panel { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+
+  .perm-buff-card {
+
+    background: #0a120a; border: 1px solid var(--green-dim); border-radius: var(--radius);
+
+    padding: 10px 12px; display: flex; align-items: center; gap: 10px;
+
+  }
+
+  .perm-buff-card .upgrade-icon { width: 36px; height: 36px; font-size: 0.9rem; background: #081a08; border-color: var(--green-dim); }
+
+  .perm-buff-empty { text-align: center; padding: 20px; color: var(--text-dim); font-size: 0.75rem; }
+
+ 
+
+  /* Upgrade sub-tabs */
+
+  .upgrade-sub-tabs {
+
+    display: flex; gap: 0; width: 100%; margin-bottom: 6px;
+
+  }
+
+  .sub-tab-btn {
+
+    flex: 1; padding: 8px 0; background: var(--bg-card); border: 1px solid var(--border);
+
+    color: var(--text-dim); font-size: 0.65rem; font-weight: 600; cursor: pointer;
+
+    transition: all var(--transition); text-transform: uppercase; letter-spacing: 0.08em;
+
+    font-family: var(--font-mono);
+
+  }
+
+  .sub-tab-btn:first-child { border-radius: var(--radius) 0 0 var(--radius); border-right: none; }
+
+  .sub-tab-btn:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+
+  .sub-tab-btn.active-sub { background: var(--bg-card-hover); color: var(--magenta); border-color: var(--magenta-dim); }
+
+  .sub-tab-btn:hover:not(.active-sub) { color: var(--text); }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+  /* Full-width prestige button with glow fill progress */
+
+  .prestige-btn-full {
+
+    width: 100%; max-width: 500px; padding: 12px 18px;
+
+    border-radius: var(--radius); border: 1px solid var(--magenta-dim);
+
+    font-weight: 700; font-size: 0.8rem; cursor: pointer;
+
+    transition: all var(--transition);
+
+    color: #fff; text-transform: uppercase; letter-spacing: 0.08em;
+
+    font-family: var(--font-mono); margin-bottom: 8px;
+
+    position: relative; overflow: hidden;
+
+    background: var(--bg-card);
+
+  }
+
+  .prestige-btn-full::before {
+
+    content: '';
+
+    position: absolute; top: 0; left: 0; bottom: 0;
+
+    width: var(--pp-pct, 0%);
+
+    background: linear-gradient(90deg, var(--magenta-dim), var(--magenta));
+
+    transition: width 0.5s ease;
+
+    z-index: 0;
+
+  }
+
+  .prestige-btn-full span { position: relative; z-index: 1; }
+
+  .prestige-btn-full:hover:not(:disabled) {
+
+    transform: translateY(-1px);
+
+    box-shadow: 0 0 20px rgba(217,70,239,0.35);
+
+    border-color: var(--magenta);
+
+  }
+
+  .prestige-btn-full:disabled {
+
+    color: #555; border-color: var(--border); cursor: not-allowed;
+
+  }
+
+  .prestige-btn-full:disabled::before {
+
+    background: linear-gradient(90deg, rgba(217,70,239,0.1), rgba(217,70,239,0.2));
+
+  }
+
+  .prestige-btn-full.hidden { display: none; }
+
+ 
+
+  /* Ending screen */
+
+  .ending-overlay {
+
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+
+    background: var(--bg-deep); z-index: 2000; display: flex;
+
+    flex-direction: column; align-items: center; justify-content: center;
+
+    padding: 30px; text-align: center;
+
+  }
+
+  .ending-overlay.hidden { display: none; }
+
+  .ending-text {
+
+    font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-dim);
+
+    line-height: 2; max-width: 440px; margin-bottom: 30px;
+
+  }
+
+  .ending-text .highlight { color: var(--text-bright); }
+
+  .ending-choices {
+
+    display: flex; gap: 16px; width: 100%; max-width: 440px;
+
+  }
+
+  .ending-choice {
+
+    flex: 1; padding: 18px 16px; border-radius: var(--radius);
+
+    border: 1px solid var(--border); background: var(--bg-card);
+
+    cursor: pointer; transition: all var(--transition); text-align: center;
+
+  }
+
+  .ending-choice:hover { transform: translateY(-2px); }
+
+  .ending-choice.choice-endless { border-color: var(--cyan-dim); }
+
+  .ending-choice.choice-endless:hover { border-color: var(--cyan); box-shadow: 0 4px 20px rgba(0,228,255,0.2); }
+
+  .ending-choice.choice-retire { border-color: var(--magenta-dim); }
+
+  .ending-choice.choice-retire:hover { border-color: var(--magenta); box-shadow: 0 4px 20px rgba(217,70,239,0.2); }
+
+  .ending-choice-title {
+
+    font-family: var(--font-mono); font-size: 0.9rem; font-weight: 700;
+
+    text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;
+
+  }
+
+  .choice-endless .ending-choice-title { color: var(--cyan); }
+
+  .choice-retire .ending-choice-title { color: var(--magenta); }
+
+  .ending-choice-desc { font-size: 0.7rem; color: var(--text-dim); line-height: 1.5; }
+
+  .retired-screen { text-align: center; padding: 40px; }
+
+  .retired-title { font-family: var(--font-mono); font-size: 1.2rem; color: var(--text-bright); margin-bottom: 10px; }
+
+  .retired-stats { font-size: 0.75rem; color: var(--text-dim); line-height: 1.8; font-family: var(--font-mono); }
+
+ 
+
+  /* Start screen */
+
+  .start-screen {
+
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+
+    background: var(--bg-deep); z-index: 3000;
+
+    display: flex; flex-direction: column; align-items: center;
+
+    justify-content: center; padding: 30px;
+
+  }
+
+  .start-screen.hidden { display: none; }
+
+  .start-title {
+
+    font-family: var(--font-mono); font-size: 2.4rem; font-weight: 700;
+
+    color: var(--text-bright); letter-spacing: 0.2em; text-transform: uppercase;
+
+    margin-bottom: 4px; opacity: 0; animation: start-fade-in 1.5s ease forwards;
+
+  }
+
+  .start-sub {
+
+    font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-dim);
+
+    letter-spacing: 0.3em; text-transform: lowercase; margin-bottom: 50px;
+
+    opacity: 0; animation: start-fade-in 1.5s ease 0.5s forwards;
+
+  }
+
+  .start-buttons {
+
+    display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 300px;
+
+    opacity: 0; animation: start-fade-in 1s ease 1.2s forwards;
+
+  }
+
+  .start-btn {
+
+    padding: 14px 20px; border-radius: var(--radius);
+
+    border: 1px solid var(--border); background: var(--bg-card);
+
+    color: var(--text); font-family: var(--font-mono); font-size: 0.8rem;
+
+    font-weight: 600; cursor: pointer; transition: all var(--transition);
+
+    text-transform: uppercase; letter-spacing: 0.1em; text-align: center;
+
+  }
+
+  .start-btn:hover {
+
+    border-color: var(--cyan); color: var(--cyan);
+
+    transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,228,255,0.15);
+
+  }
+
+  .start-btn.start-continue {
+
+    border-color: var(--magenta-dim);
+
+  }
+
+  .start-btn.start-continue:hover {
+
+    border-color: var(--magenta); color: var(--magenta);
+
+    box-shadow: 0 4px 20px rgba(217,70,239,0.15);
+
+  }
+
+  .start-version {
+
+    position: absolute; bottom: 16px; font-family: var(--font-mono);
+
+    font-size: 0.55rem; color: #333; letter-spacing: 0.1em;
+
+  }
+
+  @keyframes start-fade-in {
+
+    from { opacity: 0; transform: translateY(10px); }
+
+    to { opacity: 1; transform: translateY(0); }
+
+  }
+
+ 
+
+  /* Mobile safe area — bottom bar accessibility */
+
+  .tab-bar { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); }
+
+  .dim-nav { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); }
+
+  @media (max-width: 768px) {
+
+    .tab-bar { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); }
+
+    .dim-nav { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); }
+
+    .content-area { padding-bottom: 160px; }
+
+    .top-section { padding: 10px 12px 6px; }
+
+    h1 { font-size: 1.3rem; }
+
+    .points-value { font-size: 1.6rem; }
+
+    .points-bar { padding: 10px 12px; }
+
+  }
+
+ 
+
+ 
+
+  /* Buy All button */
+
+  .buy-all-btn {
+
+    width: 100%; max-width: 500px; padding: 10px; margin-bottom: 6px;
+
+    border-radius: var(--radius); border: 1px solid var(--cyan-dim);
+
+    background: transparent; color: var(--cyan); font-family: var(--font-mono);
+
+    font-size: 0.7rem; font-weight: 600; cursor: pointer;
+
+    transition: all var(--transition); text-transform: uppercase;
+
+    letter-spacing: 0.08em;
+
+  }
+
+  .buy-all-btn:hover { background: var(--cyan); color: var(--bg-deep);
+
+    box-shadow: 0 0 12px rgba(0,228,255,0.25); }
+
+  .buy-all-btn.hidden { display: none; }
+
+</style>
+
+</head>
+
+<body>
+
+ 
+
+<div class="start-screen" id="startScreen">
+
+  <div class="start-title">strata</div>
+
+  <div class="start-sub">an incremental experience</div>
+
+  <div class="start-buttons" id="startButtons"></div>
+
+  <div class="start-version">v0.1</div>
+
+</div>
+
+ 
+
+<div class="top-section">
+
+  <h1>Strata</h1>
+
+ 
+
+  <div class="prestige-prompt hidden" id="prestigePrompt">
+
+    <div>
+
+      <div class="prestige-prompt-text">You've reached the limit!</div>
+
+      <div class="prestige-prompt-sub">Prestige to reset and earn a prestige point</div>
+
+    </div>
+
+    <button class="prestige-btn" onclick="doPrestige()">Prestige</button>
+
+  </div>
+
+ 
+
+  <div class="points-bar" id="pointsBar">
+
+    <div class="points-info">
+
+      <div class="points-label" id="pointsLabel">Points</div>
+
+      <div class="points-value" id="points">10</div>
+
+      <div class="points-rate" id="rate">+0 / sec</div>
+
+      <div class="dim-penalty" id="dimPenalty"></div>
+
+    </div>
+
+  </div>
+
+  <button class="prestige-btn-full hidden" id="prestigeBtn" disabled onclick="doPrestige()">Prestige</button>
+
+ 
+
+  <div class="prestige-bar hidden" id="prestigeBar">
+
+    <div class="prestige-info">
+
+      <div class="prestige-label">Prestige Points</div>
+
+      <div class="prestige-value" id="prestigePoints">0</div>
+
+    </div>
+
+  </div>
+
+ 
+
+  <div class="controls">
+
+    <button class="ctrl-btn" onclick="saveGame()">Save</button>
+
+    <button class="ctrl-btn" onclick="loadGame()">Load</button>
+
+    <button class="ctrl-btn" onclick="resetGame()">Reset</button>
+
+  </div>
+
+  <div class="save-msg" id="saveMsg"></div>
+
+</div>
+
+ 
+
+<div class="content-area">
+
+  <div class="tab-panel active" id="tabGenerators">
+
+    <button class="buy-all-btn hidden" id="buyAllBtn" onclick="buyAllGens()">buy all</button>
+
+    <div class="generators" id="genList"></div>
+
+  </div>
+
+  <div class="tab-panel" id="tabUpgrades">
+
+    <div class="upgrades-header">
+
+      <div class="upgrades-pp-info">
+
+        <div class="upgrades-pp-label">Prestige Points</div>
+
+        <div class="upgrades-pp-value" id="upgradesPP">0</div>
+
+      </div>
+
+      <button class="upgrade-buy-btn" id="upgradeBuyBtn" disabled onclick="startUpgradeSelection()">
+
+        Buy Upgrade (1 PP)
+
+      </button>
+
+    </div>
+
+    <div class="upgrade-sub-tabs" id="upgradeSubTabs">
+
+      <button class="sub-tab-btn active-sub" onclick="switchUpgradeSub('slots')">upgrades</button>
+
+      <button class="sub-tab-btn hidden-tab" id="permaSubBtn" onclick="switchUpgradeSub('perma')">perma buffs <span id="permCount">(0)</span></button>
+
+    </div>
+
+    <div id="upgradeSubSlots">
+
+      <div class="upgrade-sort-bar" id="upgradeSortBar">
+
+        <button class="sort-btn active-sort" onclick="setUpgradeSort('default')">Default</button>
+
+        <button class="sort-btn" onclick="setUpgradeSort('alpha')">A-Z</button>
+
+        <button class="sort-btn" onclick="setUpgradeSort('level')">Lv</button>
+
+        <button class="sort-btn" onclick="setUpgradeSort('type')">Type</button>
+
+      </div>
+
+      <div class="upgrade-slots" id="upgradeSlots"></div>
+
+    </div>
+
+    <div id="upgradeSubPerma" style="display:none;">
+
+      <div class="perm-panel active" id="permPanel"></div>
+
+    </div>
+
+  </div>
+
+  <div class="tab-panel" id="tabChallenges">
+
+    <div class="challenge-status" id="challengeStatus"></div>
+
+    <div id="challengeContent"></div>
+
+  </div>
+
+</div>
+
+ 
+
+<div class="selection-overlay hidden" id="selectionOverlay">
+
+  <div class="selection-title">Choose an Upgrade</div>
+
+  <div class="selection-sub" id="selectionSub">Pick 1 of 3 &#x2014; choose wisely!</div>
+
+  <div class="upgrade-sort-bar" style="max-width:420px;" id="selSortBar">
+
+    <button class="sort-btn active-sort" onclick="setSelectionSort('default')">Default</button>
+
+    <button class="sort-btn" onclick="setSelectionSort('alpha')">A-Z</button>
+
+    <button class="sort-btn" onclick="setSelectionSort('level')">Lv</button>
+
+    <button class="sort-btn" onclick="setSelectionSort('type')">Type</button>
+
+  </div>
+
+  <div class="selection-options" id="selectionOptions"></div>
+
+  <button class="reward-discard-btn" onclick="discardSelection()" style="margin-top:14px;">Discard All</button>
+
+</div>
+
+ 
+
+<div class="echo-overlay hidden" id="echoOverlay">
+
+  <div class="echo-overlay-title" id="echoTitle">Echo - Choose Target</div>
+
+  <div class="echo-overlay-sub" id="echoSub">Pick an upgrade to copy. Echo will become that upgrade at the rolled level.</div>
+
+  <div class="echo-slots-container" id="echoSlots"></div>
+
+  <button class="echo-cancel-btn" onclick="cancelEcho()">Cancel</button>
+
+</div>
+
+ 
+
+<div class="reward-overlay hidden" id="rewardOverlay">
+
+  <div class="reward-overlay-title" id="rewardOverlayTitle">Challenge Complete!</div>
+
+  <div class="reward-overlay-sub" id="rewardOverlaySub"></div>
+
+  <div class="reward-preview" id="rewardPreview"></div>
+
+  <div class="reward-slots-container" id="rewardSlots"></div>
+
+  <button class="reward-discard-btn" id="discardRewardBtn" onclick="discardReward()">Discard Reward</button>
+
+</div>
+
+ 
+
+<div class="restart-overlay hidden" id="restartOverlay">
+
+  <div class="restart-overlay-title">Restart Dimension</div>
+
+  <div class="restart-overlay-sub">Choose ONE upgrade to keep. Everything else in this dimension will be wiped — points, generators, prestige, all other upgrades, and challenge progress.</div>
+
+  <div class="restart-overlay-warn">This cannot be undone!</div>
+
+  <div class="upgrade-sort-bar" style="max-width:420px;" id="restartSortBar">
+
+    <button class="sort-btn active-sort" onclick="setRestartSort('default')">Default</button>
+
+    <button class="sort-btn" onclick="setRestartSort('alpha')">A-Z</button>
+
+    <button class="sort-btn" onclick="setRestartSort('level')">Lv</button>
+
+    <button class="sort-btn" onclick="setRestartSort('type')">Type</button>
+
+  </div>
+
+  <div class="restart-slots-container" id="restartSlots"></div>
+
+  <div style="display:flex;gap:10px;margin-top:12px;">
+
+  <button class="challenge-btn" onclick="confirmRestart()" style="flex:1;">Confirm Restart</button>
+
+  <button class="restart-cancel-btn" onclick="cancelRestart()" style="margin-top:0;">Cancel</button>
+
+</div>
+
+</div>
+
+ 
+
+ 
+
+<div class="perm-overlay hidden" id="permOverlay">
+
+  <div class="perm-overlay-title">DIMENSION COMPLETE</div>
+
+  <div class="perm-overlay-sub" id="permSub">Choose a permanent Lv.1 buff. This applies to ALL dimensions forever.</div>
+
+  <div class="perm-options" id="permOptions"></div>
+
+</div>
+
+ 
+
+<div class="ending-overlay hidden" id="endingOverlay">
+
+  <div class="ending-text" id="endingText"></div>
+
+  <div class="ending-choices" id="endingChoices"></div>
+
+</div>
+
+<div class="dim-unlock-banner hidden" id="dimUnlockBanner">
+
+  <div class="dim-unlock-title" id="dimUnlockTitle"></div>
+
+  <div class="dim-unlock-sub" id="dimUnlockSub"></div>
+
+</div>
+
+ 
+
+<div class="tab-bar hidden" id="tabBar">
+
+  <button class="tab-btn active" id="btnTabGen" onclick="switchTab('generators')">Generators</button>
+
+  <button class="tab-btn tab-upgrades" id="btnTabUpg" onclick="switchTab('upgrades')">Upgrades</button>
+
+  <button class="tab-btn tab-challenges hidden-tab" id="btnTabCh" onclick="switchTab('challenges')">Challenges</button>
+
+</div>
+
+ 
+
+<div class="dim-nav hidden" id="dimNav">
+
+  <button class="dim-nav-btn" id="dimPrevBtn" onclick="switchDim(-1)">&#x25C0;</button>
+
+  <div>
+
+    <div class="dim-nav-text" id="dimNavText">Dimension 1 / 1</div>
+
+    <div class="dim-nav-sub" id="dimNavSub"></div>
+
+  </div>
+
+  <button class="dim-nav-btn" id="dimNextBtn" onclick="switchDim(1)">&#x25B6;</button>
+
+</div>
+
+ 
+
+<script>
+
+// ============================================================
+
+// BigNum
+
+// ============================================================
+
+function bn(m, e) {
+
+  if (m === 0) return { m: 0, e: 0 };
+
+  if (!isFinite(m)) return { m: 9.999, e: 99999 };
+
+  var obj = { m: m, e: e || 0 }; bnNormalize(obj); return obj;
+
+}
+
+function bnFromNum(n) {
+
+  if (n === 0) return bn(0, 0);
+
+  if (n < 0) { var r = bnFromNum(-n); r.m = -r.m; return r; }
+
+  if (!isFinite(n)) return bn(9.999, 99999);
+
+  if (n < 1e-300) return bn(0, 0);
+
+  var e = Math.floor(Math.log10(n)); return bn(n / Math.pow(10, e), e);
+
+}
+
+function bnToNum(a) {
+
+  if (a.e > 308) return Infinity; if (a.e < -308) return 0;
+
+  return a.m * Math.pow(10, a.e);
+
+}
+
+function bnNormalize(a) {
+
+  if (a.m === 0) { a.e = 0; return; }
+
+  if (!isFinite(a.m)) { a.m = 9.999; a.e = 99999; return; }
+
+  var neg = a.m < 0; if (neg) a.m = -a.m;
+
+  while (a.m >= 10) { a.m /= 10; a.e++; }
+
+  while (a.m < 1 && a.m > 0) { a.m *= 10; a.e--; }
+
+  if (neg) a.m = -a.m;
+
+}
+
+function bnAdd(a, b) {
+
+  if (a.m === 0) return { m: b.m, e: b.e }; if (b.m === 0) return { m: a.m, e: a.e };
+
+  var diff = a.e - b.e;
+
+  if (diff > 17) return { m: a.m, e: a.e }; if (diff < -17) return { m: b.m, e: b.e };
+
+  var m, e;
+
+  if (a.e >= b.e) { m = a.m + b.m * Math.pow(10, b.e - a.e); e = a.e; }
+
+  else { m = b.m + a.m * Math.pow(10, a.e - b.e); e = b.e; }
+
+  var r = { m: m, e: e }; bnNormalize(r); return r;
+
+}
+
+function bnSub(a, b) { return bnAdd(a, { m: -b.m, e: b.e }); }
+
+function bnMul(a, b) { var r = { m: a.m * b.m, e: a.e + b.e }; bnNormalize(r); return r; }
+
+function bnDiv(a, b) {
+
+  if (b.m === 0) return bn(9.999, 99999);
+
+  var r = { m: a.m / b.m, e: a.e - b.e }; bnNormalize(r); return r;
+
+}
+
+function bnGte(a, b) {
+
+  if (a.m <= 0 && b.m <= 0) return true;
+
+  if (a.e !== b.e) return a.e > b.e; return a.m >= b.m;
+
+}
+
+function bnLog10(a) { if (a.m <= 0) return 0; return a.e + Math.log10(a.m); }
+
+function bnIsZero(a) { return a.m === 0; }
+
+function bnFormat(a) {
+
+  if (a.m === 0) return "0";
+
+  if (a.e < 3) { var n = bnToNum(a); if (n < 1000) return n.toFixed(n % 1 === 0 && n < 100 ? 0 : 1); }
+
+  var suffixes = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
+
+  var idx = Math.floor(a.e / 3);
+
+  if (idx < suffixes.length) {
+
+   var dispE = idx * 3; var dispM = a.m * Math.pow(10, a.e - dispE);
+
+    return dispM.toFixed(dispM < 10 ? 2 : dispM < 100 ? 1 : 0) + suffixes[idx];
+
+  }
+
+  return a.m.toFixed(2) + "e" + a.e;
+
+}
+
+ 
+
+// ============================================================
+
+// Constants & Upgrade Definitions
+
+// ============================================================
+
+var DEBUG_AUTO_BUY_ALL = false; // set true for testing
+
+var BASE_MAX_TIER = 50;
+
+var BASE_POINT_CAP = bn(1, 308);
+
+var PRESTIGE_EXP_THRESHOLD = 308;
+
+var AUTO_SAVE_INTERVAL = 30000;
+
+var BASE_UPGRADE_SLOTS = 4;
+
+var BASE_MAX_BUY = 100;
+
+var BASE_MAX_LEVEL = 5;
+
+ 
+
+var UPGRADE_DEFS = [
+
+  { id: "upgrade_boost",  name: "Upgrade Boost",  icon: "Σ", descFn: function(l) { return "+0.2 buy base (" + (2 + 0.2*l).toFixed(1) + "x base)"; } },
+
+  { id: "prestige_boost", name: "Prestige Boost", icon: "Ω", descFn: function(l) { return "x" + (2*l) + " prestige points"; } },
+
+  { id: "discount",       name: "Discount",       icon: "Δ", descFn: function(l) { return "cost base " + (10*Math.pow(0.8,l)).toFixed(1) + "x per buy"; } },
+
+  { id: "gen_expansion",  name: "Gen Expansion",  icon: "∞", descFn: function(l) { var curSum = getUpgradeSum("gen_expansion"); var withThis = curSum + l; var gain = withThis > 0 ? Math.max(1, 250*(1 - 1/(1 + withThis/50))) : 0; return "more gens (" + Math.floor(50 + gain) + " total)"; } },
+
+  { id: "auto_buy",       name: "Auto Buy",       icon: "α", descFn: function(l) { return "auto-buy " + l + "/sec"; } },
+
+  { id: "break_infinity", name: "Break Infinity",  icon: "∅", descFn: function(l) { return "remove point cap"; } },
+
+  { id: "gen_boost",      name: "Generator Boost", icon: "μ", descFn: function(l) { return "x" + (10*l) + " all output"; } },
+
+  { id: "fast_start",     name: "Fast Start",      icon: "λ", descFn: function(l) { return "keep 1e" + (3*l) + " on prestige"; } },
+
+  { id: "upgrade_count",  name: "Upgrade Count",   icon: "π", descFn: function(l) { return "+" + (3 + Math.floor(0.5*l)) + " slots (max 20)"; } },
+
+  { id: "luck",           name: "Luck",            icon: "ψ", descFn: function(l) { return "better roll odds"; } },
+
+  { id: "ascend",         name: "Ascend",          icon: "Ξ", descFn: function(l) { return "higher max upgrade lv (max 25)"; } },
+
+  { id: "overclock",      name: "Overclock",       icon: "θ", descFn: function(l) { return "more max gen buys (max 500)"; } },
+
+  { id: "momentum",       name: "Momentum",        icon: "χ", descFn: function(l) { return "x" + (l+1) + "^sqrt(tier) output"; } },
+
+  { id: "wide_selection",  name: "Wide Selection",   icon: "Π", descFn: function(l) { return "more upgrade choices (max 15)"; } }
+
+  ,{ id: "echo",             name: "Echo",              icon: "∂", descFn: function(l) { return "copy owned upgrade at lv." + l; } }
+
+];
+
+ 
+
+var DEFECT_POOL = ["upgrade_boost","discount","gen_expansion","gen_boost","overclock","momentum"];
+
+ 
+
+// ============================================================
+
+// Dimension State
+
+// ============================================================
+
+var dimensions = [];
+
+var activeDimIdx = 0;
+
+var unlockedDims = 1;
+
+var multiDimUnlocked = false; permBuffs = []; dimCompletionCount = 0;
+
+var permBuffs = []; // permanent Lv.1 upgrades earned by completing dimensions
+
+var dimCompletionCount = 0; // how many dimensions have awarded a perm buff
+
+var currentTab = "generators";
+
+ 
+
+function createFreshDimension() {
+
+  return {
+
+    points: bn(10, 0),
+
+    generators: [],
+
+    prestigeCount: 0,
+
+    upgradeSlots: [],
+
+    upgradeBuyCount: 0,
+
+    hasPrestigedOnce: false,
+
+    challenges: [],
+
+    activeChallengeIdx: -1,
+
+    challengesUnlocked: false,
+
+    pendingReward: null,
+
+    autobuyTimer: 0,
+
+    selectionActive: false,
+
+    selectionOptions: [],
+
+    challengeStartTime: 0,
+
+    maxExponent: 0,
+
+    pendingUpgrade: null,
+
+    pendingRewardOptions: null
+
+  };
+
+}
+
+ 
+
+function D() { return dimensions[activeDimIdx]; }
+
+ 
+
+// ============================================================
+
+// Upgrade Helpers (all read from active dimension via D())
+
+// ============================================================
+
+function getUpgradeSum(id, dim) { var d = dim || D(); var t = getPermBuffSum(id); for (var i = 0; i < d.upgradeSlots.length; i++) { var s = d.upgradeSlots[i]; if (s && s.id === id) t += s.level; } return t; }
+
+function hasUpgrade(id, dim) { var d = dim || D(); return d.upgradeSlots.some(function(s) { return s && s.id === id; }); }
+
+ 
+
+function getUpgradeBoostBonus(dim) {
+
+  // Upgrade: +0.2 per level to buy mult base (default 2). Defect: -0.2 per level (base goes below 2)
+
+  var val = getUpgradeSum("upgrade_boost", dim) * 0.2;
+
+  val -= getDefectSum("upgrade_boost", dim) * 0.2;
+
+  return val; // can go negative — base drops below 2 (e.g. 1.8 at defect Lv.1)
+
+}
+
+function getPrestigeBoostMult(dim) { var sum = getUpgradeSum("prestige_boost", dim) * 2; return Math.max(1, sum); }
+
+function getDiscountMult(dim) {
+
+  // Returns the effective cost base (default 10). Discount reduces it, defect increases it.
+
+  // Lv.1 discount: 10 × 0.8 = 8× per buy. Lv.5: 10 × 0.33 = 3.3× per buy.
+
+  var base = 10 * Math.pow(0.8, getUpgradeSum("discount", dim));
+
+  var defLvl = getDefectSum("discount", dim);
+
+  if (defLvl > 0) base *= Math.pow(1/0.8, defLvl);  // defect INCREASES cost base
+
+  return base;
+
+}
+
+function getMaxTier(dim) {
+
+  // Asymptotic: gain never exceeds level sum, caps at 300 (base 50 + 250).
+
+  // Defect: same curve negative, caps at -250 (min 1 gen).
+
+  var upgSum = getUpgradeSum("gen_expansion", dim);
+
+  var defSum = getDefectSum("gen_expansion", dim);
+
+  var gain = upgSum > 0 ? Math.max(1, 250 * (1 - 1 / (1 + upgSum / 50))) : 0;
+
+  var loss = defSum > 0 ? Math.max(1, 250 * (1 - 1 / (1 + defSum / 50))) : 0;
+
+  return Math.max(1, Math.floor(50 + gain - loss));
+
+}
+
+function getAutoBuyCount(dim) { return getUpgradeSum("auto_buy", dim); }
+
+function hasBreakInfinity(dim) { return hasUpgrade("break_infinity", dim); }
+
+function getGenBoostMult(dim) {
+
+  // Upgrade: ×(10×L). Defect: ÷(10×|L|).
+
+  var lvl = getUpgradeSum("gen_boost", dim);
+
+  var defLvl = getDefectSum("gen_boost", dim);
+
+  var effective = lvl - defLvl;
+
+  if (effective === 0) return 1;
+
+  if (effective > 0) return Math.max(0.01, 10 * effective);
+
+  // Negative: defect dominates → divide
+
+  return 1 / (10 * Math.abs(effective));
+
+}
+
+function getFastStartPoints(dim) {
+
+  var d = dim || D(); var t = bn(0, 0);
+
+  for (var i = 0; i < d.upgradeSlots.length; i++) {
+
+    var s = d.upgradeSlots[i];
+
+    if (s && s.id === "fast_start") t = bnAdd(t, bn(1, 3 * s.level));
+
+  }
+
+  // Include perm buff (Lv.1 = keep 1e0 = 1 point)
+
+  if (getPermBuffSum("fast_start") > 0) t = bnAdd(t, bn(1, 3));
+
+  return t;
+
+}
+
+ 
+
+function getMaxUpgradeSlots(dim) {
+
+  // Asymptotic: approaches 20 (base 4 + up to 16).
+
+  var d = dim || D(); var rawSum = 0;
+
+  for (var i = 0; i < d.upgradeSlots.length; i++) {
+
+    var s = d.upgradeSlots[i];
+
+    if (s && s.id === "upgrade_count") rawSum += 3 + Math.floor(0.7 * s.level);
+
+  }
+
+  rawSum += getPermBuffSum("upgrade_count") * 3; // perm buff adds 2 raw
+
+  var gain = rawSum > 0 ? Math.max(1, 16 * (1 - 1 / (1 + rawSum / 16))) : 0;
+
+  return Math.floor(BASE_UPGRADE_SLOTS + gain);
+
+}
+
+function getMaxLevel(dim) {
+
+  // Asymptotic: approaches 25 (base 5 + up to 20).
+
+  var sum = getUpgradeSum("ascend", dim);
+
+  var gain = sum > 0 ? Math.max(1, 20 * (1 - 1 / (1 + sum / 20))) : 0;
+
+  return Math.max(1, Math.floor(BASE_MAX_LEVEL + gain));
+
+}
+
+function getLuckBase(dim) { var luckSum = getUpgradeSum("luck", dim); return 1 + 1 / (1 + luckSum); }
+
+function getMaxBuy(dim) {
+
+  // Asymptotic: approaches 500 (base 100 + up to 400). Defect mirrors.
+
+  var upgSum = getUpgradeSum("overclock", dim);
+
+  var defSum = getDefectSum("overclock", dim);
+
+  var gain = upgSum > 0 ? Math.max(1, 400 * (1 - 1 / (1 + upgSum / 50))) : 0;
+
+  var loss = defSum > 0 ? Math.max(1, 400 * (1 - 1 / (1 + defSum / 50))) : 0;
+
+  return Math.max(1, Math.floor(BASE_MAX_BUY + gain - loss));
+
+}
+
+function getHighestGenTierBought(dim) {
+
+  var d = dim || D(); var h = 0;
+
+  for (var i = 0; i < d.generators.length; i++) { if (d.generators[i].bought > 0) h = d.generators[i].tier; }
+
+  return h;
+
+}
+
+function getMomentumMult(dim) {
+
+  // Upgrade: (L+1)^sqrt(highest_tier). Sqrt dampens exponential growth.
+
+  // Defect: divide by same.
+
+  var mSum = getUpgradeSum("momentum", dim);
+
+  mSum -= getDefectSum("momentum", dim);
+
+  var highest = getHighestGenTierBought(dim);
+
+  if (highest === 0) return 1;
+
+  if (mSum === 0) return 1;
+
+  var base = Math.abs(mSum) + 1;
+
+  var exp = Math.sqrt(highest);
+
+  var mult = Math.pow(base, exp);
+
+  if (mSum > 0) return Math.max(1, mult);
+
+  return 1 / Math.max(1, mult);
+
+}
+
+ 
+
+ 
+
+function getLevelWeights(dim) {
+
+  var maxLvl = getMaxLevel(dim); var base = getLuckBase(dim); var weights = [];
+
+  for (var i = 1; i <= maxLvl; i++) weights.push(Math.pow(base, maxLvl - i));
+
+  return weights;
+
+}
+
+function getFilledSlotCount(dim) { var d = dim || D(); return d.upgradeSlots.filter(function(s) { return s !== null; }).length; }
+
+ 
+
+function getBasePP(dim) {
+
+  var d = dim || D();
+
+  if (hasBreakInfinity(d)) { var exp = bnLog10(d.points); return Math.max(0, Math.floor(exp / PRESTIGE_EXP_THRESHOLD)); }
+
+  return 1;
+
+}
+
+function getPrestigeEarned(dim) { return getBasePP(dim) * getPrestigeBoostMult(dim); }
+
+function getChallengeGoal(dim) {
+
+  var d = dim || D();
+
+  if (d.activeChallengeIdx >= 0) {
+
+    var ch = d.challenges[d.activeChallengeIdx];
+
+    if (ch && ch.capExponent) return bn(1, ch.capExponent);
+
+  }
+
+  return BASE_POINT_CAP; // default 1e308
+
+}
+
+function getChallengeGoalExp(dim) {
+
+  var d = dim || D();
+
+  if (d.activeChallengeIdx >= 0) {
+
+    var ch = d.challenges[d.activeChallengeIdx];
+
+    if (ch && ch.capExponent) return ch.capExponent;
+
+  }
+
+  return 308;
+
+}
+
+function getChallengeTimeLimit(dim) {
+
+  var d = dim || D();
+
+ if (d.activeChallengeIdx >= 0) {
+
+    var ch = d.challenges[d.activeChallengeIdx];
+
+    if (ch && ch.timeLimit) return ch.timeLimit;
+
+  }
+
+  return 0; // 0 = no time limit
+
+}
+
+function getChallengeTimeRemaining(dim) {
+
+  var d = dim || D();
+
+  var limit = getChallengeTimeLimit(d);
+
+  if (limit <= 0) return -1; // no limit
+
+  var elapsed = (Date.now() - d.challengeStartTime) / 1000;
+
+  return Math.max(0, limit - elapsed);
+
+}
+
+function canPrestige(dim) { var d = dim || D(); return bnGte(d.points, getChallengeGoal(d)); }
+
+function isCapped(dim) { var d = dim || D(); if (hasBreakInfinity(d)) return false; return bnGte(d.points, BASE_POINT_CAP); }
+
+ 
+
+// ============================================================
+
+// Cross-Dimension Boosts
+
+// ============================================================
+
+function getCrossDimBoost(dimIdx) {
+
+  var mult = 1;
+
+  for (var d = 0; d < dimensions.length; d++) {
+
+    if (d === dimIdx) continue;
+
+    var slots = dimensions[d].upgradeSlots;
+
+    var aboveSum = 0, belowSum = 0;
+
+    for (var i = 0; i < slots.length; i++) {
+
+      if (!slots[i]) continue;
+
+      if (slots[i].id === "boost_above") aboveSum += slots[i].level;
+
+      if (slots[i].id === "boost_below") belowSum += slots[i].level;
+
+    }
+
+    if (d < dimIdx && aboveSum > 0) mult *= (2 - 1 / (1 + aboveSum * 0.1));
+
+    if (d > dimIdx && belowSum > 0) mult *= (2 - 1 / (1 + belowSum * 0.1));
+
+  }
+
+  return mult;
+
+}
+
+ 
+
+function getDimPenalty(dimIdx) { return Math.pow(0.5, dimIdx); }
+
+ 
+
+// ============================================================
+
+// Generator & Production (dim-aware)
+
+// ============================================================
+
+function initGenerators(dim) { var d = dim || D(); var max = getMaxTier(d); d.generators = []; for (var i = 1; i <= max; i++) d.generators.push({ tier: i, bought: 0, amount: bn(0, 0) }); }
+
+function ensureGeneratorCount(dim) { var d = dim || D(); var max = getMaxTier(d); while (d.generators.length < max) d.generators.push({ tier: d.generators.length + 1, bought: 0, amount: bn(0, 0) }); }
+
+function initUpgradeSlots(dim) { var d = dim || D(); var max = getMaxUpgradeSlots(d); while (d.upgradeSlots.length < max) d.upgradeSlots.push(null); }
+
+ 
+
+function getCost(tier, bought, dim) {
+
+  // Cost = costBase^(tier*(1+bought)-1) where costBase is normally 10
+
+  // Discount reduces costBase (e.g. 10→9), defect increases it (e.g. 10→11.1)
+
+  // Using BigNum: costBase^exp = 10^(exp × log10(costBase))
+
+ var costBase = getDiscountMult(dim);
+
+  var exponent = tier * (1 + bought) - 1;
+
+  var log10Base = Math.log10(costBase);
+
+  var effectiveExp = exponent * log10Base;
+
+  var m = Math.pow(10, effectiveExp - Math.floor(effectiveExp));
+
+  return bn(m, Math.floor(effectiveExp));
+
+}
+
+function getUpgradePPCost(dim) { var d = dim || D(); return Math.pow(2, d.upgradeBuyCount); }
+
+function getPurchaseMultiplier(gen, dim) {
+
+  if (gen.bought === 0) return bn(1, 0);
+
+  var base = Math.max(1.01, 2 + getUpgradeBoostBonus(dim)); // floor at 1.01 so it never hits 0 or negative
+
+  return bnFromNum(Math.pow(base, gen.bought - 1));
+
+}
+
+ 
+
+function getTotalRateForDim(gen, dimIdx) {
+
+  var d = dimensions[dimIdx];
+
+  var base = gen.bought > 0 ? bn(1, 0) : bn(0, 0);
+
+  var total = bnAdd(base, gen.amount);
+
+  if (bnIsZero(total)) return bn(0, 0);
+
+  var rate = bnMul(total, getPurchaseMultiplier(gen, d));
+
+  rate = bnMul(rate, bnFromNum(getGenBoostMult(d)));
+
+  rate = bnMul(rate, bnFromNum(getMomentumMult(d)));
+
+  rate = bnMul(rate, bnFromNum(getDimPenalty(dimIdx)));
+
+  rate = bnMul(rate, bnFromNum(getCrossDimBoost(dimIdx)));
+
+  return rate;
+
+}
+
+ 
+
+function getTotalRate(gen) { return getTotalRateForDim(gen, activeDimIdx); }
+
+ 
+
+function getVisibleTiers() {
+
+  var d = D(); var h = 0;
+
+  for (var i = 0; i < d.generators.length; i++) { if (d.generators[i].bought > 0) h = d.generators[i].tier; }
+
+  return Math.min(Math.max(3, h + 3), d.generators.length);
+
+}
+
+function getPointsPerSec() { return D().generators.length === 0 ? bn(0, 0) : getTotalRate(D().generators[0]); }
+
+ 
+
+function rollLevel(dim) {
+
+  var weights = getLevelWeights(dim); var totalWeight = 0;
+
+  for (var i = 0; i < weights.length; i++) totalWeight += weights[i];
+
+  var r = Math.random() * totalWeight;
+
+  for (var i = 0; i < weights.length; i++) { r -= weights[i]; if (r <= 0) return i + 1; }
+
+  return 1;
+
+}
+
+function getSelectionCount() {
+
+  // Asymptotic: approaches 15 (base 5 + up to 10).
+
+  var sum = getUpgradeSum("wide_selection");
+
+  var gain = sum > 0 ? Math.max(1, 10 * (1 - 1 / (1 + sum / 10))) : 0;
+
+  return Math.floor(5 + gain);
+
+}
+
+function generateOptions(count) {
+
+  var n = count || getSelectionCount();
+
+  var opts = [];
+
+ 
+
+  // 1. Create a lightweight pool of available choices.
+
+  // We save the original array index ('defIdx') right alongside the reference.
+
+  var pool = UPGRADE_DEFS.map((def, index) => {
+
+    return { defIdx: index, def: def };
+
+  });
+
+ 
+
+  for (var i = 0; i < n; i++) {
+
+    // If we run out of unique upgrades in the pool, stop to avoid an infinite loop
+
+    if (pool.length === 0) break;
+
+ 
+
+    // 2. Pick a random index out of the remaining pool
+
+    var poolIdx = Math.floor(Math.random() * pool.length);
+
+    var chosen = pool[poolIdx];
+
+   
+
+    var lv = rollLevel();
+
+   
+
+    // 3. Push the original, unshifted index to your final selection
+
+    opts.push({ defIdx: chosen.defIdx, level: lv });
+
+ 
+
+    // 4. Fast Remove: Swap the chosen item with the LAST item in the pool,
+
+    // then pop it off. This avoids heavy array shifting performance penalties.
+
+    pool[poolIdx] = pool[pool.length - 1];
+
+    pool.pop();
+
+  }
+
+ 
+
+  return opts;
+
+}
+
+ 
+
+// ============================================================
+
+// Challenge System (dim-aware via D())
+
+// ============================================================
+
+function getChallengeDefectLevel(challengeNum, dim) {
+
+  var maxLvl = getMaxLevel(dim);
+
+  switch (challengeNum) {
+
+    case 1: return 1;
+
+    case 2: return Math.max(1, Math.floor(maxLvl * 0.4));
+
+    case 3: return Math.max(1, Math.floor(maxLvl * 0.6));
+
+    case 4: return Math.max(1, Math.floor(maxLvl * 0.8));
+
+    case 5: return Math.max(1, maxLvl);
+
+    default: return 1;
+
+  }
+
+}
+
+function getChallengeDefectCount(n) { return n; }
+
+function isInChallenge(dim) { var d = dim || D(); return d.activeChallengeIdx >= 0; }
+
+ 
+
+function getActiveDefects(dim) {
+
+  var d = dim || D();
+
+  if (!isInChallenge(d)) return [];
+
+  var ch = d.challenges[d.activeChallengeIdx];
+
+  if (!ch) return [];
+
+  var challengeNum = d.activeChallengeIdx + 1;
+
+  var level = getChallengeDefectLevel(challengeNum, d);
+
+  return ch.defectIds.map(function(id) { return { id: id, level: level }; });
+
+}
+
+ 
+
+function getDefectSum(defectId, dim) {
+
+  var defects = getActiveDefects(dim); var total = 0;
+
+  for (var i = 0; i < defects.length; i++) { if (defects[i].id === defectId) total += defects[i].level; }
+
+  return total;
+
+}
+
+ 
+
+function generateChallenge(challengeNum, dim) {
+
+  var defectCount = getChallengeDefectCount(challengeNum);
+
+  var pool = DEFECT_POOL.slice(); var defectIds = [];
+
+  for (var i = 0; i < defectCount && pool.length > 0; i++) {
+
+    var idx = Math.floor(Math.random() * pool.length);
+
+    defectIds.push(pool[idx]); pool.splice(idx, 1);
+
+  }
+
+  // Generate 3 reward options, all at the challenge's defect level
+
+  var rewardLevel = getChallengeDefectLevel(challengeNum, dim);
+
+  var rewardOptions = [];
+
+  var pool = UPGRADE_DEFS.map((def, index) => {
+
+  return { defIdx: index };
+
+});
+
+ 
+
+for (var ri = 0; ri < 3; ri++) {
+
+  // Safety check: stop if we run out of unique upgrades entirely
+
+  if (pool.length === 0) break;
+
+ 
+
+  // 2. Pick a random item from the remaining pool
+
+  var poolIdx = Math.floor(Math.random() * pool.length);
+
+  var chosen = pool[poolIdx];
+
+ 
+
+  // 3. Push the original index and the fixed reward level
+
+  rewardOptions.push({ defIdx: chosen.defIdx, level: rewardLevel });
+
+ 
+
+  // 4. Remove the chosen item from the pool so it can't be picked again
+
+  pool[poolIdx] = pool[pool.length - 1];
+
+  pool.pop();
+
+}
+
+  // Unique challenge modifiers: cap increase and time limit
+
+  // Higher challenges are more likely to get these
+
+  var capExponent = null;
+
+  var timeLimit = null;
+
+  var defLevel = getChallengeDefectLevel(challengeNum, dim);
+
+  // Cap increase: 30% chance per challenge after challenge 1, exponent = 308 * 1.1^defLevel
+
+  if (challengeNum >= 2 && Math.random() < 0.3 + challengeNum * 0.1) {
+
+    capExponent = Math.floor(308 * Math.pow(1.1, defLevel));
+
+  }
+
+  // Time limit: 30% chance per challenge after challenge 2, time = 15min * 0.9^(defLevel-1)
+
+  if (challengeNum >= 3 && Math.random() < 0.2 + challengeNum * 0.1) {
+
+    timeLimit = Math.floor(15 * 60 * Math.pow(0.9, defLevel - 1));
+
+  }
+
+  return { defectIds: defectIds, reward: rewardOptions[0], rewardOptions: rewardOptions, completed: false, capExponent: capExponent, timeLimit: timeLimit };
+
+}
+
+ 
+
+function checkChallengeUnlock() {
+
+  var d = D();
+
+  if (d.challengesUnlocked) return;
+
+  if (d.upgradeBuyCount >= 2) {
+
+    d.challengesUnlocked = true;
+
+    if (d.challenges.length === 0) d.challenges.push(generateChallenge(1, d));
+
+  }
+
+}
+
+ 
+
+function ensureNextChallenge() {
+
+  var d = D(); var cc = d.challenges.filter(function(c) { return c.completed; }).length;
+
+  if (cc < 5 && d.challenges.length <= cc) d.challenges.push(generateChallenge(cc + 1, d));
+
+}
+
+ 
+
+function getCurrentChallengeIdx() {
+
+  var d = D();
+
+  for (var i = 0; i < d.challenges.length; i++) { if (!d.challenges[i].completed) return i; }
+
+  return -1;
+
+}
+
+ 
+
+function startChallenge(idx) {
+
+  var d = D();
+
+  if (idx < 0 || idx >= d.challenges.length) return;
+
+  if (d.challenges[idx].completed) return;
+
+  if (isInChallenge()) return;
+
+  d.activeChallengeIdx = idx;
+
+  d.challengeStartTime = Date.now();
+
+  var fs = getFastStartPoints(); var ms = bn(10, 0);
+
+  d.points = bnGte(fs, ms) ? fs : ms;
+
+  initGenerators();
+
+  invalidateRenderKeys();
+
+  updateUI();
+
+}
+
+ 
+
+function completeChallenge() {
+
+  var d = D();
+
+  if (!isInChallenge()) return;
+
+  var ch = d.challenges[d.activeChallengeIdx];
+
+  ch.completed = true;
+
+  d.prestigeCount += getPrestigeEarned();
+
+  d.hasPrestigedOnce = true;
+
+  d.pendingRewardOptions = ch.rewardOptions || [ch.reward];
+
+  d.pendingReward = d.pendingRewardOptions[0]; // backward compat
+
+  d.activeChallengeIdx = -1;
+
+  d.challengeStartTime = 0;
+
+  ensureNextChallenge();
+
+  var fs = getFastStartPoints(); var ms = bn(10, 0);
+
+  d.points = bnGte(fs, ms) ? fs : ms;
+
+  initGenerators();
+
+  invalidateRenderKeys();
+
+  // Check dimension unlock
+
+  checkDimensionUnlock();
+
+  showRewardOverlay();
+
+  updateUI();
+
+}
+
+ 
+
+ 
+
+// ============================================================
+
+// Permanent Buffs — earned by completing dimensions
+
+// ============================================================
+
+var PERM_BUFF_POOL = ["prestige_boost","discount","gen_expansion","auto_buy","break_infinity","fast_start","upgrade_count","luck","ascend","overclock","wide_selection","boost_above","boost_below"];
+
+ 
+
+function showPermBuffOverlay(dimNum) {
+
+  var html = "";
+
+  for (var i = 0; i < PERM_BUFF_POOL.length; i++) {
+
+    var uid = PERM_BUFF_POOL[i];
+
+    var def = UPGRADE_DEFS.find(function(u) { return u.id === uid; });
+
+    if (!def) continue;
+
+    var taken = permBuffs.indexOf(uid) >= 0;
+
+    var cls = taken ? "perm-option taken" : "perm-option";
+
+    var takenBadge = taken ? ' <span class="perm-badge">OWNED</span>' : "";
+
+    html += '<div class="' + cls + '" onclick="pickPermBuff(\'' + uid + '\')">';
+
+    html += '<div class="upgrade-icon">' + def.icon + '</div>';
+
+    html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + def.name + takenBadge + '</div>';
+
+    html += '<div class="upgrade-slot-desc">' + def.descFn(1) + '</div></div></div>';
+
+  }
+
+  var storyComplete = (dimNum <= 10 && STORY_COMPLETE[dimNum]) ? STORY_COMPLETE[dimNum] : "";
+
+  document.getElementById("permSub").textContent = storyComplete ? (storyComplete + "\n\nchoose a permanent buff.") : "dimension " + dimNum + " complete. choose a permanent buff.";
+
+  document.getElementById("permOptions").innerHTML = html;
+
+  document.getElementById("permOverlay").classList.remove("hidden");
+
+}
+
+ 
+
+function pickPermBuff(upgradeId) {
+
+  if (permBuffs.indexOf(upgradeId) >= 0) return; // already taken
+
+  permBuffs.push(upgradeId);
+
+  dimCompletionCount++;
+
+  document.getElementById("permOverlay").classList.add("hidden");
+
+  invalidateRenderKeys();
+
+  updateUI();
+
+  showSaveMsg("Permanent buff: " + (UPGRADE_DEFS.find(function(u) { return u.id === upgradeId; }) || {name:"?"}).name + "!");
+
+}
+
+ 
+
+function getPermBuffSum(id) {
+
+  // Returns 1 if this upgrade is a perm buff, 0 otherwise
+
+  return permBuffs.indexOf(id) >= 0 ? 1 : 0;
+
+}
+
+ 
+
+ 
+
+// ============================================================
+
+// Story — fragments revealed across 10 dimensions
+
+// ============================================================
+
+var STORY_UNLOCK = [];
+
+var STORY_COMPLETE = [];
+
+var gameRetired = false;
+
+ 
+
+function checkDimensionUnlock() {
+
+  var d = D();
+
+  var allDone = d.challenges.filter(function(c) { return c.completed; }).length >= 5;
+
+  if (allDone && activeDimIdx === unlockedDims - 1) {
+
+    // Check if this is dimension 10 completion
+
+    var completedDimNum = unlockedDims; // the dim we just completed (before incrementing)
+
+    unlockedDims++;
+
+    var newDim = createFreshDimension();
+
+    dimensions.push(newDim);
+
+    initUpgradeSlots(newDim);
+
+    initGenerators(newDim);
+
+    // Dim 10 completion — show ending screen
+
+    if (completedDimNum === 10 && !gameRetired) {
+
+      showEndingScreen();
+
+      return; // skip normal perm buff for dim 10
+
+    }
+
+    // Award permanent buff for completing this dimension
+
+    if (dimCompletionCount < unlockedDims - 1) {
+
+      showPermBuffOverlay(completedDimNum);
+
+    }
+
+    // Unlock cross-dim upgrades on first dimension 2 unlock
+
+    if (!multiDimUnlocked) {
+
+      multiDimUnlocked = true;
+
+      UPGRADE_DEFS.push(
+
+        { id: "boost_above", name: "Boost Above", icon: "↑", descFn: function(l) { return "x" + (2 - 1/(1+l*0.1)).toFixed(2) + " higher dims (max x2)"; } },
+
+        { id: "boost_below", name: "Boost Below", icon: "↓", descFn: function(l) { return "x" + (2 - 1/(1+l*0.1)).toFixed(2) + " lower dims (max x2)"; } }
+
+      );
+
+    }
+
+    // Show unlock banner
+
+    showDimUnlock(unlockedDims);
+
+  }
+
+}
+
+ 
+
+ 
+
+function showEndingScreen() {
+
+  var text = '<span class="highlight">you completed the tenth dimension.</span><br><br>';
+
+  text += "you\'ve been building this whole time.<br>";
+
+  text += "generators, upgrades, dimensions — layers of a system.<br><br>";
+
+  text += '<span class="highlight">this system.</span><br><br>';
+
+  text += "the game you\'re playing was built by the choices you made.<br>";
+
+  text += "every restart was a revision.<br>";
+
+  text += "every kept upgrade, a decision about what matters.<br><br>";
+
+  text += '<span class="highlight">you are the strata.</span><br><br>';
+
+  text += "...";
+
+  document.getElementById("endingText").innerHTML = text;
+
+  var choices = '<div class="ending-choice choice-endless" onclick="chooseEndless()">';
+
+  choices += '<div class="ending-choice-title">endless</div>';
+
+  choices += '<div class="ending-choice-desc">keep building. infinite dimensions.<br>no end. no limit.</div></div>';
+
+  choices += '<div class="ending-choice choice-retire" onclick="chooseRetire()">';
+
+  choices += '<div class="ending-choice-title">retire</div>';
+
+  choices += '<div class="ending-choice-desc">stop here. your run is complete.<br>rest.</div></div>';
+
+  document.getElementById("endingChoices").innerHTML = choices;
+
+  document.getElementById("endingOverlay").classList.remove("hidden");
+
+}
+
+ 
+
+function chooseEndless() {
+
+  document.getElementById("endingOverlay").classList.add("hidden");
+
+  // Award dim 10 perm buff
+
+  if (dimCompletionCount < unlockedDims - 1) {
+
+    showPermBuffOverlay(10);
+
+  }
+
+  showDimUnlock(unlockedDims);
+
+  showSaveMsg("endless mode unlocked.");
+
+}
+
+ 
+
+function chooseRetire() {
+
+  gameRetired = true;
+
+  document.getElementById("endingOverlay").classList.add("hidden");
+
+  // Show retirement screen
+
+  var totalPrestiges = 0;
+
+  for (var i = 0; i < dimensions.length; i++) totalPrestiges += dimensions[i].prestigeCount;
+
+  var html = '<div class="retired-screen">';
+
+  html += '<div class="retired-title">strata — complete</div>';
+
+  html += '<div class="retired-stats">';
+
+  html += 'dimensions completed: 10<br>';
+
+  html += 'total prestige points earned: ' + totalPrestiges + '<br>';
+
+  html += 'permanent buffs collected: ' + permBuffs.length + '<br>';
+
+  html += '<br>thank you for playing.<br><br>';
+
+  html += '<span style="color:var(--text-bright);">you built something.</span>';
+
+  html += '</div></div>';
+
+  document.getElementById("endingText").innerHTML = html;
+
+  document.getElementById("endingChoices").innerHTML = '<div class="ending-choice choice-endless" onclick="document.getElementById(\'endingOverlay\').classList.add(\'hidden\')"><div class="ending-choice-title">close</div></div>';
+
+  document.getElementById("endingOverlay").classList.remove("hidden");
+
+  saveGame();
+
+}
+
+ 
+
+function showDimUnlock(dimNum) {
+
+  var storyText = (dimNum <= 10 && STORY_UNLOCK[dimNum]) ? STORY_UNLOCK[dimNum] : "";
+
+  document.getElementById("dimUnlockTitle").textContent = storyText || ("dimension " + dimNum + " unlocked");
+
+  document.getElementById("dimUnlockSub").textContent = storyText ? "" : "navigate with the arrows below.";
+
+  document.getElementById("dimUnlockBanner").classList.remove("hidden");
+
+  var delay = storyText ? 5000 : 3000; // longer for story text
+
+  setTimeout(function() { document.getElementById("dimUnlockBanner").classList.add("hidden"); }, delay);
+
+}
+
+ 
+
+function failChallenge() {
+
+  var d = D();
+
+  if (!isInChallenge()) return;
+
+  d.activeChallengeIdx = -1;
+
+  d.challengeStartTime = 0;
+
+  var fs = getFastStartPoints(); var ms = bn(10, 0);
+
+  d.points = bnGte(fs, ms) ? fs : ms;
+
+  initGenerators();
+
+  invalidateRenderKeys(); updateUI();
+
+  showSaveMsg("Time's up! Challenge failed.");
+
+}
+
+function quitChallenge() {
+
+  var d = D();
+
+  if (!isInChallenge()) return;
+
+  d.activeChallengeIdx = -1;
+
+  d.challengeStartTime = 0;
+
+  var fs = getFastStartPoints(); var ms = bn(10, 0);
+
+  d.points = bnGte(fs, ms) ? fs : ms;
+
+  initGenerators();
+
+  invalidateRenderKeys();
+
+  updateUI();
+
+}
+
+ 
+
+function showRewardOverlay() {
+
+  var d = D();
+
+  var opts = d.pendingRewardOptions;
+
+  if (!opts || opts.length === 0) { if (d.pendingReward) opts = [d.pendingReward]; else return; }
+
+  document.getElementById("rewardOverlayTitle").textContent = "Challenge Complete!";
+
+  document.getElementById("rewardOverlaySub").textContent = "Pick 1 of " + opts.length + " rewards:";
+
+  document.getElementById("rewardPreview").innerHTML = "";
+
+  var html = "";
+
+  for (var i = 0; i < opts.length; i++) {
+
+    var opt = opts[i];
+
+    var def = UPGRADE_DEFS[opt.defIdx]; if (!def) continue;
+
+    var lvlClass = "lvl-" + Math.min(opt.level, 10);
+
+    html += '<div class="selection-card" onclick="pickReward(' + i + ')">';
+
+    html += '<div class="selection-card-icon">' + def.icon + '</div>';
+
+    html += '<div class="selection-card-info"><div class="selection-card-name">' + def.name + '</div>';
+
+    html += '<div class="selection-card-desc">' + def.descFn(opt.level) + '</div></div>';
+
+    html += '<div class="selection-card-level ' + lvlClass + '">Lv.' + opt.level + '</div></div>';
+
+  }
+
+  document.getElementById("rewardSlots").innerHTML = html;
+
+  document.getElementById("discardRewardBtn").style.display = "";
+
+  document.getElementById("discardRewardBtn").onclick = function() { discardReward(); };
+
+  document.getElementById("rewardOverlay").classList.remove("hidden");
+
+}
+
+function pickReward(index) {
+
+  var d = D();
+
+  var opts = d.pendingRewardOptions || [d.pendingReward];
+
+  var opt = opts[index]; if (!opt) return;
+
+  var def = UPGRADE_DEFS[opt.defIdx]; if (!def) return;
+
+  // Echo: intercept BEFORE placing — show target selection
+
+  if (def.id === "echo") {
+
+    document.getElementById("rewardOverlay").classList.add("hidden");
+
+    d.pendingRewardOptions = null;
+
+    showEchoOverlay(opt.level, "reward");
+
+   return;
+
+  }
+
+  // Try to place in empty slot
+
+  var maxSlots = getMaxUpgradeSlots();
+
+  initUpgradeSlots();
+
+  var placed = false;
+
+  for (var i = 0; i < d.upgradeSlots.length; i++) {
+
+    if (d.upgradeSlots[i] === null) { d.upgradeSlots[i] = { id: def.id, level: opt.level }; placed = true; break; }
+
+  }
+
+  if (placed) {
+
+    d.pendingReward = null; d.pendingRewardOptions = null;
+
+    document.getElementById("rewardOverlay").classList.add("hidden");
+
+    ensureGeneratorCount(); invalidateRenderKeys(); switchTab("challenges"); updateUI();
+
+  } else {
+
+    // Slots full — switch to replace/discard mode
+
+    d.pendingReward = { defIdx: opt.defIdx, level: opt.level };
+
+    d.pendingRewardOptions = null;
+
+    showRewardReplaceOverlay();
+
+  }
+
+}
+
+function showRewardReplaceOverlay() {
+
+  var d = D(); if (!d.pendingReward) return;
+
+  var def = UPGRADE_DEFS[d.pendingReward.defIdx];
+
+  var lvl = d.pendingReward.level;
+
+  var lvlClass = "lvl-" + Math.min(lvl, 10);
+
+  document.getElementById("rewardOverlayTitle").textContent = "Slots Full";
+
+  document.getElementById("rewardOverlaySub").textContent = "Replace an upgrade or discard.";
+
+  document.getElementById("rewardPreview").innerHTML =
+
+    '<div class="reward-preview-icon">' + def.icon + '</div>' +
+
+    '<div class="reward-preview-info"><div class="reward-preview-name">' + def.name + '</div>' +
+
+    '<div class="reward-preview-desc">' + def.descFn(lvl) + '</div></div>' +
+
+    '<div class="reward-preview-level ' + lvlClass + '">Lv.' + lvl + '</div>';
+
+  var html = "";
+
+  for (var i = 0; i < d.upgradeSlots.length; i++) {
+
+    var slot = d.upgradeSlots[i]; if (!slot) continue;
+
+    var sDef = UPGRADE_DEFS.find(function(u) { return u.id === slot.id; }); if (!sDef) continue;
+
+    html += '<div class="reward-slot-option" onclick="replaceSlot(' + i + ')">';
+
+    html += '<div class="upgrade-icon">' + sDef.icon + '</div>';
+
+    html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + sDef.name + ' <span class="upgrade-level-badge">Lv.' + slot.level + '</span></div>';
+
+    html += '<div class="upgrade-slot-desc">' + sDef.descFn(slot.level) + '</div></div></div>';
+
+  }
+
+  document.getElementById("rewardSlots").innerHTML = html;
+
+  document.getElementById("discardRewardBtn").style.display = "";
+
+  document.getElementById("discardRewardBtn").onclick = function() { discardReward(); };
+
+}
+
+ 
+
+function replaceSlot(index) {
+
+  var d = D(); if (!d.pendingReward) return;
+
+  var def = UPGRADE_DEFS[d.pendingReward.defIdx];
+
+  d.upgradeSlots[index] = { id: def.id, level: d.pendingReward.level };
+
+  d.pendingReward = null;
+
+  document.getElementById("rewardOverlay").classList.remove("hidden");
+
+  document.getElementById("rewardOverlay").classList.add("hidden");
+
+  ensureGeneratorCount(); switchTab("challenges"); updateUI();
+
+}
+
+ 
+
+function discardReward() {
+
+  D().pendingReward = null;
+
+  document.getElementById("rewardOverlay").classList.add("hidden");
+
+  switchTab("challenges"); updateUI();
+
+}
+
+ 
+
+// ============================================================
+
+// Upgrade Selection
+
+// ============================================================
+
+function startUpgradeSelection() {
+
+  var d = D();
+
+  var cost = getUpgradePPCost(); if (d.prestigeCount < cost) return;
+
+  d.prestigeCount -= cost; d.upgradeBuyCount++;
+
+  checkChallengeUnlock();
+
+  d.selectionOptions = generateOptions(); d.selectionActive = true;
+
+  currentSelectionSort = "default"; selSortLevelAsc = false;
+
+  renderSelectionOverlay();
+
+  document.getElementById("selectionOverlay").classList.remove("hidden");
+
+  updateUI();
+
+}
+
+function pickOption(index) {
+
+  var d = D(); var opt = d.selectionOptions[index]; var def = UPGRADE_DEFS[opt.defIdx];
+
+  // Echo: if the picked upgrade is Echo, show the target selection overlay
+
+  if (def.id === "echo") {
+
+    d.selectionActive = false; d.selectionOptions = [];
+
+    document.getElementById("selectionOverlay").classList.add("hidden");
+
+    showEchoOverlay(opt.level);
+
+    return;
+
+  }
+
+  var maxSlots = getMaxUpgradeSlots();
+
+  while (d.upgradeSlots.length < maxSlots) d.upgradeSlots.push(null);
+
+  // Check for empty slot
+
+  var placed = false;
+
+  for (var i = 0; i < d.upgradeSlots.length; i++) {
+
+    if (d.upgradeSlots[i] === null) { d.upgradeSlots[i] = { id: def.id, level: opt.level }; placed = true; break; }
+
+  }
+
+  d.selectionActive = false; d.selectionOptions = [];
+
+  document.getElementById("selectionOverlay").classList.add("hidden");
+
+  if (!placed) {
+
+    // All slots full — show replace/discard overlay
+
+    d.pendingUpgrade = { id: def.id, level: opt.level, name: def.name, desc: def.descFn(opt.level) };
+
+    showUpgradeReplaceOverlay();
+
+  } else {
+
+    initUpgradeSlots(); ensureGeneratorCount(); invalidateRenderKeys(); updateUI();
+
+  }
+
+}
+
+function discardSelection() {
+
+  var d = D();
+
+  d.selectionActive = false; d.selectionOptions = [];
+
+  document.getElementById("selectionOverlay").classList.add("hidden");
+
+  updateUI();
+
+}
+
+function showUpgradeReplaceOverlay() {
+
+  var d = D();
+
+  if (!d.pendingUpgrade) return;
+
+  var pu = d.pendingUpgrade;
+
+  var def = UPGRADE_DEFS.find(function(u) { return u.id === pu.id; });
+
+  var lvlClass = "lvl-" + Math.min(pu.level, 10);
+
+  document.getElementById("rewardOverlayTitle").textContent = "Slots Full";
+
+  document.getElementById("rewardOverlaySub").textContent = "Replace an upgrade or discard.";
+
+  document.getElementById("rewardPreview").innerHTML =
+
+    '<div class="reward-preview-icon">' + (def ? def.icon : "") + '</div>' +
+
+    '<div class="reward-preview-info"><div class="reward-preview-name">' + pu.name + '</div>' +
+
+    '<div class="reward-preview-desc">' + pu.desc + '</div></div>' +
+
+    '<div class="reward-preview-level ' + lvlClass + '">Lv.' + pu.level + '</div>';
+
+  var html = "";
+
+  for (var i = 0; i < d.upgradeSlots.length; i++) {
+
+    var slot = d.upgradeSlots[i]; if (!slot) continue;
+
+    var sDef = UPGRADE_DEFS.find(function(u) { return u.id === slot.id; });
+
+    if (!sDef) continue;
+
+    html += '<div class="reward-slot-option" onclick="replaceUpgradeSlot(' + i + ')">';
+
+    html += '<div class="upgrade-icon">' + sDef.icon + '</div>';
+
+    html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + sDef.name + ' <span class="upgrade-level-badge">Lv.' + slot.level + '</span></div>';
+
+    html += '<div class="upgrade-slot-desc">' + sDef.descFn(slot.level) + '</div></div></div>';
+
+  }
+
+  document.getElementById("rewardSlots").innerHTML = html;
+
+  document.getElementById("discardRewardBtn").style.display = "";
+
+  document.getElementById("discardRewardBtn").onclick = function() { discardPendingUpgrade(); };
+
+  document.getElementById("rewardOverlay").classList.remove("hidden");
+
+}
+
+function replaceUpgradeSlot(index) {
+
+  var d = D();
+
+  if (!d.pendingUpgrade) return;
+
+  d.upgradeSlots[index] = { id: d.pendingUpgrade.id, level: d.pendingUpgrade.level };
+
+  d.pendingUpgrade = null;
+
+  document.getElementById("rewardOverlay").classList.add("hidden");
+
+  ensureGeneratorCount(); invalidateRenderKeys(); updateUI();
+
+}
+
+function discardPendingUpgrade() {
+
+  var d = D();
+
+  d.pendingUpgrade = null;
+
+  document.getElementById("rewardOverlay").classList.add("hidden");
+
+  updateUI();
+
+}
+
+var currentSelectionSort = "default";
+
+var selSortLevelAsc = false;
+
+ 
+
+function setSelectionSort(mode) {
+
+  if (mode === "level" && currentSelectionSort === "level") {
+
+    selSortLevelAsc = !selSortLevelAsc;
+
+  } else { selSortLevelAsc = false; }
+
+  currentSelectionSort = mode;
+
+  renderSelectionOverlay();
+
+}
+
+ 
+
+function getSortedSelectionIndices() {
+
+  var d = D();
+
+  var indices = [];
+
+  for (var i = 0; i < d.selectionOptions.length; i++) indices.push(i);
+
+  if (currentSelectionSort === "default") return indices;
+
+  if (currentSelectionSort === "alpha") {
+
+    indices.sort(function(a, b) {
+
+      var na = UPGRADE_DEFS[d.selectionOptions[a].defIdx].name || "";
+
+      var nb = UPGRADE_DEFS[d.selectionOptions[b].defIdx].name || "";
+
+      return na.localeCompare(nb);
+
+    });
+
+  } else if (currentSelectionSort === "level") {
+
+    indices.sort(function(a, b) {
+
+      return selSortLevelAsc ? d.selectionOptions[a].level - d.selectionOptions[b].level : d.selectionOptions[b].level - d.selectionOptions[a].level;
+
+    });
+
+  } else if (currentSelectionSort === "type") {
+
+    indices.sort(function(a, b) {
+
+      var na = UPGRADE_DEFS[d.selectionOptions[a].defIdx].name || "";
+
+      var nb = UPGRADE_DEFS[d.selectionOptions[b].defIdx].name || "";
+
+      if (na !== nb) return na.localeCompare(nb);
+
+      return d.selectionOptions[b].level - d.selectionOptions[a].level;
+
+    });
+
+  }
+
+  return indices;
+
+}
+
+ 
+
+function renderSelectionOverlay() {
+
+  var d = D(); var c = document.getElementById("selectionOptions"); var html = "";
+
+  var sub = document.getElementById("selectionSub");
+
+  var full = getFilledSlotCount() >= getMaxUpgradeSlots();
+
+  var count = d.selectionOptions.length;
+
+  if (sub) sub.textContent = full ? "Slots full \u2014 pick to replace one, or discard" : "Pick 1 of " + count + " \u2014 choose wisely!";
+
+  var sortBtns = document.querySelectorAll("#selSortBar .sort-btn");
+
+  for (var sb = 0; sb < sortBtns.length; sb++) {
+
+    sortBtns[sb].classList.remove("active-sort");
+
+    var mm = sortBtns[sb].getAttribute("onclick");
+
+    if (mm && mm.indexOf(currentSelectionSort) >= 0) sortBtns[sb].classList.add("active-sort");
+
+  }
+
+  var lvlBtn = document.querySelector('#selSortBar .sort-btn[onclick*="level"]');
+
+  if (lvlBtn) lvlBtn.textContent = currentSelectionSort === "level" ? (selSortLevelAsc ? "Lv\u2191" : "Lv\u2193") : "Lv";
+
+  var sorted = getSortedSelectionIndices();
+
+  for (var si = 0; si < sorted.length; si++) {
+
+    var i = sorted[si];
+
+    var opt = d.selectionOptions[i]; var def = UPGRADE_DEFS[opt.defIdx];
+
+    var lvlClass = "lvl-" + Math.min(opt.level, 10);
+
+    var desc = def.descFn(opt.level);
+
+    if (def.id === "luck") { var nb = 1 + 1 / (1 + getUpgradeSum("luck") + opt.level); desc = "Flatten odds (base \u2192 " + nb.toFixed(3) + ")"; }
+
+    if (def.id === "momentum") { var ms = getUpgradeSum("momentum"); var h = getHighestGenTierBought(); desc = "x" + Math.max(1, h * (ms + opt.level)) + " all output"; }
+
+    html += '<div class="selection-card" onclick="pickOption(' + i + ')">';
+
+    html += '<div class="selection-card-icon">' + def.icon + '</div>';
+
+    html += '<div class="selection-card-info"><div class="selection-card-name">' + def.name + '</div>';
+
+    html += '<div class="selection-card-desc">' + desc + '</div></div>';
+
+    html += '<div class="selection-card-level ' + lvlClass + '">Lv.' + opt.level + '</div></div>';
+
+  }
+
+  c.innerHTML = html;
+
+}
+
+ 
+
+// ============================================================
+
+// Dimension Navigation
+
+// ============================================================
+
+function switchDim(dir) {
+
+  var next = activeDimIdx + dir;
+
+  if (next < 0 || next >= unlockedDims) return;
+
+  activeDimIdx = next;
+
+  invalidateRenderKeys();
+
+  switchTab("generators");
+
+  updateUI();
+
+}
+
+ 
+
+// ============================================================
+
+// Defect descriptions and icons
+
+// ============================================================
+
+function getDefectDescription(defId, level) {
+
+  switch (defId) {
+
+    case "upgrade_boost": return "buy base " + (2 - 0.2 * level).toFixed(1) + "x (weaker)";
+
+    case "discount": return "cost base " + (10 * Math.pow(1/0.8, level)).toFixed(1) + "x per buy";
+
+    case "gen_expansion": return "-" + (10 * level) + " generators";
+
+    case "gen_boost": return "all output /" + (10 * level);
+
+   
+
+    case "overclock": return "-" + (25 * level) + " max gen buys";
+
+    case "momentum": return "/" + (level+1) + "^sqrt(tier) output";
+
+   
+
+    default: return "Unknown defect";
+
+  }
+
+}
+
+function getDefectIcon(defId) {
+
+  var map = {
+
+    "upgrade_boost":"∇", "discount":"Λ", "gen_expansion":"⊘",
+
+    "gen_boost":"ω", "overclock":"Φ",
+
+    "momentum":"ζ"
+
+  };
+
+  return map[defId] || "?";
+
+}
+
+function getDefectName(defId) {
+
+  switch (defId) {
+
+    case "upgrade_boost": return "Downgrade";
+
+    case "discount": return "Markup";
+
+    case "gen_expansion": return "Lockdown";
+
+    case "gen_boost": return "Burnout";
+
+   
+
+    case "overclock": return "Bottleneck";
+
+    case "momentum": return "Drag";
+
+   
+
+    default: return "???";
+
+  }
+
+}
+
+ 
+
+// ============================================================
+
+// Tab & UI
+
+// ============================================================
+
+function switchTab(tab) {
+
+  currentTab = tab;
+
+  document.getElementById("tabGenerators").classList.toggle("active", tab === "generators");
+
+  document.getElementById("tabUpgrades").classList.toggle("active", tab === "upgrades");
+
+  document.getElementById("tabChallenges").classList.toggle("active", tab === "challenges");
+
+  document.getElementById("btnTabGen").classList.toggle("active", tab === "generators");
+
+  document.getElementById("btnTabUpg").classList.toggle("active", tab === "upgrades");
+
+  document.getElementById("btnTabCh").classList.toggle("active", tab === "challenges");
+
+  updateTopBars();
+
+  if (tab === "upgrades") renderUpgrades();
+
+  if (tab === "challenges") renderChallenges();
+
+}
+
+ 
+
+function updateTopBars() {
+
+  var d = D();
+
+  var pointsBar = document.getElementById("pointsBar");
+
+  var prestigeBar = document.getElementById("prestigeBar");
+
+  var prestigeBtn = document.getElementById("prestigeBtn");
+
+  var btnTabCh = document.getElementById("btnTabCh");
+
+  var dimNav = document.getElementById("dimNav");
+
+  var dimPenaltyEl = document.getElementById("dimPenalty");
+
+ 
+
+  if (d.challengesUnlocked) btnTabCh.classList.remove("hidden-tab");
+
+  else btnTabCh.classList.add("hidden-tab");
+
+ 
+
+  // Dimension nav
+
+  if (unlockedDims >= 2) {
+
+    dimNav.classList.remove("hidden");
+
+    document.getElementById("dimNavText").textContent = "Dimension " + (activeDimIdx + 1) + " / " + unlockedDims;
+
+    var effective = getDimPenalty(activeDimIdx) * getCrossDimBoost(activeDimIdx);
+
+    document.getElementById("dimNavSub").textContent = activeDimIdx > 0 ? "production x" + effective.toFixed(effective < 0.01 ? 4 : effective < 1 ? 3 : 1) : "";
+
+    document.getElementById("dimPrevBtn").disabled = activeDimIdx === 0;
+
+    document.getElementById("dimNextBtn").disabled = activeDimIdx >= unlockedDims - 1;
+
+  } else { dimNav.classList.add("hidden"); }
+
+ 
+
+  // Dim penalty in points bar
+
+  if (activeDimIdx > 0) {
+
+    var _eff = getDimPenalty(activeDimIdx) * getCrossDimBoost(activeDimIdx);
+
+    dimPenaltyEl.textContent = "dim " + (activeDimIdx+1) + " — x" + _eff.toFixed(_eff < 0.01 ? 4 : _eff < 1 ? 3 : 1);
+
+    dimPenaltyEl.style.display = "";
+
+  } else { dimPenaltyEl.style.display = "none"; }
+
+ 
+
+  if (currentTab === "challenges") {
+
+    pointsBar.classList.add("hidden"); prestigeBar.classList.add("hidden"); prestigeBtn.classList.add("hidden");
+
+  } else if (!d.hasPrestigedOnce) {
+
+    pointsBar.classList.remove("hidden"); prestigeBar.classList.add("hidden"); prestigeBtn.classList.add("hidden");
+
+  } else if (currentTab === "generators") {
+
+    pointsBar.classList.remove("hidden"); prestigeBar.classList.add("hidden");
+
+    if (isInChallenge()) prestigeBtn.classList.add("hidden");
+
+    else prestigeBtn.classList.remove("hidden");
+
+  } else {
+
+    pointsBar.classList.add("hidden"); prestigeBar.classList.remove("hidden"); prestigeBtn.classList.add("hidden");
+
+  }
+
+}
+
+ 
+
+function updateUI() {
+
+  var d = D();
+
+  var prompt = document.getElementById("prestigePrompt");
+
+  var prestigeBtn = document.getElementById("prestigeBtn");
+
+  var pointsEl = document.getElementById("points");
+
+  var rateEl = document.getElementById("rate");
+
+  var tabBar = document.getElementById("tabBar");
+
+ 
+
+  if (d.hasPrestigedOnce || getFilledSlotCount() > 0 || permBuffs.length > 0) tabBar.classList.remove("hidden");
+
+  else tabBar.classList.add("hidden");
+
+  updateTopBars();
+
+ 
+
+  var ppEarned = getPrestigeEarned();
+
+  var canP = canPrestige();
+
+  prestigeBtn.innerHTML = canP ? "<span>Prestige (+" + ppEarned + " PP)</span>" : "<span>Prestige</span>";
+
+  prestigeBtn.disabled = !canP;
+
+  document.getElementById("prestigePoints").textContent = d.prestigeCount;
+
+ 
+
+  if (!d.hasPrestigedOnce && (isCapped() || canPrestige())) prompt.classList.remove("hidden");
+
+  else prompt.classList.add("hidden");
+
+  if (isInChallenge()) prompt.classList.add("hidden");
+
+ 
+
+  if (isCapped()) { pointsEl.classList.add("capped"); rateEl.classList.add("capped"); rateEl.textContent = "CAPPED"; }
+
+  else { pointsEl.classList.remove("capped"); rateEl.classList.remove("capped"); }
+
+ 
+
+  var buyAllEl = document.getElementById("buyAllBtn");
+
+  if (buyAllEl) { if (d.hasPrestigedOnce || getFilledSlotCount() > 0 || permBuffs.length > 0) buyAllEl.classList.remove("hidden"); else buyAllEl.classList.add("hidden"); }
+
+  if (currentTab === "generators") updateGeneratorsLive();
+
+  if (currentTab === "upgrades") updateUpgradesLive();
+
+  if (currentTab === "challenges") updateChallengesLive();
+
+}
+
+ 
+
+function doPrestige() {
+
+  var d = D();
+
+  if (!canPrestige()) return;
+
+  if (isInChallenge()) return;
+
+  d.prestigeCount += getPrestigeEarned();
+
+  d.hasPrestigedOnce = true;
+
+  var fs = getFastStartPoints(); var ms = bn(10, 0);
+
+  d.points = bnGte(fs, ms) ? fs : ms;
+
+  initGenerators();
+
+  invalidateRenderKeys();
+
+  switchTab("generators"); updateUI();
+
+}
+
+ 
+
+// ============================================================
+
+// Render functions
+
+// ============================================================
+
+ 
+
+var currentUpgradeSort = "default";
+
+var sortLevelAsc = false; // toggle for level sort direction
+
+ 
+
+function setUpgradeSort(mode) {
+
+  if (mode === "level" && currentUpgradeSort === "level") {
+
+    sortLevelAsc = !sortLevelAsc; // toggle direction
+
+  } else {
+
+    sortLevelAsc = false;
+
+  }
+
+  currentUpgradeSort = mode;
+
+  invalidateRenderKeys();
+
+  renderUpgrades();
+
+}
+
+ 
+
+function getSortedUpgradeIndices() {
+
+  var d = D();
+
+  var maxSlots = getMaxUpgradeSlots();
+
+  var indices = [];
+
+  for (var i = 0; i < maxSlots; i++) indices.push(i);
+
+ 
+
+  if (currentUpgradeSort === "default") return indices;
+
+ 
+
+  // Separate filled and empty
+
+  var filled = [];
+
+  var empty = [];
+
+  for (var i = 0; i < indices.length; i++) {
+
+    var slot = i < d.upgradeSlots.length ? d.upgradeSlots[i] : null;
+
+    if (slot) filled.push(i);
+
+    else empty.push(i);
+
+  }
+
+ 
+
+  if (currentUpgradeSort === "alpha") {
+
+    filled.sort(function(a, b) {
+
+      var sa = d.upgradeSlots[a]; var sb = d.upgradeSlots[b];
+
+      var da = UPGRADE_DEFS.find(function(u) { return u.id === sa.id; });
+
+      var db = UPGRADE_DEFS.find(function(u) { return u.id === sb.id; });
+
+      var na = da ? da.name : ""; var nb = db ? db.name : "";
+
+      return na.localeCompare(nb);
+
+    });
+
+  } else if (currentUpgradeSort === "level") {
+
+    filled.sort(function(a, b) {
+
+      var la = d.upgradeSlots[a].level; var lb = d.upgradeSlots[b].level;
+
+      return sortLevelAsc ? la - lb : lb - la;
+
+    });
+
+  } else if (currentUpgradeSort === "type") {
+
+    filled.sort(function(a, b) {
+
+      var sa = d.upgradeSlots[a]; var sb = d.upgradeSlots[b];
+
+      if (sa.id !== sb.id) return sa.id.localeCompare(sb.id);
+
+      return sb.level - sa.level; // within same type, highest first
+
+    });
+
+  }
+
+ 
+
+  return filled.concat(empty);
+
+}
+
+ 
+
+ 
+
+var currentUpgradeSub = "slots";
+
+ 
+
+function switchUpgradeSub(sub) {
+
+  currentUpgradeSub = sub;
+
+  document.getElementById("upgradeSubSlots").style.display = sub === "slots" ? "" : "none";
+
+  document.getElementById("upgradeSubPerma").style.display = sub === "perma" ? "" : "none";
+
+  var btns = document.querySelectorAll(".sub-tab-btn");
+
+  for (var i = 0; i < btns.length; i++) {
+
+    btns[i].classList.remove("active-sub");
+
+    var m = btns[i].getAttribute("onclick");
+
+    if (m && m.indexOf(sub) >= 0) btns[i].classList.add("active-sub");
+
+  }
+
+  if (sub === "perma") renderPermPanel();
+
+}
+
+ 
+
+function renderPermPanel() {
+
+  var panel = document.getElementById("permPanel");
+
+  var countEl = document.getElementById("permCount");
+
+ if (countEl) countEl.textContent = "(" + permBuffs.length + ")";
+
+  var permaBtn = document.getElementById("permaSubBtn");
+
+  if (permaBtn) { if (dimCompletionCount > 0) permaBtn.classList.remove("hidden-tab"); else permaBtn.classList.add("hidden-tab"); }
+
+ if (permBuffs.length === 0) {
+
+    panel.innerHTML = '<div class="perm-buff-empty">no permanent buffs yet — complete a dimension to earn one</div>';
+
+    return;
+
+  }
+
+  var html = "";
+
+  for (var i = 0; i < permBuffs.length; i++) {
+
+    var uid = permBuffs[i];
+
+    var def = UPGRADE_DEFS.find(function(u) { return u.id === uid; });
+
+    if (!def) continue;
+
+    html += '<div class="perm-buff-card">';
+
+    html += '<div class="upgrade-icon">' + def.icon + '</div>';
+
+    html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name" style="color:var(--green);">' + def.name + ' <span class="perm-badge">PERM</span></div>';
+
+    html += '<div class="upgrade-slot-desc" style="color:var(--green-dim);">' + def.descFn(1) + '</div></div></div>';
+
+  }
+
+  panel.innerHTML = html;
+
+}
+
+ 
+
+function renderUpgrades() {
+
+  var d = D();
+
+  var ppEl = document.getElementById("upgradesPP");
+
+  var buyBtn = document.getElementById("upgradeBuyBtn");
+
+  ppEl.textContent = d.prestigeCount;
+
+  var cost = getUpgradePPCost();
+
+  buyBtn.textContent = "Buy Upgrade (" + cost + " PP)"; buyBtn.disabled = d.prestigeCount < cost;
+
+  var maxSlots = getMaxUpgradeSlots();
+
+ 
+
+  // Update sort button active states
+
+  var sortBtns = document.querySelectorAll(".sort-btn");
+
+  for (var sb = 0; sb < sortBtns.length; sb++) {
+
+    sortBtns[sb].classList.remove("active-sort");
+
+    var mode = sortBtns[sb].getAttribute("onclick").match(/'(\w+)'/);
+
+    if (mode && mode[1] === currentUpgradeSort) sortBtns[sb].classList.add("active-sort");
+
+  }
+
+  // Update level sort button text to show direction
+
+  var lvlBtn = document.querySelector('.sort-btn[onclick*="level"]');
+
+  if (lvlBtn) lvlBtn.textContent = currentUpgradeSort === "level" ? (sortLevelAsc ? "Lv↑" : "Lv↓") : "Lv↓";
+
+ 
+
+  var sortedIndices = getSortedUpgradeIndices();
+
+  var c = document.getElementById("upgradeSlots"); var html = "";
+
+  for (var si = 0; si < sortedIndices.length; si++) {
+
+    var i = sortedIndices[si];
+
+    var slot = i < d.upgradeSlots.length ? d.upgradeSlots[i] : null;
+
+    if (slot) {
+
+      var def = UPGRADE_DEFS.find(function(u) { return u.id === slot.id; });
+
+      var desc = def ? def.descFn(slot.level) : "Unknown";
+
+      // Show totals for stacking upgrades
+
+      var _ts = getUpgradeSum(slot.id);
+
+      if (def && def.id === "upgrade_boost") { desc = "+0.2 buy base (total " + (2 + _ts*0.2).toFixed(1) + "x base)"; }
+
+      if (def && def.id === "prestige_boost") { desc = "x" + (2*slot.level) + " pp (total x" + (_ts*2) + ")"; }
+
+      if (def && def.id === "discount") { desc = "cost base " + (10*Math.pow(0.8,_ts)).toFixed(1) + "x per buy"; }
+
+      if (def && def.id === "gen_expansion") { desc = "more gens (" + getMaxTier() + " total)"; }
+
+      if (def && def.id === "gen_boost") { desc = "x" + (10*slot.level) + " output (total x" + (10*_ts) + ")"; }
+
+      if (def && def.id === "fast_start") { desc = "keep 1e" + (3*slot.level) + " on prestige"; }
+
+      if (def && def.id === "upgrade_count") { desc = getMaxUpgradeSlots() + " upgrade slots (max 20)"; }
+
+      if (def && def.id === "luck") { desc = "better odds (base " + getLuckBase().toFixed(3) + ")"; }
+
+      if (def && def.id === "ascend") { desc = "max upgrade lv." + getMaxLevel() + " (max 25)"; }
+
+      if (def && def.id === "overclock") { desc = "+" + (25*slot.level) + " buys (total " + getMaxBuy() + " max)"; }
+
+      if (def && def.id === "momentum") { var h = getHighestGenTierBought(); var sqH = Math.sqrt(h).toFixed(1); desc = "x" + (slot.level+1) + "^sqrt(tier) (total x" + (_ts+1) + "^" + sqH + " = x" + Math.pow(_ts+1, Math.sqrt(h)).toExponential(1) + ")"; }
+
+      if (def && def.id === "wide_selection") { desc = getSelectionCount() + " upgrade choices (max 15)"; }
+
+      html += '<div class="upgrade-slot filled"><div class="upgrade-icon">' + (def ? def.icon : "?") + '</div>';
+
+      html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + (def ? def.name : "?") + ' <span class="upgrade-level-badge">Lv.' + slot.level + '</span></div>';
+
+      html += '<div class="upgrade-slot-desc">' + desc + '</div></div></div>';
+
+    } else {
+
+      html += '<div class="upgrade-slot empty"><div class="upgrade-icon">—</div>';
+
+      html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">Empty Slot</div>';
+
+      html += '<div class="upgrade-slot-desc">Buy an upgrade to fill this slot</div></div></div>';
+
+    }
+
+  }
+
+  c.innerHTML = html;
+
+  var countEl = document.getElementById("permCount");
+
+  if (countEl) countEl.textContent = "(" + permBuffs.length + ")";
+
+  var permaBtn = document.getElementById("permaSubBtn");
+
+  if (permaBtn) { if (dimCompletionCount > 0) permaBtn.classList.remove("hidden-tab"); else permaBtn.classList.add("hidden-tab"); }
+
+}
+
+ 
+
+ 
+
+// ============================================================
+
+// Dimension Restart (keep 1 upgrade, wipe everything else)
+
+// ============================================================
+
+ 
+
+ 
+
+function getRestartKeepCount(dim) {
+
+  var d = dim || D();
+
+  var maxExp = d.maxExponent || 0;
+
+  if (maxExp < 308) return 0;
+
+  var count = 1;
+
+  var threshold = 308;
+
+  var gap = 100;
+
+  while (true) {
+
+    threshold += gap;
+
+    if (maxExp < threshold) break;
+
+    count++;
+
+    gap *= 2;
+
+  }
+
+  return count;
+
+}
+
+ 
+
+function showRestartOverlay() {
+
+  var d = D();
+
+  var keepCount = getRestartKeepCount();
+
+  var filledSlots = [];
+
+  for (var i = 0; i < d.upgradeSlots.length; i++) {
+
+    if (d.upgradeSlots[i] !== null) filledSlots.push(i);
+
+  }
+
+  if (filledSlots.length === 0) {
+
+    restartDimension([]);
+
+    return;
+
+  }
+
+  // Reset selection state
+
+  window._restartSelected = [];
+
+  window._restartKeepMax = keepCount;
+
+  currentRestartSort = "default"; restartSortLevelAsc = false;
+
+  renderRestartSlots();
+
+  document.getElementById("restartOverlay").classList.remove("hidden");
+
+}
+
+ 
+
+var currentRestartSort = "default";
+
+var restartSortLevelAsc = false;
+
+ 
+
+function setRestartSort(mode) {
+
+  if (mode === "level" && currentRestartSort === "level") {
+
+    restartSortLevelAsc = !restartSortLevelAsc;
+
+  } else { restartSortLevelAsc = false; }
+
+  currentRestartSort = mode;
+
+  renderRestartSlots();
+
+}
+
+ 
+
+function renderRestartSlots() {
+
+  var d = D();
+
+  var keepCount = window._restartKeepMax;
+
+  var selected = window._restartSelected;
+
+  // Build index list of filled slots
+
+  var filledIndices = [];
+
+  for (var i = 0; i < d.upgradeSlots.length; i++) {
+
+    if (d.upgradeSlots[i] !== null) filledIndices.push(i);
+
+  }
+
+  // Sort filled indices
+
+  if (currentRestartSort === "alpha") {
+
+    filledIndices.sort(function(a, b) {
+
+      var na = UPGRADE_DEFS.find(function(u) { return u.id === d.upgradeSlots[a].id; });
+
+      var nb = UPGRADE_DEFS.find(function(u) { return u.id === d.upgradeSlots[b].id; });
+
+      return (na ? na.name : "").localeCompare(nb ? nb.name : "");
+
+    });
+
+  } else if (currentRestartSort === "level") {
+
+    filledIndices.sort(function(a, b) {
+
+      return restartSortLevelAsc ? d.upgradeSlots[a].level - d.upgradeSlots[b].level : d.upgradeSlots[b].level - d.upgradeSlots[a].level;
+
+    });
+
+  } else if (currentRestartSort === "type") {
+
+    filledIndices.sort(function(a, b) {
+
+      var sa = d.upgradeSlots[a]; var sb = d.upgradeSlots[b];
+
+      if (sa.id !== sb.id) return sa.id.localeCompare(sb.id);
+
+      return sb.level - sa.level;
+
+    });
+
+  }
+
+  // Update sort button states
+
+  var sortBtns = document.querySelectorAll("#restartSortBar .sort-btn");
+
+  for (var sb = 0; sb < sortBtns.length; sb++) {
+
+    sortBtns[sb].classList.remove("active-sort");
+
+    var mm = sortBtns[sb].getAttribute("onclick");
+
+    if (mm && mm.indexOf(currentRestartSort) >= 0) sortBtns[sb].classList.add("active-sort");
+
+  }
+
+  var lvlBtn = document.querySelector('#restartSortBar .sort-btn[onclick*="level"]');
+
+  if (lvlBtn) lvlBtn.textContent = currentRestartSort === "level" ? (restartSortLevelAsc ? "Lv\u2191" : "Lv\u2193") : "Lv";
+
+  // Render
+
+  var html = "";
+
+  for (var fi = 0; fi < filledIndices.length; fi++) {
+
+    var i = filledIndices[fi];
+
+    var slot = d.upgradeSlots[i];
+
+    var sDef = UPGRADE_DEFS.find(function(u) { return u.id === slot.id; });
+
+    if (!sDef) continue;
+
+    var isSelected = selected.indexOf(i) >= 0;
+
+    var borderColor = isSelected ? "var(--green)" : "var(--border)";
+
+    var bgColor = isSelected ? "#0a1a0a" : "var(--bg-card)";
+
+    var checkmark = isSelected ? ' <span style="color:var(--green);">[KEEP]</span>' : "";
+
+    var lvlCls = "lvl-" + Math.min(slot.level, 10);
+
+    html += '<div class="restart-slot-option" style="border-color:' + borderColor + ';background:' + bgColor + ';" onclick="toggleRestartSlot(' + i + ')">';
+
+    html += '<div class="upgrade-icon">' + sDef.icon + '</div>';
+
+    html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + sDef.name + ' <span class="upgrade-level-badge ' + lvlCls + '">Lv.' + slot.level + '</span>' + checkmark + '</div>';
+
+    html += '<div class="upgrade-slot-desc">' + sDef.descFn(slot.level) + '</div></div></div>';
+
+  }
+
+  var maxExp = d.maxExponent || 0;
+
+  document.getElementById("restartSlots").innerHTML = html;
+
+  var titleEl = document.querySelector(".restart-overlay-title");
+
+  if (titleEl) titleEl.textContent = "Restart Dimension";
+
+  var subEl = document.querySelector(".restart-overlay-sub");
+
+  if (subEl) subEl.textContent = "Select up to " + keepCount + " upgrade" + (keepCount !== 1 ? "s" : "") + " to keep. (Best run: 1e" + Math.floor(maxExp) + ")  Selected: " + selected.length + "/" + keepCount;
+
+}
+
+ 
+
+function toggleRestartSlot(idx) {
+
+  var sel = window._restartSelected;
+
+  var pos = sel.indexOf(idx);
+
+  if (pos >= 0) {
+
+    sel.splice(pos, 1);
+
+  } else {
+
+    if (sel.length >= window._restartKeepMax) return; // at cap
+
+    sel.push(idx);
+
+  }
+
+  renderRestartSlots();
+
+}
+
+ 
+
+function confirmRestart() {
+
+  document.getElementById("restartOverlay").classList.add("hidden");
+
+  var d = D();
+
+  var keptUpgrades = [];
+
+  for (var i = 0; i < window._restartSelected.length; i++) {
+
+    var idx = window._restartSelected[i];
+
+    var slot = d.upgradeSlots[idx];
+
+    if (slot) keptUpgrades.push({ id: slot.id, level: slot.level });
+
+  }
+
+  dimensions[activeDimIdx] = createFreshDimension();
+
+  var fresh = D();
+
+  fresh.upgradeSlots = keptUpgrades;
+
+  if (keptUpgrades.length > 0) fresh.hasPrestigedOnce = true;
+
+  initUpgradeSlots(); initGenerators();
+
+  currentTab = "generators";
+
+  invalidateRenderKeys();
+
+  switchTab("generators");
+
+  updateUI();
+
+  showSaveMsg("Dimension " + (activeDimIdx + 1) + " restarted — kept " + keptUpgrades.length + " upgrade" + (keptUpgrades.length !== 1 ? "s" : "") + "!");
+
+}
+
+ 
+
+function cancelRestart() {
+
+  document.getElementById("restartOverlay").classList.add("hidden");
+
+}
+
+ 
+
+function restartDimension(keepSlotIdxArray) {
+
+  document.getElementById("restartOverlay").classList.add("hidden");
+
+  var d = D();
+
+  var keptUpgrades = [];
+
+  if (Array.isArray(keepSlotIdxArray)) {
+
+    for (var i = 0; i < keepSlotIdxArray.length; i++) {
+
+      var idx = keepSlotIdxArray[i];
+
+      var slot = d.upgradeSlots[idx];
+
+      if (slot) keptUpgrades.push({ id: slot.id, level: slot.level });
+
+    }
+
+  }
+
+  dimensions[activeDimIdx] = createFreshDimension();
+
+  var fresh = D();
+
+  fresh.upgradeSlots = keptUpgrades;
+
+  if (keptUpgrades.length > 0) fresh.hasPrestigedOnce = true;
+
+  initUpgradeSlots(); initGenerators();
+
+  currentTab = "generators";
+
+  invalidateRenderKeys();
+
+  switchTab("generators");
+
+  updateUI();
+
+  showSaveMsg("Dimension " + (activeDimIdx + 1) + " restarted — kept " + keptUpgrades.length + " upgrade" + (keptUpgrades.length !== 1 ? "s" : "") + "!");
+
+}
+
+ 
+
+ 
+
+// ============================================================
+
+// Echo — copy any upgrade at Echo's rolled level
+
+// ============================================================
+
+var pendingEchoLevel = 0;
+
+var pendingEchoContext = "normal"; // "normal" or "reward"
+
+ 
+
+function showEchoOverlay(echoLevel, context) {
+
+  pendingEchoLevel = echoLevel;
+
+  pendingEchoContext = context || "normal";
+
+  var d = D();
+
+  var html = "";
+
+  var hasOptions = false;
+
+  for (var i = 0; i < d.upgradeSlots.length; i++) {
+
+    var slot = d.upgradeSlots[i];
+
+    if (!slot) continue;
+
+    if (slot.id === "echo") continue;
+
+    var def = UPGRADE_DEFS.find(function(u) { return u.id === slot.id; });
+
+    if (!def) continue;
+
+    hasOptions = true;
+
+    var desc = def.descFn(echoLevel);
+
+    html += '<div class="echo-slot-option" onclick="pickEchoTarget(\'' + slot.id + '\')">';
+
+    html += '<div class="upgrade-icon">' + def.icon + '</div>';
+
+    html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + def.name + ' <span style="color:var(--text-dim);font-size:0.7rem;">(yours: Lv.' + slot.level + ')</span></div>';
+
+    html += '<div class="upgrade-slot-desc">' + desc + ' <span class="upgrade-level-badge">Lv.' + echoLevel + '</span></div></div></div>';
+
+  }
+
+  if (!hasOptions) {
+
+    cancelEcho();
+
+    showSaveMsg("No upgrades to copy!");
+
+    return;
+
+  }
+
+  document.getElementById("echoTitle").textContent = "Echo Lv." + echoLevel + " \u2014 Copy Which?";
+
+  document.getElementById("echoSub").textContent = "Pick one of your upgrades. Echo becomes a Lv." + echoLevel + " copy.";
+
+  document.getElementById("echoSlots").innerHTML = html;
+
+  document.getElementById("echoOverlay").classList.remove("hidden");
+
+}
+
+ 
+
+function pickEchoTarget(upgradeId) {
+
+  var d = D();
+
+  document.getElementById("echoOverlay").classList.add("hidden");
+
+  var echoUpgrade = { id: upgradeId, level: pendingEchoLevel };
+
+  if (pendingEchoContext === "reward") {
+
+    // Came from challenge reward — go through the reward placement flow
+
+    var maxSlots = getMaxUpgradeSlots(); initUpgradeSlots();
+
+    var placed = false;
+
+    for (var i = 0; i < d.upgradeSlots.length; i++) {
+
+      if (d.upgradeSlots[i] === null) { d.upgradeSlots[i] = echoUpgrade; placed = true; break; }
+
+    }
+
+    if (!placed) {
+
+      d.pendingReward = { defIdx: UPGRADE_DEFS.findIndex(function(u) { return u.id === upgradeId; }), level: pendingEchoLevel };
+
+      d.pendingRewardOptions = null;
+
+      showRewardReplaceOverlay();
+
+    } else {
+
+      d.pendingReward = null; d.pendingRewardOptions = null;
+
+      ensureGeneratorCount(); invalidateRenderKeys(); switchTab("challenges"); updateUI();
+
+    }
+
+  } else {
+
+    // Normal upgrade purchase — place or show replace overlay
+
+    var maxSlots = getMaxUpgradeSlots();
+
+    while (d.upgradeSlots.length < maxSlots) d.upgradeSlots.push(null);
+
+    var placed = false;
+
+    for (var i = 0; i < d.upgradeSlots.length; i++) {
+
+      if (d.upgradeSlots[i] === null) { d.upgradeSlots[i] = echoUpgrade; placed = true; break; }
+
+    }
+
+    if (!placed) {
+
+      var def = UPGRADE_DEFS.find(function(u) { return u.id === upgradeId; });
+
+      d.pendingUpgrade = { id: upgradeId, level: pendingEchoLevel, name: def ? def.name : "?", desc: def ? def.descFn(pendingEchoLevel) : "?" };
+
+      showUpgradeReplaceOverlay();
+
+    } else {
+
+      initUpgradeSlots(); ensureGeneratorCount(); invalidateRenderKeys(); updateUI();
+
+    }
+
+  }
+
+  pendingEchoLevel = 0;
+
+  pendingEchoContext = "normal";
+
+}
+
+ 
+
+function cancelEcho() {
+
+  document.getElementById("echoOverlay").classList.add("hidden");
+
+  pendingEchoLevel = 0;
+
+  pendingEchoContext = "normal";
+
+  updateUI();
+
+}
+
+ 
+
+function renderChallenges() {
+
+  var d = D();
+
+  var statusEl = document.getElementById("challengeStatus");
+
+  var contentEl = document.getElementById("challengeContent");
+
+  if (!d.challengesUnlocked) {
+
+    statusEl.textContent = "Challenges";
+
+    contentEl.innerHTML = '<div style="text-align:center;color:#666;padding:40px;">Buy 2 upgrades to unlock challenges.</div>';
+
+    return;
+
+  }
+
+  var completedCount = d.challenges.filter(function(c) { return c.completed; }).length;
+
+  var html = "";
+
+  // Restart dimension button — always at the top when not in an active challenge
+
+  if (!isInChallenge()) {
+
+    var _keepN = getRestartKeepCount();
+
+    html += '<button class="restart-dim-btn" onclick="showRestartOverlay()">Restart Dimension (keep ' + (_keepN > 0 ? _keepN : 'no') + ' upgrade' + (_keepN !== 1 ? 's' : '') + ')</button>';
+
+  }
+
+  if (completedCount >= 5) {
+
+    statusEl.textContent = "All Challenges Complete!";
+
+    var allDoneMsg = activeDimIdx === unlockedDims - 1 && unlockedDims > 1 ?
+
+      'All 5 Challenges Conquered!<div class="challenge-all-done-sub">Dimension ' + (activeDimIdx + 2) + ' is now unlocked! Use the arrows below to navigate.</div>' :
+
+      activeDimIdx < unlockedDims - 1 ?
+
+      'All 5 Challenges Conquered!<div class="challenge-all-done-sub">You\'ve overcome every challenge in this dimension!</div>' :
+
+      'All 5 Challenges Conquered!<div class="challenge-all-done-sub">New dimension unlocked!</div>';
+
+    html += '<div class="challenge-all-done">' + allDoneMsg + '</div>';
+
+    contentEl.innerHTML = html;
+
+    return;
+
+  }
+
+  statusEl.textContent = "Challenge " + (completedCount + 1) + " of 5";
+
+  for (var i = 0; i < d.challenges.length; i++) {
+
+    var ch = d.challenges[i]; var challengeNum = i + 1;
+
+    var defLevel = getChallengeDefectLevel(challengeNum);
+
+    var isActive = d.activeChallengeIdx === i;
+
+    var isCompleted = ch.completed;
+
+    var isCurrent = !isCompleted && !isActive && getCurrentChallengeIdx() === i;
+
+    var cardClass = "challenge-card";
+
+    var badgeClass, badgeText;
+
+    if (isCompleted) { cardClass += " completed"; badgeClass = "badge-completed"; badgeText = "COMPLETED"; }
+
+    else if (isActive) { cardClass += " active-challenge"; badgeClass = "badge-active"; badgeText = "ACTIVE"; }
+
+    else if (isCurrent) { badgeClass = "badge-available"; badgeText = "AVAILABLE"; }
+
+    else { cardClass += " locked"; badgeClass = "badge-locked"; badgeText = "LOCKED"; }
+
+    html += '<div class="' + cardClass + '"><div class="challenge-header">';
+
+    html += '<div class="challenge-title">Challenge ' + challengeNum + '</div>';
+
+    html += '<div class="challenge-badge ' + badgeClass + '">' + badgeText + '</div></div>';
+
+    html += '<div class="defect-list">';
+
+    for (var dd = 0; dd < ch.defectIds.length; dd++) {
+
+      var defId = ch.defectIds[dd];
+
+      html += '<div class="defect-item">';
+
+      html += '<div class="defect-info"><div class="defect-name">' + getDefectName(defId) + '</div>';
+
+      html += '<div class="defect-desc">' + getDefectDescription(defId, defLevel) + '</div></div>';
+
+      html += '<div class="defect-level">Lv.' + defLevel + '</div></div>';
+
+    }
+
+    html += '</div>';
+
+    // Show unique modifiers (cap increase, time limit)
+
+    if (ch.capExponent || ch.timeLimit) {
+
+      html += '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">';
+
+      if (ch.capExponent) {
+
+        html += '<div style="background:#2a1a2a;border:1px solid #5a2a5a;border-radius:6px;padding:6px 10px;font-size:0.75rem;">';
+
+        html += '<span style="color:#c084fc;">Goal: 1e' + ch.capExponent + '</span> <span style="color:#888;">(was 1e308)</span></div>';
+
+      }
+
+      if (ch.timeLimit) {
+
+        var tm = Math.floor(ch.timeLimit / 60); var ts = ch.timeLimit % 60;
+
+        html += '<div style="background:#2a1a1a;border:1px solid #5a2a2a;border-radius:6px;padding:6px 10px;font-size:0.75rem;">';
+
+        html += '<span style="color:#f87171;">Time: ' + tm + ':' + (ts < 10 ? '0' : '') + ts + '</span></div>';
+
+      }
+
+      html += '</div>';
+
+    }
+
+    // Show reward options (pick 1 of 3)
+
+    var rwOpts = ch.rewardOptions || [ch.reward];
+
+    html += '<div style="font-size:0.65rem;color:var(--green-dim);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">Reward (pick 1 of ' + rwOpts.length + ')</div>';
+
+    for (var rr = 0; rr < rwOpts.length; rr++) {
+
+      var rwDef = UPGRADE_DEFS[rwOpts[rr].defIdx]; if (!rwDef) continue;
+
+      var rwLvlClass = "lvl-" + Math.min(rwOpts[rr].level, 10);
+
+      html += '<div class="challenge-reward"><div class="reward-icon">' + rwDef.icon + '</div>';
+
+      html += '<div class="reward-info"><div class="reward-name">' + rwDef.name + '</div>';
+
+      html += '<div class="reward-desc">' + rwDef.descFn(rwOpts[rr].level) + '</div></div>';
+
+      html += '<div class="reward-level ' + rwLvlClass + '">Lv.' + rwOpts[rr].level + '</div></div>';
+
+    }
+
+    if (isActive) {
+
+      var goalExp = getChallengeGoalExp();
+
+      var exp = bnLog10(d.points);
+
+      var pct = Math.min(100, Math.max(0, (exp / goalExp) * 100));
+
+      html += '<div class="challenge-progress"><div class="challenge-progress-fill" id="chProgressFill" style="width:' + pct.toFixed(1) + '%"></div></div>';
+
+      var progText = exp.toFixed(1) + ' / ' + goalExp + ' exponent (' + pct.toFixed(1) + '%)';
+
+      var timeRem = getChallengeTimeRemaining();
+
+      if (timeRem >= 0) {
+
+        var mins = Math.floor(timeRem / 60); var secs = Math.floor(timeRem % 60);
+
+        progText += ' |  ' + mins + ':' + (secs < 10 ? '0' : '') + secs;
+
+      }
+
+      html += '<div class="challenge-progress-text" id="chProgressText">' + progText + '</div>';
+
+      html += '<button class="challenge-btn quit-btn" onclick="quitChallenge()">Quit Challenge</button>';
+
+    } else if (isCurrent && !isInChallenge()) {
+
+      html += '<button class="challenge-btn" onclick="startChallenge(' + i + ')">Start Challenge ' + challengeNum + '</button>';
+
+    }
+
+    html += '</div>';
+
+  }
+
+  for (var i = d.challenges.length; i < 5; i++) {
+
+    html += '<div class="challenge-card locked"><div class="challenge-header">';
+
+    html += '<div class="challenge-title">Challenge ' + (i + 1) + '</div>';
+
+    html += '<div class="challenge-badge badge-locked">LOCKED</div></div>';
+
+    html += '<div style="color:#444;font-size:0.8rem;padding:8px 0;">Complete Challenge ' + i + ' to unlock</div></div>';
+
+  }
+
+  contentEl.innerHTML = html;
+
+}
+
+ 
+
+// === LIVE (per-frame) UPDATES ===
+
+var lastGenRenderKey = "";
+
+var lastUpgRenderKey = "";
+
+var lastChRenderKey = "";
+
+ 
+
+function invalidateRenderKeys() { lastGenRenderKey = ""; lastChRenderKey = ""; lastUpgRenderKey = ""; }
+
+ 
+
+function getGenRenderKey() {
+
+  var d = D(); var vis = getVisibleTiers(); var maxBuy = getMaxBuy();
+
+  var key = activeDimIdx + ":" + vis + ":" + maxBuy;
+
+  for (var i = 0; i < vis; i++) {
+
+    var gen = d.generators[i]; var cost = getCost(gen.tier, gen.bought);
+
+    var canAfford = gen.bought < maxBuy && bnGte(d.points, cost) && !isCapped();
+
+    key += ":" + gen.bought + (canAfford ? "Y" : "N");
+
+  }
+
+  return key;
+
+}
+
+ 
+
+function updateGeneratorsLive() {
+
+  var key = getGenRenderKey();
+
+  if (key !== lastGenRenderKey) { lastGenRenderKey = key; renderGenerators(); return; }
+
+  var d = D(); var vis = getVisibleTiers();
+
+  for (var i = 0; i < vis; i++) {
+
+    var gen = d.generators[i]; var totalRate = getTotalRate(gen);
+
+    var produces = gen.tier === 1 ? "points" : "Gen " + (gen.tier - 1) + "s";
+
+    var outEl = document.getElementById("genOut" + i);
+
+    if (outEl && !bnIsZero(totalRate)) outEl.textContent = bnFormat(totalRate) + " " + produces + "/sec";
+
+    var amtEl = document.getElementById("genAmt" + i);
+
+    if (amtEl && gen.tier > 1 && !bnIsZero(gen.amount)) amtEl.textContent = " | Amount: " + bnFormat(gen.amount);
+
+    var cost = getCost(gen.tier, gen.bought); var maxBuy = getMaxBuy();
+
+    var isMaxed = gen.bought >= maxBuy; var prog = 0;
+
+    if (isMaxed) prog = 100; else if (bnGte(d.points, cost)) prog = 100;
+
+    else if (!bnIsZero(cost)) prog = Math.min(bnToNum(bnDiv(d.points, cost)) * 100, 100);
+
+    var barEl = document.getElementById("genBar" + i);
+
+    if (barEl) barEl.style.width = prog.toFixed(1) + "%";
+
+  }
+
+}
+
+ 
+
+function updateUpgradesLive() {
+
+  var d = D(); var key = activeDimIdx + ":" + d.prestigeCount + ":" + getFilledSlotCount() + ":" + getMaxUpgradeSlots();
+
+  if (key !== lastUpgRenderKey) { lastUpgRenderKey = key; renderUpgrades(); return; }
+
+  document.getElementById("upgradesPP").textContent = d.prestigeCount;
+
+}
+
+ 
+
+function updateChallengesLive() {
+
+  var d = D();
+
+  var key = activeDimIdx + ":" + d.challenges.length + ":" + d.activeChallengeIdx + ":" + d.challengesUnlocked + ":" +
+
+    d.challenges.map(function(c) { return c.completed ? "1" : "0"; }).join("");
+
+  if (key !== lastChRenderKey) { lastChRenderKey = key; renderChallenges(); return; }
+
+  if (isInChallenge()) {
+
+    var goalExp = getChallengeGoalExp();
+
+    var exp = bnLog10(d.points); var pct = Math.min(100, Math.max(0, (exp / goalExp) * 100));
+
+    var fillEl = document.getElementById("chProgressFill");
+
+    if (fillEl) fillEl.style.width = pct.toFixed(1) + "%";
+
+    var txtEl = document.getElementById("chProgressText");
+
+    if (txtEl) {
+
+      var progText = exp.toFixed(1) + " / " + goalExp + " exponent (" + pct.toFixed(1) + "%)";
+
+      var timeRem = getChallengeTimeRemaining();
+
+      if (timeRem >= 0) {
+
+        var mins = Math.floor(timeRem / 60); var secs = Math.floor(timeRem % 60);
+
+        progText += " |  " + mins + ":" + (secs < 10 ? "0" : "") + secs;
+
+      }
+
+      txtEl.textContent = progText;
+
+    }
+
+  }
+
+}
+
+ 
+
+function renderGenerators() {
+
+  var d = D(); var c = document.getElementById("genList");
+
+  var vis = getVisibleTiers(); var maxBuy = getMaxBuy(); var html = "";
+
+  for (var i = 0; i < vis; i++) {
+
+    var gen = d.generators[i]; var cost = getCost(gen.tier, gen.bought);
+
+    var isMaxed = gen.bought >= maxBuy;
+
+    var canAfford = !isMaxed && bnGte(d.points, cost) && !isCapped();
+
+    var totalRate = getTotalRate(gen); var mult = getPurchaseMultiplier(gen);
+
+    var produces = gen.tier === 1 ? "points" : "Gen " + (gen.tier - 1) + "s";
+
+    var maxTier = d.generators.length || 1;
+
+    var hue = Math.floor((i / Math.max(1, maxTier - 1)) * 240); // 0=red → 240=blue
+
+    var tierStyle = "background:#0a0612;border:1px solid hsl(" + hue + ",70%,40%);color:hsl(" + hue + ",80%,65%)";
+
+    var prog = 0;
+
+    if (isMaxed) prog = 100; else if (canAfford) prog = 100;
+
+    else if (!bnIsZero(cost)) prog = Math.min(bnToNum(bnDiv(d.points, cost)) * 100, 100);
+
+    var cardClass = isMaxed ? "gen-card maxed" : "gen-card";
+
+    html += '<div class="' + cardClass + '"><div class="gen-tier" style="' + tierStyle + '">' + gen.tier + '</div>';
+
+    html += '<div class="gen-info"><div class="gen-name">Generator ' + gen.tier + ' <span style="color:#888;font-weight:400;font-size:0.8rem;">(bought ' + gen.bought + '/' + maxBuy + ' — ' + bnFormat(mult) + 'x)</span></div>';
+
+    if (!bnIsZero(totalRate)) {
+
+      html += '<span class="gen-output" id="genOut' + i + '">' + bnFormat(totalRate) + ' ' + produces + '/sec</span>';
+
+      if (gen.tier > 1) html += '<span class="gen-count" id="genAmt' + i + '">' + (!bnIsZero(gen.amount) ? ' | Amount: ' + bnFormat(gen.amount) : '') + '</span>';
+
+    } else { html += '<span class="gen-stats">Produces ' + produces + '</span>'; }
+
+    if (isMaxed) html += '</div><button class="gen-buy maxed-btn" disabled>MAXED</button>';
+
+    else html += '</div><button class="gen-buy" ' + (canAfford ? 'onclick="buyGen(' + i + ')"' : 'disabled') + '>Buy (' + bnFormat(cost) + ')</button>';
+
+    html += '<div class="progress-bar" id="genBar' + i + '" style="width:' + prog.toFixed(1) + '%"></div></div>';
+
+  }
+
+  c.innerHTML = html;
+
+}
+
+ 
+
+ 
+
+ 
+
+function buyAllGens() {
+
+  var d = D();
+
+  if (isCapped()) return;
+
+  var maxBuy = getMaxBuy();
+
+  var bought = false;
+
+  for (var i = 0; i < d.generators.length; i++) {
+
+    var gen = d.generators[i];
+
+    if (gen.bought >= maxBuy) continue;
+
+    var cost = getCost(gen.tier, gen.bought);
+
+    if (bnGte(d.points, cost)) {
+
+      d.points = bnSub(d.points, cost);
+
+      gen.bought++;
+
+      bought = true;
+
+    }
+
+  }
+
+  if (bought) { lastGenRenderKey = ""; renderGenerators(); }
+
+}
+
+ 
+
+function buyGen(index) {
+
+  var d = D(); if (isCapped()) return;
+
+  var gen = d.generators[index]; if (gen.bought >= getMaxBuy()) return;
+
+  var cost = getCost(gen.tier, gen.bought);
+
+  if (bnGte(d.points, cost)) { d.points = bnSub(d.points, cost); gen.bought++; lastGenRenderKey = ""; renderGenerators(); }
+
+}
+
+ 
+
+function doAutoBuyForDim(dimIdx) {
+
+  var d = dimensions[dimIdx];
+
+  var count = getAutoBuyCount(d); if (count === 0) return;
+
+  if (hasBreakInfinity(d) ? false : bnGte(d.points, BASE_POINT_CAP)) return;
+
+  var maxBuy = getMaxBuy(d);
+
+  for (var b = 0; b < count; b++) {
+
+    for (var i = 0; i < d.generators.length; i++) {
+
+      var gen = d.generators[i]; if (gen.bought >= maxBuy) continue;
+
+      var cost = getCost(gen.tier, gen.bought, d);
+
+      var cap = hasBreakInfinity(d) ? false : bnGte(d.points, BASE_POINT_CAP);
+
+      if (bnGte(d.points, cost) && !cap) { d.points = bnSub(d.points, cost); gen.bought++; }
+
+    }
+
+  }
+
+}
+
+ 
+
+// ============================================================
+
+// Game Tick — ALL dimensions
+
+// ============================================================
+
+var lastTime = performance.now();
+
+function gameTick() {
+
+  var now = performance.now(); var dt = (now - lastTime) / 1000; lastTime = now;
+
+ 
+
+  // Tick ALL dimensions (throttle background dims for performance)
+
+  if (!window._bgTickCounter) window._bgTickCounter = 0;
+
+  window._bgTickCounter++;
+
+  var tickBg = (window._bgTickCounter % 10 === 0); // background dims tick every 10 frames
+
+  for (var di = 0; di < dimensions.length; di++) {
+
+    if (di !== activeDimIdx && !tickBg) continue; // skip background dims most frames
+
+    var bgDt = (di !== activeDimIdx) ? dt * 10 : dt; // compensate: 10× dt for 1/10 freq
+
+    var d = dimensions[di];
+
+    var cap = hasBreakInfinity(d) ? false : bnGte(d.points, BASE_POINT_CAP);
+
+ 
+
+    // Autobuy
+
+    d.autobuyTimer = (d.autobuyTimer || 0) + bgDt;
+
+    if (d.autobuyTimer >= 1) {
+
+      d.autobuyTimer -= 1;
+
+      doAutoBuyForDim(di);
+
+      // TEST MODE: buy all affordable generators every second
+
+      if (DEBUG_AUTO_BUY_ALL) {
+
+        var maxBuy = getMaxBuy(d);
+
+        for (var ab = 0; ab < d.generators.length; ab++) {
+
+          var g = d.generators[ab]; if (g.bought >= maxBuy) continue;
+
+          var c = getCost(g.tier, g.bought, d);
+
+          while (bnGte(d.points, c) && g.bought < maxBuy) { d.points = bnSub(d.points, c); g.bought++; c = getCost(g.tier, g.bought, d); }
+
+        }
+
+      }
+
+    }
+
+ 
+
+    // Production (optimized: cache shared multipliers, skip idle gens)
+
+    if (!cap) {
+
+      var _gb = getGenBoostMult(d);
+
+      var _mm = getMomentumMult(d);
+
+      var _dp = getDimPenalty(di);
+
+      var _cb = getCrossDimBoost(di);
+
+      var sharedMult = bnFromNum(_gb * _mm * _dp * _cb * bgDt);
+
+      for (var i = d.generators.length - 1; i >= 0; i--) {
+
+        var gen = d.generators[i];
+
+       if (gen.bought === 0 && bnIsZero(gen.amount)) continue; // OPT 3: skip idle gens
+
+        var total = gen.bought > 0 ? bnAdd(bn(1, 0), gen.amount) : gen.amount;
+
+        if (bnIsZero(total)) continue;
+
+        var pm = getPurchaseMultiplier(gen, d);
+
+        var prod = bnMul(bnMul(total, pm), sharedMult);
+
+        if (gen.tier === 1) {
+
+          d.points = bnAdd(d.points, prod);
+
+          if (!hasBreakInfinity(d) && bnGte(d.points, BASE_POINT_CAP)) { d.points = { m: BASE_POINT_CAP.m, e: BASE_POINT_CAP.e }; }
+
+        } else { d.generators[i - 1].amount = bnAdd(d.generators[i - 1].amount, prod); }
+
+      }
+
+    }
+
+ 
+
+    // Snap to cap: if points are very close to 1e308, round up
+
+    if (!hasBreakInfinity(d) && d.points.e === 307 && d.points.m >= 9.5) {
+
+      d.points = { m: BASE_POINT_CAP.m, e: BASE_POINT_CAP.e };
+
+    }
+
+ 
+
+    // Track max exponent (all-time high for this dimension)
+
+    var curExp = bnLog10(d.points);
+
+    if (curExp > (d.maxExponent || 0)) d.maxExponent = curExp;
+
+ 
+
+    // Challenge auto-complete
+
+    // Check time limit expiry
+
+    if (d.activeChallengeIdx >= 0 && d.challengeStartTime > 0) {
+
+      var tl = getChallengeTimeLimit(d);
+
+      if (tl > 0) {
+
+        var elapsed = (Date.now() - d.challengeStartTime) / 1000;
+
+        if (elapsed >= tl) {
+
+          // Time's up — auto-fail
+
+          if (di === activeDimIdx) { failChallenge(); }
+
+          else { d.activeChallengeIdx = -1; var _fs = getFastStartPoints(d); var _ms = bn(10,0); d.points = bnGte(_fs,_ms)?_fs:_ms; }
+
+          continue;
+
+        }
+
+      }
+
+    }
+
+    if (d.activeChallengeIdx >= 0 && bnGte(d.points, getChallengeGoal(d))) {
+
+      if (di === activeDimIdx) { completeChallenge(); }
+
+      else {
+
+        // Background challenge complete for non-active dim
+
+        var ch = d.challenges[d.activeChallengeIdx];
+
+        if (ch) {
+
+          ch.completed = true;
+
+          d.prestigeCount += getBasePP(d) * getPrestigeBoostMult(d);
+
+          d.hasPrestigedOnce = true;
+
+          d.pendingRewardOptions = ch.rewardOptions || [ch.reward];
+
+  d.pendingReward = d.pendingRewardOptions[0]; // backward compat
+
+          d.activeChallengeIdx = -1;
+
+          var cc = d.challenges.filter(function(c) { return c.completed; }).length;
+
+          if (cc < 5 && d.challenges.length <= cc) d.challenges.push(generateChallenge(cc + 1, d));
+
+          var fs = getFastStartPoints(d); var ms = bn(10, 0);
+
+          d.points = bnGte(fs, ms) ? fs : ms;
+
+          initGenerators(d);
+
+        }
+
+      }
+
+    }
+
+  }
+
+ 
+
+  // Update DOM only for active dimension
+
+  var d = D();
+
+  document.getElementById("points").textContent = bnFormat(d.points);
+
+  if (!isCapped()) { document.getElementById("rate").textContent = "+" + bnFormat(getPointsPerSec()) + " / sec"; }
+
+  // Prestige glow fill on the prestige button
+
+  var _ppExp = bnLog10(d.points);
+
+  var _ppPct = 0;
+
+  if (_ppExp > 0) {
+
+    var _ppTh = PRESTIGE_EXP_THRESHOLD;
+
+    if (hasBreakInfinity(d)) {
+
+      _ppPct = ((_ppExp % _ppTh) / _ppTh) * 100;
+
+    } else {
+
+      _ppPct = Math.min(100, (_ppExp / _ppTh) * 100);
+
+    }
+
+  }
+
+  document.getElementById("prestigeBtn").style.setProperty("--pp-pct", _ppPct.toFixed(1) + "%");
+
+  updateUI();
+
+  requestAnimationFrame(gameTick);
+
+}
+
+ 
+
+// ============================================================
+
+// Save / Load / Reset
+
+// ============================================================
+
+function serializeBn(b) { return { m: b.m, e: b.e }; }
+
+function deserializeBn(b) { return b && b.m !== undefined ? bn(b.m, b.e) : bn(0, 0); }
+
+ 
+
+function saveGame() {
+
+  var data = {
+
+    activeDimIdx: activeDimIdx,
+
+    unlockedDims: unlockedDims,
+
+    multiDimUnlocked: multiDimUnlocked,
+
+    gameRetired: gameRetired || false,
+
+    permBuffs: permBuffs,
+
+    dimCompletionCount: dimCompletionCount,
+
+    currentTab: currentTab,
+
+    dimensions: dimensions.map(function(d) {
+
+      return {
+
+        points: serializeBn(d.points),
+
+        generators: d.generators.map(function(g) { return { tier: g.tier, bought: g.bought, amount: serializeBn(g.amount) }; }),
+
+        prestigeCount: d.prestigeCount,
+
+        upgradeSlots: d.upgradeSlots,
+
+        upgradeBuyCount: d.upgradeBuyCount,
+
+        hasPrestigedOnce: d.hasPrestigedOnce,
+
+        challenges: d.challenges.map(function(c) { return { defectIds: c.defectIds, reward: c.reward, rewardOptions: c.rewardOptions || null, completed: c.completed, capExponent: c.capExponent || null, timeLimit: c.timeLimit || null }; }),
+
+        activeChallengeIdx: d.activeChallengeIdx,
+
+        challengesUnlocked: d.challengesUnlocked,
+
+        pendingReward: d.pendingReward,
+
+        pendingRewardOptions: d.pendingRewardOptions || null,
+
+        autobuyTimer: d.autobuyTimer,
+
+        maxExponent: d.maxExponent || 0
+
+      };
+
+    }),
+
+    timestamp: Date.now()
+
+  };
+
+  safeSetItem("nestedIdleSave2", JSON.stringify(data));
+
+  showSaveMsg("Game saved!");
+
+}
+
+ 
+
+function loadGame() {
+
+  var raw = safeGetItem("nestedIdleSave2");
+
+  if (!raw) { showSaveMsg("No save found."); return false; }
+
+  try {
+
+    var data = JSON.parse(raw);
+
+    activeDimIdx = data.activeDimIdx || 0;
+
+    unlockedDims = data.unlockedDims || 1;
+
+    multiDimUnlocked = !!data.multiDimUnlocked;
+
+    gameRetired = !!data.gameRetired;
+
+    permBuffs = data.permBuffs || [];
+
+    dimCompletionCount = data.dimCompletionCount || 0;
+
+    if (data.currentTab) currentTab = data.currentTab;
+
+ 
+
+    // Restore cross-dim upgrades if needed
+
+    if (multiDimUnlocked && !UPGRADE_DEFS.find(function(u) { return u.id === "boost_above"; })) {
+
+      UPGRADE_DEFS.push(
+
+        { id: "boost_above", name: "Boost Above", icon: "↑", descFn: function(l) { return "x" + (2 - 1/(1+l*0.1)).toFixed(2) + " higher dims (max x2)"; } },
+
+        { id: "boost_below", name: "Boost Below", icon: "↓", descFn: function(l) { return "x" + (2 - 1/(1+l*0.1)).toFixed(2) + " lower dims (max x2)"; } }
+
+      );
+
+    }
+
+ 
+
+    dimensions = [];
+
+    for (var di = 0; di < data.dimensions.length; di++) {
+
+      var sd = data.dimensions[di];
+
+      var d = createFreshDimension();
+
+      d.points = deserializeBn(sd.points);
+
+      d.prestigeCount = sd.prestigeCount || 0;
+
+      d.upgradeSlots = sd.upgradeSlots || [];
+
+      d.upgradeBuyCount = sd.upgradeBuyCount || 0;
+
+      d.hasPrestigedOnce = !!sd.hasPrestigedOnce;
+
+      d.activeChallengeIdx = typeof sd.activeChallengeIdx === "number" ? sd.activeChallengeIdx : -1;
+
+      d.challengesUnlocked = !!sd.challengesUnlocked;
+
+      d.pendingReward = sd.pendingReward || null;
+
+        d.pendingRewardOptions = sd.pendingRewardOptions || null;
+
+      d.autobuyTimer = sd.autobuyTimer || 0;
+
+      d.maxExponent = sd.maxExponent || 0;
+
+      if (sd.challenges) {
+
+        d.challenges = sd.challenges.map(function(c) { return { defectIds: c.defectIds || [], reward: c.reward || { defIdx: 0, level: 1 }, rewardOptions: c.rewardOptions || (c.reward ? [c.reward] : null), completed: !!c.completed, capExponent: c.capExponent || null, timeLimit: c.timeLimit || null }; });
+
+      }
+
+      initUpgradeSlots(d);
+
+      initGenerators(d);
+
+      if (sd.generators) {
+
+        for (var i = 0; i < sd.generators.length && i < d.generators.length; i++) {
+
+          d.generators[i].bought = sd.generators[i].bought || 0;
+
+          d.generators[i].amount = deserializeBn(sd.generators[i].amount);
+
+        }
+
+      }
+
+      dimensions.push(d);
+
+    }
+
+ 
+
+    // Offline progress for all dimensions
+
+    if (data.timestamp) {
+
+      var elapsed = (Date.now() - data.timestamp) / 1000;
+
+      if (elapsed > 0) {
+
+        var ot = Math.min(elapsed, 86400); var steps = 100; var sdt = ot / steps;
+
+        for (var di = 0; di < dimensions.length; di++) {
+
+          var d = dimensions[di];
+
+          var _ogb = getGenBoostMult(d);
+
+          var _omm = getMomentumMult(d);
+
+          var _odp = getDimPenalty(di);
+
+          var _ocb = getCrossDimBoost(di);
+
+          var oShared = bnFromNum(_ogb * _omm * _odp * _ocb * sdt);
+
+          for (var s = 0; s < steps; s++) {
+
+            var cap = hasBreakInfinity(d) ? false : bnGte(d.points, BASE_POINT_CAP);
+
+            if (cap) break;
+
+            for (var i = d.generators.length - 1; i >= 0; i--) {
+
+              var gen = d.generators[i];
+
+              if (gen.bought === 0 && bnIsZero(gen.amount)) continue;
+
+              var total = gen.bought > 0 ? bnAdd(bn(1, 0), gen.amount) : gen.amount;
+
+              if (bnIsZero(total)) continue;
+
+              var prod = bnMul(bnMul(total, getPurchaseMultiplier(gen, d)), oShared);
+
+              if (gen.tier === 1) {
+
+                d.points = bnAdd(d.points, prod);
+
+                if (!hasBreakInfinity(d) && bnGte(d.points, BASE_POINT_CAP)) { d.points = { m: BASE_POINT_CAP.m, e: BASE_POINT_CAP.e }; break; }
+
+              } else { d.generators[i - 1].amount = bnAdd(d.generators[i - 1].amount, prod); }
+
+            }
+
+          }
+
+        }
+
+        showSaveMsg("Loaded! +" + Math.floor(ot) + "s offline progress");
+
+      }
+
+    } else { showSaveMsg("Game loaded!"); }
+
+ 
+
+    switchTab(currentTab);
+
+    if (D().pendingReward) showRewardOverlay();
+
+    invalidateRenderKeys();
+
+    updateUI();
+
+    return true;
+
+  } catch (e) { showSaveMsg("Error loading save."); return false; }
+
+}
+
+ 
+
+function resetGame() {
+
+  var doReset = true;
+
+  try { doReset = confirm("HARD RESET? All progress across ALL dimensions will be lost."); } catch(e) {}
+
+  if (doReset) {
+
+    safeRemoveItem("nestedIdleSave2");
+
+    dimensions = [createFreshDimension()];
+
+    activeDimIdx = 0; unlockedDims = 1; multiDimUnlocked = false;
+
+    currentTab = "generators";
+
+    // Remove cross-dim upgrades if they were added
+
+    UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return u.id !== "boost_above" && u.id !== "boost_below"; });
+
+    initUpgradeSlots(); initGenerators();
+
+    switchTab("generators");
+
+    document.getElementById("tabBar").classList.add("hidden");
+
+    invalidateRenderKeys(); updateUI();
+
+    showSaveMsg("Game reset!");
+
+  }
+
+}
+
+ 
+
+function showSaveMsg(msg) {
+
+  var el = document.getElementById("saveMsg"); el.textContent = msg;
+
+  setTimeout(function() { el.textContent = ""; }, 3000);
+
+}
+
+ 
+
+// Safe localStorage wrapper
+
+var storageAvailable = false;
+
+try { localStorage.setItem("__test__", "1"); localStorage.removeItem("__test__"); storageAvailable = true; } catch(e) {}
+
+function safeGetItem(k) { try { return storageAvailable ? localStorage.getItem(k) : null; } catch(e) { return null; } }
+
+function safeSetItem(k, v) { try { if (storageAvailable) localStorage.setItem(k, v); } catch(e) {} }
+
+function safeRemoveItem(k) { try { if (storageAvailable) localStorage.removeItem(k); } catch(e) {} }
+
+ 
+
+ 
+
+// ============================================================
+
+// Start Screen
+
+// ============================================================
+
+var gameStarted = false;
+
+ 
+
+function showStartScreen() {
+
+  var hasSave = !!safeGetItem("nestedIdleSave2");
+
+  var html = "";
+
+  if (hasSave) {
+
+    html += '<button class="start-btn start-continue" onclick="startContinue()">continue</button>';
+
+    html += '<button class="start-btn" onclick="startNew()">new game</button>';
+
+  } else {
+
+    html += '<button class="start-btn" onclick="startNew()">begin</button>';
+
+  }
+
+  document.getElementById("startButtons").innerHTML = html;
+
+  document.getElementById("startScreen").classList.remove("hidden");
+
+}
+
+ 
+
+function startContinue() {
+
+  document.getElementById("startScreen").classList.add("hidden");
+
+  gameStarted = true;
+
+  loadGame();
+
+  invalidateRenderKeys();
+
+  updateUI();
+
+  requestAnimationFrame(gameTick);
+
+}
+
+ 
+
+function startNew() {
+
+  document.getElementById("startScreen").classList.add("hidden");
+
+  gameStarted = true;
+
+  safeRemoveItem("nestedIdleSave2");
+
+  dimensions = [createFreshDimension()];
+
+  activeDimIdx = 0; unlockedDims = 1; multiDimUnlocked = false;
+
+  permBuffs = []; dimCompletionCount = 0; gameRetired = false;
+
+  UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return u.id !== "boost_above" && u.id !== "boost_below"; });
+
+  initUpgradeSlots(); initGenerators();
+
+  currentTab = "generators";
+
+  switchTab("generators");
+
+  invalidateRenderKeys();
+
+  updateUI();
+
+  requestAnimationFrame(gameTick);
+
+}
+
+ 
+
+// ============================================================
+
+// Init
+
+// ============================================================
+
+setInterval(function() { if (gameStarted) saveGame(); }, AUTO_SAVE_INTERVAL);
+
+showStartScreen();
+
+</script>
+
+ 
+
+</body>
+
+</html>
+
+ 
+
+From: Kevin Blau <kevinblau0@gmail.com>
+Sent: Tuesday, September 22, 2026 11:42 PM
+To: Blau, Kevin <blaukevm@amazon.com>
+Subject: [EXTERNAL]
+
+ 
+
+CAUTION: This email originated from outside of the organization. Do not click links or open attachments unless you can confirm the sender and know the content is safe.
+
+ 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1274,7 +7291,7 @@ function getSelectionCount() {
 function generateOptions(count) {
   var n = count || getSelectionCount();
   var opts = [];
-  
+ 
   // 1. Create a lightweight pool of available choices.
   // We save the original array index ('defIdx') right alongside the reference.
   var pool = UPGRADE_DEFS.map((def, index) => {
@@ -1288,13 +7305,13 @@ function generateOptions(count) {
     // 2. Pick a random index out of the remaining pool
     var poolIdx = Math.floor(Math.random() * pool.length);
     var chosen = pool[poolIdx];
-    
+   
     var lv = rollLevel();
-    
+   
     // 3. Push the original, unshifted index to your final selection
     opts.push({ defIdx: chosen.defIdx, level: lv });
 
-    // 4. Fast Remove: Swap the chosen item with the LAST item in the pool, 
+    // 4. Fast Remove: Swap the chosen item with the LAST item in the pool,
     // then pop it off. This avoids heavy array shifting performance penalties.
     pool[poolIdx] = pool[pool.length - 1];
     pool.pop();
@@ -1875,10 +7892,10 @@ function getDefectDescription(defId, level) {
     case "discount": return "cost base " + (10 * Math.pow(1/0.8, level)).toFixed(1) + "x per buy";
     case "gen_expansion": return "-" + (10 * level) + " generators";
     case "gen_boost": return "all output /" + (10 * level);
-    
+   
     case "overclock": return "-" + (25 * level) + " max gen buys";
     case "momentum": return "/" + (level+1) + "^sqrt(tier) output";
-    
+   
     default: return "Unknown defect";
   }
 }
@@ -1896,10 +7913,10 @@ function getDefectName(defId) {
     case "discount": return "Markup";
     case "gen_expansion": return "Lockdown";
     case "gen_boost": return "Burnout";
-    
+   
     case "overclock": return "Bottleneck";
     case "momentum": return "Drag";
-    
+   
     default: return "???";
   }
 }
@@ -2030,9 +8047,9 @@ function getSortedUpgradeIndices() {
   var maxSlots = getMaxUpgradeSlots();
   var indices = [];
   for (var i = 0; i < maxSlots; i++) indices.push(i);
-  
+ 
   if (currentUpgradeSort === "default") return indices;
-  
+ 
   // Separate filled and empty
   var filled = [];
   var empty = [];
@@ -2041,7 +8058,7 @@ function getSortedUpgradeIndices() {
     if (slot) filled.push(i);
     else empty.push(i);
   }
-  
+ 
   if (currentUpgradeSort === "alpha") {
     filled.sort(function(a, b) {
       var sa = d.upgradeSlots[a]; var sb = d.upgradeSlots[b];
@@ -2062,7 +8079,7 @@ function getSortedUpgradeIndices() {
       return sb.level - sa.level; // within same type, highest first
     });
   }
-  
+ 
   return filled.concat(empty);
 }
 
@@ -2113,7 +8130,7 @@ function renderUpgrades() {
   var cost = getUpgradePPCost();
   buyBtn.textContent = "Buy Upgrade (" + cost + " PP)"; buyBtn.disabled = d.prestigeCount < cost;
   var maxSlots = getMaxUpgradeSlots();
-  
+ 
   // Update sort button active states
   var sortBtns = document.querySelectorAll(".sort-btn");
   for (var sb = 0; sb < sortBtns.length; sb++) {
@@ -2124,7 +8141,7 @@ function renderUpgrades() {
   // Update level sort button text to show direction
   var lvlBtn = document.querySelector('.sort-btn[onclick*="level"]');
   if (lvlBtn) lvlBtn.textContent = currentUpgradeSort === "level" ? (sortLevelAsc ? "Lv↑" : "Lv↓") : "Lv↓";
-  
+ 
   var sortedIndices = getSortedUpgradeIndices();
   var c = document.getElementById("upgradeSlots"); var html = "";
   for (var si = 0; si < sortedIndices.length; si++) {
