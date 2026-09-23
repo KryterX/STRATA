@@ -36,7 +36,6 @@
     background: var(--bg-deep);
     color: var(--text);
     height: 100vh;
-    height: 100dvh; /* dynamic viewport — accounts for mobile browser toolbar */
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -295,11 +294,6 @@
     flex-shrink: 0; background: var(--bg-deep);
     border-top: 1px solid var(--border);
     display: flex; width: 100%; z-index: 100;
-   position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  z-index: 1000;
   }
   .tab-bar.hidden { display: none; }
   .tab-btn {
@@ -733,12 +727,12 @@
   }
 
   /* Mobile safe area — bottom bar accessibility */
-  .tab-bar { padding-bottom: env(safe-area-inset-bottom, 4px); }
-  .dim-nav { padding-bottom: env(safe-area-inset-bottom, 4px); }
+  .tab-bar { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); }
+  .dim-nav { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); }
   @media (max-width: 768px) {
-    .tab-bar { padding-bottom: env(safe-area-inset-bottom, 8px); }
-    .dim-nav { padding-bottom: env(safe-area-inset-bottom, 8px); }
-    .content-area { padding-bottom: 20px; }
+    .tab-bar { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 50px); }
+    .dim-nav { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 50px); }
+    .content-area { padding-bottom: 80px; }
   }
 
 
@@ -1275,11 +1269,32 @@ function getSelectionCount() {
 function generateOptions(count) {
   var n = count || getSelectionCount();
   var opts = [];
+  
+  // 1. Create a lightweight pool of available choices.
+  // We save the original array index ('defIdx') right alongside the reference.
+  var pool = UPGRADE_DEFS.map((def, index) => {
+    return { defIdx: index, def: def };
+  });
+
   for (var i = 0; i < n; i++) {
-    var di = Math.floor(Math.random() * UPGRADE_DEFS.length);
+    // If we run out of unique upgrades in the pool, stop to avoid an infinite loop
+    if (pool.length === 0) break;
+
+    // 2. Pick a random index out of the remaining pool
+    var poolIdx = Math.floor(Math.random() * pool.length);
+    var chosen = pool[poolIdx];
+    
     var lv = rollLevel();
-    opts.push({ defIdx: di, level: lv });
+    
+    // 3. Push the original, unshifted index to your final selection
+    opts.push({ defIdx: chosen.defIdx, level: lv });
+
+    // 4. Fast Remove: Swap the chosen item with the LAST item in the pool, 
+    // then pop it off. This avoids heavy array shifting performance penalties.
+    pool[poolIdx] = pool[pool.length - 1];
+    pool.pop();
   }
+
   return opts;
 }
 
@@ -1326,9 +1341,25 @@ function generateChallenge(challengeNum, dim) {
   // Generate 3 reward options, all at the challenge's defect level
   var rewardLevel = getChallengeDefectLevel(challengeNum, dim);
   var rewardOptions = [];
-  for (var ri = 0; ri < 3; ri++) {
-    rewardOptions.push({ defIdx: Math.floor(Math.random() * UPGRADE_DEFS.length), level: rewardLevel });
-  }
+  var pool = UPGRADE_DEFS.map((def, index) => {
+  return { defIdx: index };
+});
+
+for (var ri = 0; ri < 3; ri++) {
+  // Safety check: stop if we run out of unique upgrades entirely
+  if (pool.length === 0) break;
+
+  // 2. Pick a random item from the remaining pool
+  var poolIdx = Math.floor(Math.random() * pool.length);
+  var chosen = pool[poolIdx];
+
+  // 3. Push the original index and the fixed reward level
+  rewardOptions.push({ defIdx: chosen.defIdx, level: rewardLevel });
+
+  // 4. Remove the chosen item from the pool so it can't be picked again
+  pool[poolIdx] = pool[pool.length - 1];
+  pool.pop();
+}
   // Unique challenge modifiers: cap increase and time limit
   // Higher challenges are more likely to get these
   var capExponent = null;
