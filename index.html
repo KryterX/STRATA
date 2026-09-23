@@ -54,20 +54,20 @@
   }
   .top-section {
     flex-shrink: 0; background: var(--bg-main); width: 100%; display: flex; flex-direction: column;
-    align-items: center; padding: 12px 20px 8px;
+    align-items: center; padding: 8px 20px 6px;
     border-bottom: 1px solid var(--border); z-index: 100;
   }
   h1 {
-    font-size: 1.6rem; margin-bottom: 1px; color: var(--text-bright);
+    font-size: 1.3rem; margin-bottom: 0px; color: var(--text-bright);
     letter-spacing: 0.12em; text-transform: uppercase;
     font-family: var(--font-mono); font-weight: 700;
   }
-  .subtitle { color: var(--text-dim); font-size: 0.7rem; margin-bottom: 8px; letter-spacing: 0.15em; text-transform: uppercase; }
+  .subtitle { color: var(--text-dim); font-size: 0.65rem; margin-bottom: 4px; letter-spacing: 0.15em; text-transform: uppercase; }
   .points-bar {
     width: 100%; max-width: 500px; background: var(--bg-card);
     border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 14px 16px; display: flex; align-items: center;
-    justify-content: space-between; margin-bottom: 8px;
+    padding: 10px 14px; display: flex; align-items: center;
+    justify-content: space-between; margin-bottom: 5px;
     transition: border-color var(--transition);
   }
   .points-bar:hover { border-color: var(--cyan-dim); }
@@ -75,7 +75,7 @@
   .points-info { text-align: center; flex: 1; }
   .points-label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 2px; }
   .points-value {
-    font-size: 2rem; font-weight: 700; color: var(--cyan);
+    font-size: 1.6rem; font-weight: 700; color: var(--cyan);
     font-family: var(--font-mono); transition: color var(--transition);
   }
   .points-value.capped { color: var(--amber); }
@@ -102,8 +102,8 @@
   .prestige-bar {
     width: 100%; max-width: 500px; background: var(--bg-card);
     border: 1px solid #2a1a3a; border-radius: var(--radius);
-    padding: 14px 16px; display: flex; align-items: center;
-    justify-content: space-between; margin-bottom: 8px;
+    padding: 8px 14px; display: flex; align-items: center;
+    justify-content: space-between; margin-bottom: 4px;
     transition: border-color var(--transition);
   }
   .prestige-bar:hover { border-color: var(--magenta-dim); }
@@ -116,8 +116,8 @@
   .prestige-prompt {
     width: 100%; max-width: 500px; background: linear-gradient(135deg, #12081c, #1c0a2a);
     border: 1px solid var(--magenta); border-radius: var(--radius);
-    padding: 14px 20px; display: flex; align-items: center;
-    justify-content: space-between; margin-bottom: 8px;
+    padding: 10px 16px; display: flex; align-items: center;
+    justify-content: space-between; margin-bottom: 4px;
     animation: pulse-border 2s ease-in-out infinite alternate;
   }
   .prestige-prompt.hidden { display: none; }
@@ -130,7 +130,7 @@
   .prestige-prompt-sub { color: #7a5a8a; font-size: 0.7rem; margin-top: 2px; }
 
   /* Controls */
-  .controls { display: flex; gap: 8px; margin-bottom: 4px; }
+  .controls { display: flex; gap: 6px; margin-bottom: 2px; }
   .ctrl-btn {
     background: var(--bg-card); border: 1px solid var(--border); color: var(--text-dim);
     padding: 4px 12px; border-radius: var(--radius); cursor: pointer;
@@ -2392,7 +2392,7 @@ function updateUI() {
 
   var ppEarned = getPrestigeEarned();
   var canP = canPrestige();
-  prestigeBtn.innerHTML = canP ? "<span>Prestige (+" + ppEarned + " PP)</span>" : "<span>Prestige</span>";
+  prestigeBtn.innerHTML = canP ? "<span>Prestige +" + ppEarned + "</span>" : "<span>Prestige</span>";
   prestigeBtn.disabled = !canP;
   document.getElementById("prestigePoints").textContent = d.prestigeCount;
 
@@ -2544,7 +2544,7 @@ function renderUpgrades() {
   if (lvlBtn) lvlBtn.textContent = currentUpgradeSort === "level" ? (sortLevelAsc ? "Lv↑" : "Lv↓") : "Lv↓";
   
   var sortedIndices = getSortedUpgradeIndices();
-  var c = document.getElementById("upgradeSlots"); var html = "";
+  var c = document.getElementById("upgradeSlots"); var html = ""; var emptyCount = 0;
   for (var si = 0; si < sortedIndices.length; si++) {
     var i = sortedIndices[si];
     var slot = i < d.upgradeSlots.length ? d.upgradeSlots[i] : null;
@@ -2553,16 +2553,15 @@ function renderUpgrades() {
       var desc = def ? def.descFn(slot.level) : "Unknown";
       // Show totals for stacking upgrades
       var _ts = getUpgradeSum(slot.id);
-      desc = getUpgradePlainDesc(def ? def.id : "");
+      desc = getUpgradePlainDesc(def ? def.id : ""); var _ne = getNetEffect(def ? def.id : ""); if (_ne) desc += " (" + _ne + ")";
       html += '<div class="upgrade-slot filled"><div class="upgrade-icon">' + (def ? def.icon : "?") + '</div>';
       html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + (def ? def.name : "?") + ' <span class="upgrade-level-badge lvl-' + Math.min(slot.level, 10) + '">Lv.' + slot.level + '</span></div>';
       html += '<div class="upgrade-slot-desc">' + desc + '</div></div></div>';
     } else {
-      html += '<div class="upgrade-slot empty"><div class="upgrade-icon">—</div>';
-      html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">Empty Slot</div>';
-      html += '<div class="upgrade-slot-desc">Buy an upgrade to fill this slot</div></div></div>';
+      emptyCount++;
     }
   }
+  if (emptyCount > 0) { html += '<div class="upgrade-slot empty" style="border-style:dashed;opacity:0.5;justify-content:center;"><div class="upgrade-slot-info" style="text-align:center;"><div class="upgrade-slot-name" style="color:var(--text-dim);">' + emptyCount + " empty slot" + (emptyCount > 1 ? "s" : "") + '</div></div></div>'; }
   c.innerHTML = html;
   var countEl = document.getElementById("permCount");
   if (countEl) countEl.textContent = "(" + permBuffs.length + ")";
@@ -2582,12 +2581,12 @@ function getRestartKeepCount(dim) {
   if (maxExp < 308) return 0;
   var count = 1;
   var threshold = 308;
-  var gap = 50;
+  var gap = 100;
   while (true) {
     threshold += gap;
     if (maxExp < threshold) break;
     count++;
-    gap += 50;
+    gap = Math.ceil(gap * 1.75);
   }
   return count;
 }
