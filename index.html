@@ -36,6 +36,7 @@
     background: var(--bg-deep);
     color: var(--text);
     height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -142,7 +143,8 @@
   /* Content area */
   .content-area {
     flex: 1; overflow-y: auto; display: flex; flex-direction: column;
-    align-items: center; padding: 12px 20px 110px;
+    align-items: center; padding: 12px 20px 20px;
+    min-height: 0;
     scrollbar-width: thin; scrollbar-color: var(--border) transparent;
   }
   .content-area::-webkit-scrollbar { width: 6px; }
@@ -294,8 +296,7 @@
     flex-shrink: 0; background: var(--bg-deep);
     border-top: 1px solid var(--border);
     display: flex; flex-wrap: wrap; width: 100%;
-    position: fixed; bottom: 0; left: 0;
-    z-index: 1000;
+    z-index: 100;
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .tab-bar.hidden { display: none; }
@@ -737,12 +738,13 @@
     h1 { font-size: 1.3rem; }
     .points-value { font-size: 1.6rem; }
     .points-bar { padding: 10px 12px; }
-    .selection-options { max-height: 45vh; }
-    .reward-slots-container { max-height: 40vh; }
-    .echo-slots-container { max-height: 45vh; }
-    .restart-slots-container { max-height: 40vh; }
+    .tab-btn { padding: 10px 0; font-size: 0.65rem; }
     .dim-nav { padding: 5px 12px; }
     .dim-nav-btn { width: 32px; height: 32px; font-size: 0.85rem; }
+    .selection-options { max-height: 50vh; }
+    .reward-slots-container { max-height: 45vh; }
+    .echo-slots-container { max-height: 50vh; }
+    .restart-slots-container { max-height: 45vh; }
   }
 
 
