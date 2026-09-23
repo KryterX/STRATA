@@ -760,6 +760,46 @@
   .buy-all-btn:hover { background: var(--cyan); color: var(--bg-deep);
     box-shadow: 0 0 12px rgba(0,228,255,0.25); }
   .buy-all-btn.hidden { display: none; }
+
+  /* Sticky sub-headers */
+  .sticky-header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--bg-deep);
+    padding-bottom: 4px;
+    display: flex; flex-direction: column; gap: 8px;
+    width: 100%;
+  }
+  .buy-all-btn {
+    position: sticky; top: 0; z-index: 10;
+  }
+
+  /* Upgrade summary strip */
+  .upgrade-summary {
+    width: 100%; display: flex; flex-direction: column; gap: 3px;
+    margin-bottom: 4px;
+  }
+  .upgrade-summary.hidden { display: none; }
+  .summary-row {
+    display: flex; align-items: center; gap: 8px; padding: 4px 8px;
+    background: var(--bg-card); border-radius: 4px; font-size: 0.65rem;
+  }
+  .summary-icon { width: 20px; text-align: center; font-size: 0.8rem; flex-shrink: 0; }
+  .summary-name { color: var(--text-dim); width: 80px; flex-shrink: 0; font-family: var(--font-mono); letter-spacing: 0.02em; }
+  .summary-bar-track {
+    flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
+    position: relative;
+  }
+  .summary-bar-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, var(--magenta-dim), var(--magenta));
+    transition: width 0.3s;
+  }
+  .summary-value { color: var(--text-dim); font-size: 0.6rem; font-family: var(--font-mono); min-width: 36px; text-align: right; }
+
+  /* Selection card description update */
+  .selection-card-plain { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 2px; }
+  .selection-card-effect { font-size: 0.68rem; color: var(--magenta); font-family: var(--font-mono); }
+
 </style>
 </head>
 <body>
@@ -813,19 +853,22 @@
     <div class="generators" id="genList"></div>
   </div>
   <div class="tab-panel" id="tabUpgrades">
-    <div class="upgrades-header">
-      <div class="upgrades-pp-info">
-        <div class="upgrades-pp-label">Prestige Points</div>
-        <div class="upgrades-pp-value" id="upgradesPP">0</div>
+    <div class="sticky-header">
+      <div class="upgrades-header">
+        <div class="upgrades-pp-info">
+          <div class="upgrades-pp-label">Prestige Points</div>
+          <div class="upgrades-pp-value" id="upgradesPP">0</div>
+        </div>
+        <button class="upgrade-buy-btn" id="upgradeBuyBtn" disabled onclick="startUpgradeSelection()">
+          Buy Upgrade (1 PP)
+        </button>
       </div>
-      <button class="upgrade-buy-btn" id="upgradeBuyBtn" disabled onclick="startUpgradeSelection()">
-        Buy Upgrade (1 PP)
-      </button>
+      <div class="upgrade-sub-tabs" id="upgradeSubTabs">
+        <button class="sub-tab-btn active-sub" onclick="switchUpgradeSub('slots')">upgrades</button>
+        <button class="sub-tab-btn hidden-tab" id="permaSubBtn" onclick="switchUpgradeSub('perma')">perma buffs <span id="permCount">(0)</span></button>
+      </div>
     </div>
-    <div class="upgrade-sub-tabs" id="upgradeSubTabs">
-      <button class="sub-tab-btn active-sub" onclick="switchUpgradeSub('slots')">upgrades</button>
-      <button class="sub-tab-btn hidden-tab" id="permaSubBtn" onclick="switchUpgradeSub('perma')">perma buffs <span id="permCount">(0)</span></button>
-    </div>
+    <div class="upgrade-summary hidden" id="upgradeSummary"></div>
     <div id="upgradeSubSlots">
       <div class="upgrade-sort-bar" id="upgradeSortBar">
         <button class="sort-btn active-sort" onclick="setUpgradeSort('default')">Default</button>
@@ -1622,10 +1665,13 @@ function showRewardOverlay() {
     var opt = opts[i];
     var def = UPGRADE_DEFS[opt.defIdx]; if (!def) continue;
     var lvlClass = "lvl-" + Math.min(opt.level, 10);
+    var rPlain = getUpgradePlainDesc(def.id);
+    var rEffect = getUpgradeBeforeAfter(def.id, opt.level);
     html += '<div class="selection-card" onclick="pickReward(' + i + ')">';
     html += '<div class="selection-card-icon">' + def.icon + '</div>';
     html += '<div class="selection-card-info"><div class="selection-card-name">' + def.name + '</div>';
-    html += '<div class="selection-card-desc">' + def.descFn(opt.level) + '</div></div>';
+    html += '<div class="selection-card-plain">' + rPlain + '</div>';
+    html += '<div class="selection-card-effect">' + rEffect + '</div></div>';
     html += '<div class="selection-card-level ' + lvlClass + '">Lv.' + opt.level + '</div></div>';
   }
   document.getElementById("rewardSlots").innerHTML = html;
@@ -1830,6 +1876,159 @@ function getSortedSelectionIndices() {
   return indices;
 }
 
+
+// ============================================================
+// Upgrade Plain Descriptions & Before/After
+// ============================================================
+function getUpgradePlainDesc(id) {
+  switch(id) {
+    case "upgrade_boost": return "Increases buy multiplier per purchase";
+    case "prestige_boost": return "Earns more prestige points";
+    case "discount": return "Reduces generator costs";
+    case "gen_expansion": return "Unlocks more generator tiers";
+    case "auto_buy": return "Auto-buys cheapest generator each second";
+    case "break_infinity": return "Removes the point cap";
+    case "gen_boost": return "Multiplies all generator output";
+    case "fast_start": return "Keep points after prestige";
+    case "upgrade_count": return "Adds more upgrade slots";
+    case "luck": return "Better odds on upgrade rolls";
+    case "ascend": return "Raises the max upgrade level";
+    case "overclock": return "Increases max generator purchases";
+    case "momentum": return "Output scales with highest gen tier";
+    case "wide_selection": return "More choices when buying upgrades";
+    case "echo": return "Copies one of your existing upgrades";
+    default: return "";
+  }
+}
+
+function getUpgradeBeforeAfter(id, newLevel) {
+  var d = D();
+  var curSum = getUpgradeSum(id);
+  var afterSum = curSum + newLevel;
+  switch(id) {
+    case "upgrade_boost":
+      return (2 + curSum * 0.2).toFixed(1) + "x \u2192 " + (2 + afterSum * 0.2).toFixed(1) + "x buy base";
+    case "prestige_boost":
+      var curPP = Math.max(1, curSum * 2); var afterPP = Math.max(1, afterSum * 2);
+      return "x" + curPP + " \u2192 x" + afterPP + " PP earned";
+    case "discount":
+      var curCost = (10 * Math.pow(0.8, curSum)).toFixed(1);
+      var afterCost = (10 * Math.pow(0.8, afterSum)).toFixed(1);
+      return curCost + "x \u2192 " + afterCost + "x cost per buy";
+    case "gen_expansion":
+      var curGens = getMaxTier();
+      var gain = afterSum > 0 ? Math.max(1, 250 * (1 - 1 / (1 + afterSum / 50))) : 0;
+      var afterGens = Math.floor(50 + gain);
+      return curGens + " \u2192 " + afterGens + " generators";
+    case "auto_buy":
+      return curSum + " \u2192 " + afterSum + " auto-buys/sec";
+    case "break_infinity":
+      return curSum > 0 ? "already unlocked" : "capped \u2192 uncapped";
+    case "gen_boost":
+      var curMult = curSum === 0 ? "1" : (10 * curSum).toString();
+      var afterMult = (10 * afterSum).toString();
+      return "x" + curMult + " \u2192 x" + afterMult + " output";
+    case "fast_start":
+      var curKeep = curSum === 0 ? "10" : "1e" + (3 * curSum);
+      return curKeep + " \u2192 1e" + (3 * afterSum) + " kept on prestige";
+    case "upgrade_count":
+      var curSlots = getMaxUpgradeSlots();
+      // Estimate after — use raw calc
+      var rawSum = 0;
+      for (var i = 0; i < d.upgradeSlots.length; i++) {
+        var s = d.upgradeSlots[i];
+        if (s && s.id === "upgrade_count") rawSum += 3 + Math.floor(0.7 * s.level);
+      }
+      rawSum += getPermBuffSum("upgrade_count") * 3;
+      rawSum += 3 + Math.floor(0.7 * newLevel);
+      var afterGain = rawSum > 0 ? Math.max(1, 16 * (1 - 1 / (1 + rawSum / 16))) : 0;
+      var afterSlots = Math.floor(BASE_UPGRADE_SLOTS + afterGain);
+      return curSlots + " \u2192 " + afterSlots + " slots";
+    case "luck":
+      var curBase = (1 + 1 / (1 + curSum)).toFixed(2);
+      var afterBase = (1 + 1 / (1 + afterSum)).toFixed(2);
+      return curBase + " \u2192 " + afterBase + " luck base";
+    case "ascend":
+      var curMax = getMaxLevel();
+      var afterGainA = afterSum > 0 ? Math.max(1, 20 * (1 - 1 / (1 + afterSum / 20))) : 0;
+      var afterMax = Math.floor(BASE_MAX_LEVEL + afterGainA);
+      return "Lv." + curMax + " \u2192 Lv." + afterMax + " max";
+    case "overclock":
+      var curBuy = getMaxBuy();
+      var afterGainO = afterSum > 0 ? Math.max(1, 400 * (1 - 1 / (1 + afterSum / 50))) : 0;
+      var afterBuy = Math.floor(BASE_MAX_BUY + afterGainO);
+      return curBuy + " \u2192 " + afterBuy + " max buys";
+    case "momentum":
+      var h = getHighestGenTierBought();
+      var sqH = Math.sqrt(h);
+      var curM = curSum === 0 ? 1 : Math.pow(curSum + 1, sqH);
+      var afterM = Math.pow(afterSum + 1, sqH);
+      if (h === 0) return "x1 (buy a gen first)";
+      return "x" + curM.toFixed(1) + " \u2192 x" + afterM.toFixed(1) + " output";
+    case "wide_selection":
+      var curSel = 3 + curSum; var afterSel = Math.min(15, 3 + afterSum);
+      return curSel + " \u2192 " + afterSel + " choices";
+    case "echo":
+      return "copies at Lv." + newLevel;
+    default: return "";
+  }
+}
+
+function getUpgradeProgress(id) {
+  var sum = getUpgradeSum(id);
+  if (sum === 0) return 0;
+  switch(id) {
+    case "discount": return Math.min(100, (1 - Math.pow(0.8, sum)) * 100 / (1 - Math.pow(0.8, 15)) * 100 / 100);
+    case "gen_expansion": var g = 250 * (1 - 1/(1+sum/50)); return Math.min(100, g / 250 * 100);
+    case "upgrade_count": var r = 0; var d = D(); for (var i=0;i<d.upgradeSlots.length;i++){var s=d.upgradeSlots[i]; if(s&&s.id==="upgrade_count") r+=3+Math.floor(0.7*s.level);} r+=getPermBuffSum("upgrade_count")*3; var ug=r>0?16*(1-1/(1+r/16)):0; return Math.min(100, ug/16*100);
+    case "ascend": var ag = sum > 0 ? 20*(1-1/(1+sum/20)) : 0; return Math.min(100, ag/20*100);
+    case "overclock": var og = sum > 0 ? 400*(1-1/(1+sum/50)) : 0; return Math.min(100, og/400*100);
+    case "break_infinity": return sum > 0 ? 100 : 0;
+    case "luck": return Math.min(100, sum / (sum + 1) * 100);
+    case "wide_selection": return Math.min(100, sum / 12 * 100);
+    default: return Math.min(100, sum * 10); // linear fallback for unbounded upgrades
+  }
+}
+
+function renderUpgradeSummary() {
+  var d = D();
+  var el = document.getElementById("upgradeSummary");
+  if (!el) return;
+  // Collect owned upgrade types
+  var owned = {};
+  for (var i = 0; i < d.upgradeSlots.length; i++) {
+    var s = d.upgradeSlots[i]; if (!s) continue;
+    if (!owned[s.id]) owned[s.id] = { totalLevel: 0, count: 0 };
+    owned[s.id].totalLevel += s.level;
+    owned[s.id].count++;
+  }
+  // Add perm buffs
+  for (var p = 0; p < permBuffs.length; p++) {
+    var pb = permBuffs[p];
+    if (!owned[pb.id]) owned[pb.id] = { totalLevel: 0, count: 0 };
+    owned[pb.id].totalLevel += 1;
+    owned[pb.id].count++;
+  }
+  var keys = Object.keys(owned);
+  if (keys.length === 0) { el.classList.add("hidden"); return; }
+  el.classList.remove("hidden");
+  var html = "";
+  for (var k = 0; k < keys.length; k++) {
+    var id = keys[k];
+    var def = UPGRADE_DEFS.find(function(u) { return u.id === id; });
+    if (!def) continue;
+    var pct = getUpgradeProgress(id);
+    var info = owned[id];
+    html += '<div class="summary-row">';
+    html += '<div class="summary-icon">' + def.icon + '</div>';
+    html += '<div class="summary-name">' + def.name + '</div>';
+    html += '<div class="summary-bar-track"><div class="summary-bar-fill" style="width:' + pct.toFixed(0) + '%"></div></div>';
+    html += '<div class="summary-value">' + info.count + 'x Lv' + '</div>';
+    html += '</div>';
+  }
+  el.innerHTML = html;
+}
+
 function renderSelectionOverlay() {
   var d = D(); var c = document.getElementById("selectionOptions"); var html = "";
   var sub = document.getElementById("selectionSub");
@@ -1849,13 +2048,13 @@ function renderSelectionOverlay() {
     var i = sorted[si];
     var opt = d.selectionOptions[i]; var def = UPGRADE_DEFS[opt.defIdx];
     var lvlClass = "lvl-" + Math.min(opt.level, 10);
-    var desc = def.descFn(opt.level);
-    if (def.id === "luck") { var nb = 1 + 1 / (1 + getUpgradeSum("luck") + opt.level); desc = "Flatten odds (base \u2192 " + nb.toFixed(3) + ")"; }
-    if (def.id === "momentum") { var ms = getUpgradeSum("momentum"); var h = getHighestGenTierBought(); desc = "x" + Math.max(1, h * (ms + opt.level)) + " all output"; }
+    var plainDesc = getUpgradePlainDesc(def.id);
+    var effectDesc = getUpgradeBeforeAfter(def.id, opt.level);
     html += '<div class="selection-card" onclick="pickOption(' + i + ')">';
     html += '<div class="selection-card-icon">' + def.icon + '</div>';
     html += '<div class="selection-card-info"><div class="selection-card-name">' + def.name + '</div>';
-    html += '<div class="selection-card-desc">' + desc + '</div></div>';
+    html += '<div class="selection-card-plain">' + plainDesc + '</div>';
+    html += '<div class="selection-card-effect">' + effectDesc + '</div></div>';
     html += '<div class="selection-card-level ' + lvlClass + '">Lv.' + opt.level + '</div></div>';
   }
   c.innerHTML = html;
@@ -2570,7 +2769,7 @@ function updateGeneratorsLive() {
 
 function updateUpgradesLive() {
   var d = D(); var key = activeDimIdx + ":" + d.prestigeCount + ":" + getFilledSlotCount() + ":" + getMaxUpgradeSlots();
-  if (key !== lastUpgRenderKey) { lastUpgRenderKey = key; renderUpgrades(); return; }
+  if (key !== lastUpgRenderKey) { lastUpgRenderKey = key; renderUpgrades(); renderUpgradeSummary(); return; }
   document.getElementById("upgradesPP").textContent = d.prestigeCount;
 }
 
