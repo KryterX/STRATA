@@ -951,6 +951,20 @@
     font-size: 0.6rem; color: var(--text-dim); font-family: var(--font-mono);
     flex-shrink: 0;
   }
+
+  /* Start screen save select */
+  .start-slot-active { border-color: var(--cyan-dim) !important; }
+  .start-slot-active:hover { border-color: var(--cyan) !important; }
+  .start-slot-active .start-slot-letter { color: var(--green); }
+  .start-slots-divider {
+    width: 60%; height: 1px; background: var(--border); margin: 8px auto;
+  }
+  .start-back {
+    margin-top: 12px; font-size: 0.65rem !important; padding: 6px 20px !important;
+    opacity: 0.6; border-color: var(--border) !important;
+    color: var(--text-dim) !important;
+  }
+  .start-back:hover { opacity: 1; }
 </style>
 </head>
 <body>
@@ -3703,17 +3717,43 @@ function showStartScreen() {
   var hasSave = !!safeGetItem("nestedIdleSave2");
   var html = "";
   if (hasSave) {
-    html += '<button class="start-btn start-continue" onclick="startContinue()">continue</button>';
+    html += '<button class="start-btn start-continue" onclick="showSaveSelect()">continue</button>';
     html += '<button class="start-btn" onclick="startNew()">new game</button>';
   } else {
     html += '<button class="start-btn" onclick="startNew()">begin</button>';
   }
-  // Save slots on start screen
-  var hasAnySlot = false;
-  for (var si = 0; si < SAVE_SLOT_COUNT; si++) { if (getSaveSlotInfo(si)) { hasAnySlot = true; break; } }
-  if (hasAnySlot) {
-    html += '<div class="start-slots">';
-    html += '<div class="start-slots-label">saved games</div>';
+  document.getElementById("startButtons").innerHTML = html;
+  document.getElementById("startScreen").classList.remove("hidden");
+}
+
+function showSaveSelect() {
+  var html = "";
+  // Active save (most recent / auto-save)
+  var activeRaw = safeGetItem("nestedIdleSave2");
+  if (activeRaw) {
+    try {
+      var activeData = JSON.parse(activeRaw);
+      var aDate = new Date(activeData.timestamp || Date.now());
+      var aDateStr = aDate.toLocaleDateString() + " " + aDate.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      var aDims = activeData.dimensions ? activeData.dimensions.length : 1;
+      var aDimIdx = (activeData.activeDimIdx || 0) + 1;
+      html += '<button class="start-slot-btn start-slot-active" onclick="startContinue()">';
+      html += '<span class="start-slot-letter">\u25B6</span>';
+      html += '<span class="start-slot-info">Last Session \u2014 Dim ' + aDimIdx + '/' + aDims + '</span>';
+      html += '<span class="start-slot-date">' + aDateStr + '</span>';
+      html += '</button>';
+    } catch(e) {
+      html += '<button class="start-slot-btn start-slot-active" onclick="startContinue()">';
+      html += '<span class="start-slot-letter">\u25B6</span>';
+      html += '<span class="start-slot-info">Last Session</span>';
+      html += '</button>';
+    }
+  }
+  // Named save slots
+  var hasSlots = false;
+  for (var si = 0; si < SAVE_SLOT_COUNT; si++) { if (getSaveSlotInfo(si)) { hasSlots = true; break; } }
+  if (hasSlots) {
+    html += '<div class="start-slots-divider"></div>';
     for (var si = 0; si < SAVE_SLOT_COUNT; si++) {
       var sn = SAVE_SLOT_NAMES[si];
       var info = getSaveSlotInfo(si);
@@ -3726,10 +3766,10 @@ function showStartScreen() {
       html += '<span class="start-slot-date">' + dateStr + '</span>';
       html += '</button>';
     }
-    html += '</div>';
   }
+  // Back button
+  html += '<button class="start-btn start-back" onclick="showStartScreen()">back</button>';
   document.getElementById("startButtons").innerHTML = html;
-  document.getElementById("startScreen").classList.remove("hidden");
 }
 
 function loadFromSlotAndStart(slot) {
