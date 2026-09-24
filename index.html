@@ -893,6 +893,64 @@
     color: var(--text-dim); font-size: 0.65rem; font-style: italic;
     font-family: var(--font-mono); padding: 6px; width: 100%; text-align: center;
   }
+
+  /* Save slots */
+
+  .save-slot-icon {
+    width: 28px; height: 28px; border-radius: 5px; background: var(--bg-card-hover);
+    border: 1px solid var(--border); display: flex; align-items: center;
+    justify-content: center; font-size: 0.9rem; color: var(--cyan);
+    flex-shrink: 0; font-family: var(--font-mono);
+  }
+  .save-slot { gap: 8px; }
+  .save-slot {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px; background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 5px; margin-bottom: 4px; transition: all 0.2s;
+  }
+  .save-slot.filled:hover { border-color: var(--cyan-dim); }
+  .save-slot-info { flex: 1; min-width: 0; }
+  .save-slot-name { font-size: 0.7rem; font-weight: 600; color: var(--text-bright); font-family: var(--font-mono); }
+  .save-slot-detail { font-size: 0.6rem; color: var(--text-dim); font-family: var(--font-mono); }
+  .save-slot-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .slot-btn {
+    padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-dim); font-size: 0.6rem;
+    cursor: pointer; transition: all 0.2s; font-family: var(--font-mono);
+  }
+  .slot-btn:hover { border-color: var(--text-dim); color: var(--text); }
+  .slot-btn.slot-load:hover { border-color: var(--cyan); color: var(--cyan); }
+  .slot-btn.slot-save:hover { border-color: var(--green); color: var(--green); }
+  .slot-btn.slot-del:hover { border-color: var(--red); color: var(--red); }
+
+  /* Start screen save slots */
+  .start-slots {
+    width: 100%; max-width: 300px; margin-top: 20px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .start-slots-label {
+    font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase;
+    letter-spacing: 0.15em; text-align: center; margin-bottom: 4px;
+    font-family: var(--font-mono);
+  }
+  .start-slot-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; background: rgba(15,15,26,0.8); border: 1px solid var(--border);
+    border-radius: var(--radius); cursor: pointer; transition: all 0.2s;
+    width: 100%; text-align: left;
+  }
+  .start-slot-btn:hover { border-color: var(--cyan-dim); background: var(--bg-card-hover); }
+  .start-slot-letter {
+    font-size: 1rem; color: var(--cyan); font-family: var(--font-mono);
+    width: 24px; text-align: center; flex-shrink: 0;
+  }
+  .start-slot-info {
+    flex: 1; font-size: 0.7rem; color: var(--text); font-family: var(--font-mono);
+  }
+  .start-slot-date {
+    font-size: 0.6rem; color: var(--text-dim); font-family: var(--font-mono);
+    flex-shrink: 0;
+  }
 </style>
 </head>
 <body>
@@ -1040,6 +1098,15 @@
         <div class="settings-row" id="musicTrackRow" style="margin-top:6px;">
           <div class="setting-placeholder">Tracks coming soon</div>
         </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-label">Save Management</div>
+        <div class="settings-row" style="margin-bottom:8px;">
+          <button class="setting-opt" onclick="exportSave()">Export to Clipboard</button>
+          <button class="setting-opt" onclick="importSave()">Import from Clipboard</button>
+        </div>
+        <div id="saveSlots"></div>
       </div>
 
       <div class="settings-section">
@@ -1245,10 +1312,40 @@ var DEFECT_POOL = ["upgrade_boost","discount","gen_expansion","gen_boost","overc
 var dimensions = [];
 var activeDimIdx = 0;
 var unlockedDims = 1;
-var multiDimUnlocked = false; permBuffs = []; dimCompletionCount = 0;
+var multiDimUnlocked = false; var permBuffs = []; var dimCompletionCount = 0;
 var permBuffs = []; // permanent Lv.1 upgrades earned by completing dimensions
 var dimCompletionCount = 0; // how many dimensions have awarded a perm buff
 var currentTab = "generators";
+
+// Resolve upgrade by defIdx (legacy) or id (preferred)
+function resolveUpgradeDef(ref) {
+  if (!ref) return null;
+  if (ref.id) return UPGRADE_DEFS.find(function(u) { return u.id === ref.id; }) || null;
+  if (typeof ref.defIdx === 'number') return UPGRADE_DEFS[ref.defIdx] || null;
+  return null;
+}
+function upgradeRefToSave(ref) {
+  if (!ref) return null;
+  var def = resolveUpgradeDef(ref);
+  return def ? { id: def.id, level: ref.level } : null;
+}
+function upgradeRefFromSave(saved) {
+  if (!saved) return null;
+  // Support both old (defIdx) and new (id) format
+  if (saved.id) {
+    var idx = UPGRADE_DEFS.findIndex(function(u) { return u.id === saved.id; });
+    return idx >= 0 ? { defIdx: idx, level: saved.level } : null;
+  }
+  if (typeof saved.defIdx === 'number') return saved;
+  return null;
+}
+// Reusable asymptotic formula: approaches cap as sum increases
+// Returns 0 when sum=0, approaches cap as sum→∞
+function asymptotic(sum, cap, scale) {
+  if (sum <= 0) return 0;
+  return Math.max(1, cap * (1 - 1 / (1 + sum / scale)));
+}
+
 
 function createFreshDimension() {
   return {
@@ -2786,22 +2883,21 @@ function getRestartKeepProgress(dim) {
   var d = dim || D();
   var maxExp = d.maxExponent || 0;
   if (maxExp < 308) return { current: 0, nextAt: 308, pct: Math.min(100, (maxExp / 308) * 100) };
-  // Walk the threshold curve to find current and next
   var count = 1;
   var threshold = 308;
   var gap = 100;
   var prevThreshold = 308;
-  while (true) {
+  for (var _guard = 0; _guard < 200; _guard++) {
     prevThreshold = threshold;
     threshold += gap;
     if (maxExp < threshold) {
-      // We're between prevThreshold and threshold
       var progress = (maxExp - prevThreshold) / (threshold - prevThreshold) * 100;
       return { current: count, nextAt: threshold, pct: Math.min(100, Math.max(0, progress)) };
     }
     count++;
     gap = Math.ceil(gap * 1.75);
   }
+  return { current: count, nextAt: threshold, pct: 99 };
 }
 
 function getRestartKeepCount(dim) {
@@ -3444,7 +3540,7 @@ function saveGame() {
         upgradeSlots: d.upgradeSlots,
         upgradeBuyCount: d.upgradeBuyCount,
         hasPrestigedOnce: d.hasPrestigedOnce,
-        challenges: d.challenges.map(function(c) { return { defectIds: c.defectIds, reward: c.reward, rewardOptions: c.rewardOptions || null, completed: c.completed, capExponent: c.capExponent || null, timeLimit: c.timeLimit || null }; }),
+        challenges: d.challenges.map(function(c) { return { defectIds: c.defectIds, reward: upgradeRefToSave(c.reward), rewardOptions: c.rewardOptions ? c.rewardOptions.map(upgradeRefToSave) : null, completed: c.completed, capExponent: c.capExponent || null, timeLimit: c.timeLimit || null }; }),
         activeChallengeIdx: d.activeChallengeIdx,
         challengesUnlocked: d.challengesUnlocked,
         pendingReward: d.pendingReward,
@@ -3496,7 +3592,7 @@ function loadGame() {
       d.autobuyTimer = sd.autobuyTimer || 0;
       d.maxExponent = sd.maxExponent || 0;
       if (sd.challenges) {
-        d.challenges = sd.challenges.map(function(c) { return { defectIds: c.defectIds || [], reward: c.reward || { defIdx: 0, level: 1 }, rewardOptions: c.rewardOptions || (c.reward ? [c.reward] : null), completed: !!c.completed, capExponent: c.capExponent || null, timeLimit: c.timeLimit || null }; });
+        d.challenges = sd.challenges.map(function(c) { return { defectIds: c.defectIds || [], reward: upgradeRefFromSave(c.reward) || { defIdx: 0, level: 1 }, rewardOptions: c.rewardOptions ? c.rewardOptions.map(function(r) { return upgradeRefFromSave(r) || r; }) : (c.reward ? [upgradeRefFromSave(c.reward) || c.reward] : null), completed: !!c.completed, capExponent: c.capExponent || null, timeLimit: c.timeLimit || null }; });
       }
       initUpgradeSlots(d);
       initGenerators(d);
@@ -3534,6 +3630,24 @@ function loadGame() {
                 d.points = bnAdd(d.points, prod);
                 if (!hasBreakInfinity(d) && bnGte(d.points, BASE_POINT_CAP)) { d.points = { m: BASE_POINT_CAP.m, e: BASE_POINT_CAP.e }; break; }
               } else { d.generators[i - 1].amount = bnAdd(d.generators[i - 1].amount, prod); }
+            }
+          }
+        }
+        // Check for timed challenge expiry during offline time
+        for (var ci = 0; ci < dimensions.length; ci++) {
+          var cd = dimensions[ci];
+          if (cd.activeChallengeIdx >= 0 && cd.challengeStartTime > 0) {
+            var tl = 0;
+            var ch = cd.challenges[cd.activeChallengeIdx];
+            if (ch && ch.timeLimit) tl = ch.timeLimit;
+            if (tl > 0) {
+              var chElapsed = (Date.now() - cd.challengeStartTime) / 1000;
+              if (chElapsed >= tl) {
+                // Challenge expired during offline — fail it
+                cd.activeChallengeIdx = -1;
+                var _fs2 = getFastStartPoints(cd); var _ms2 = bn(10,0);
+                cd.points = bnGte(_fs2,_ms2) ? _fs2 : _ms2;
+              }
             }
           }
         }
@@ -3594,8 +3708,41 @@ function showStartScreen() {
   } else {
     html += '<button class="start-btn" onclick="startNew()">begin</button>';
   }
+  // Save slots on start screen
+  var hasAnySlot = false;
+  for (var si = 0; si < SAVE_SLOT_COUNT; si++) { if (getSaveSlotInfo(si)) { hasAnySlot = true; break; } }
+  if (hasAnySlot) {
+    html += '<div class="start-slots">';
+    html += '<div class="start-slots-label">saved games</div>';
+    for (var si = 0; si < SAVE_SLOT_COUNT; si++) {
+      var sn = SAVE_SLOT_NAMES[si];
+      var info = getSaveSlotInfo(si);
+      if (!info) continue;
+      var date = new Date(info.timestamp);
+      var dateStr = date.toLocaleDateString() + " " + date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      html += '<button class="start-slot-btn" onclick="loadFromSlotAndStart(' + si + ')">';
+      html += '<span class="start-slot-letter">' + sn.letter + '</span>';
+      html += '<span class="start-slot-info">' + sn.name + ' \u2014 Dim ' + info.dimIdx + '/' + info.dims + '</span>';
+      html += '<span class="start-slot-date">' + dateStr + '</span>';
+      html += '</button>';
+    }
+    html += '</div>';
+  }
   document.getElementById("startButtons").innerHTML = html;
   document.getElementById("startScreen").classList.remove("hidden");
+}
+
+function loadFromSlotAndStart(slot) {
+  try {
+    var raw = localStorage.getItem(getSaveSlotKey(slot));
+    if (!raw) return;
+    safeSetItem("nestedIdleSave2", raw);
+    loadGame();
+    document.getElementById("startScreen").classList.add("hidden");
+    gameStarted = true;
+    lastTime = performance.now();
+    requestAnimationFrame(gameTick);
+  } catch(e) { showSaveMsg("Failed to load " + SAVE_SLOT_NAMES[slot].name); }
 }
 
 function startContinue() {
@@ -3628,6 +3775,126 @@ function startNew() {
 // ============================================================
 // Auto-save managed by settings system
 
+
+
+// ============================================================
+// Export / Import Save
+// ============================================================
+function exportSave() {
+  var raw = safeGetItem("nestedIdleSave2");
+  if (!raw) { showSaveMsg("No save to export!"); return; }
+  try {
+    var encoded = btoa(unescape(encodeURIComponent(raw)));
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(encoded).then(function() {
+        showSaveMsg("Save exported to clipboard!");
+      });
+    } else {
+      prompt("Copy this save string:", encoded);
+    }
+  } catch(e) { showSaveMsg("Export failed: " + e.message); }
+}
+
+function importSave() {
+  var input = prompt("Paste your save string:");
+  if (!input || !input.trim()) return;
+  try {
+    var decoded = decodeURIComponent(escape(atob(input.trim())));
+    JSON.parse(decoded); // validate
+    safeSetItem("nestedIdleSave2", decoded);
+    loadGame();
+    showSaveMsg("Save imported!");
+  } catch(e) { showSaveMsg("Invalid save string!"); }
+}
+
+// ============================================================
+// Multiple Save Slots
+// ============================================================
+var SAVE_SLOT_COUNT = 5;
+
+var SAVE_SLOT_NAMES = [
+  { letter: "\u03b1", name: "Alpha" },
+  { letter: "\u03b2", name: "Beta" },
+  { letter: "\u03b3", name: "Gamma" },
+  { letter: "\u03b4", name: "Delta" },
+  { letter: "\u03b5", name: "Epsilon" }
+];
+
+
+function getSaveSlotKey(slot) { return "strata_slot_" + slot; }
+
+function getSaveSlotInfo(slot) {
+  try {
+    var raw = localStorage.getItem(getSaveSlotKey(slot));
+    if (!raw) return null;
+    var data = JSON.parse(raw);
+    return {
+      timestamp: data.timestamp || 0,
+      dims: data.dimensions ? data.dimensions.length : 0,
+      dimIdx: (data.activeDimIdx || 0) + 1,
+      maxExp: 0
+    };
+  } catch(e) { return null; }
+}
+
+function saveToSlot(slot) {
+  var raw = safeGetItem("nestedIdleSave2");
+  if (!raw) { showSaveMsg("No active save!"); return; }
+  try {
+    localStorage.setItem(getSaveSlotKey(slot), raw);
+    showSaveMsg("Saved to " + SAVE_SLOT_NAMES[slot].name + "!");
+    renderSaveSlots();
+  } catch(e) { showSaveMsg("Slot save failed!"); }
+}
+
+function loadFromSlot(slot) {
+  try {
+    var raw = localStorage.getItem(getSaveSlotKey(slot));
+    if (!raw) { showSaveMsg(SAVE_SLOT_NAMES[slot].name + " is empty!"); return; }
+    safeSetItem("nestedIdleSave2", raw);
+    loadGame();
+    showSaveMsg("Loaded " + SAVE_SLOT_NAMES[slot].name + "!");
+    renderSaveSlots();
+  } catch(e) { showSaveMsg("Slot load failed!"); }
+}
+
+function deleteSlot(slot) {
+  if (!confirm("Delete " + SAVE_SLOT_NAMES[slot].name + " save?")) return;
+  localStorage.removeItem(getSaveSlotKey(slot));
+  showSaveMsg(SAVE_SLOT_NAMES[slot].name + " deleted.");
+  renderSaveSlots();
+}
+
+function renderSaveSlots() {
+  var container = document.getElementById("saveSlots");
+  if (!container) return;
+  var html = "";
+  for (var i = 0; i < SAVE_SLOT_COUNT; i++) {
+    var sn = SAVE_SLOT_NAMES[i];
+    var info = getSaveSlotInfo(i);
+    if (info) {
+      var date = new Date(info.timestamp);
+      var dateStr = date.toLocaleDateString() + " " + date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      html += '<div class="save-slot filled">';
+      html += '<div class="save-slot-icon">' + sn.letter + '</div>';
+      html += '<div class="save-slot-info"><div class="save-slot-name">' + sn.name + '</div>';
+      html += '<div class="save-slot-detail">' + dateStr + ' \u2014 Dim ' + info.dimIdx + '/' + info.dims + '</div></div>';
+      html += '<div class="save-slot-actions">';
+      html += '<button class="slot-btn slot-load" onclick="loadFromSlot(' + i + ')">Load</button>';
+      html += '<button class="slot-btn slot-save" onclick="saveToSlot(' + i + ')">Save</button>';
+      html += '<button class="slot-btn slot-del" onclick="deleteSlot(' + i + ')">\u2715</button>';
+      html += '</div></div>';
+    } else {
+      html += '<div class="save-slot empty">';
+      html += '<div class="save-slot-icon" style="opacity:0.3">' + sn.letter + '</div>';
+      html += '<div class="save-slot-info"><div class="save-slot-name">' + sn.name + '</div>';
+      html += '<div class="save-slot-detail">Empty</div></div>';
+      html += '<button class="slot-btn slot-save" onclick="saveToSlot(' + i + ')">Save</button>';
+      html += '</div>';
+    }
+  }
+  container.innerHTML = html;
+}
 
 // ============================================================
 // Settings System
@@ -3707,6 +3974,7 @@ function renderSettingsUI() {
 function showSettings() {
   renderThemeGrid();
   renderSettingsUI();
+  renderSaveSlots();
   document.getElementById("settingsOverlay").classList.remove("hidden");
 }
 
