@@ -14,7 +14,7 @@
     --border: #1a1a2e;
     --border-hover: #2a2a4a;
     --text: #c8c8d4;
-    --text-dim: #6a6a7a;
+    --text-dim: #9a9aaa;
     --text-bright: #eeeef4;
     --cyan: #00e4ff;
     --cyan-dim: #0088aa;
@@ -855,6 +855,43 @@
     cursor: pointer; transition: all 0.2s; font-family: var(--font-mono);
   }
   .settings-close-btn:hover { border-color: var(--text); color: var(--text-bright); }
+
+  /* Expanded settings panel */
+  .settings-panel {
+    width: 100%; max-width: 500px; max-height: 85vh; display: flex;
+    flex-direction: column; align-items: center;
+  }
+  .settings-scroll {
+    width: 100%; overflow-y: auto; display: flex; flex-direction: column;
+    gap: 16px; padding: 0 4px; scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .settings-section { width: 100%; }
+  .settings-section-label {
+    font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase;
+    letter-spacing: 0.12em; font-family: var(--font-mono); margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .settings-row { display: flex; gap: 6px; width: 100%; }
+  .setting-opt {
+    flex: 1; padding: 8px 4px; background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 5px; color: var(--text-dim); font-size: 0.65rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; font-family: var(--font-mono);
+    text-align: center;
+  }
+  .setting-opt:hover { border-color: var(--text-dim); color: var(--text); }
+  .setting-opt.active-setting { border-color: var(--cyan); color: var(--cyan); background: #0a1418; }
+  .settings-toggles { display: flex; flex-direction: column; gap: 8px; }
+  .setting-toggle {
+    display: flex; align-items: center; gap: 10px; cursor: pointer;
+    font-size: 0.72rem; color: var(--text); font-family: var(--font-mono);
+  }
+  .setting-toggle input[type="checkbox"] {
+    width: 16px; height: 16px; accent-color: var(--cyan); cursor: pointer;
+  }
+  .setting-placeholder {
+    color: var(--text-dim); font-size: 0.65rem; font-style: italic;
+    font-family: var(--font-mono); padding: 6px; width: 100%; text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -950,10 +987,73 @@
 
 
 <div class="settings-overlay hidden" id="settingsOverlay">
-  <div class="settings-title">Settings</div>
-  <div class="settings-sub">Choose a color theme</div>
-  <div class="theme-grid" id="themeGrid"></div>
-  <button class="settings-close-btn" onclick="closeSettings()">Close</button>
+  <div class="settings-panel">
+    <div class="settings-title">Settings</div>
+    <div class="settings-scroll">
+
+      <div class="settings-section">
+        <div class="settings-section-label">Color Theme</div>
+        <div class="theme-grid" id="themeGrid"></div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-label">Number Format</div>
+        <div class="settings-row" id="notationRow">
+          <button class="setting-opt active-setting" onclick="setSetting('notation','standard')">Standard</button>
+          <button class="setting-opt" onclick="setSetting('notation','scientific')">Scientific</button>
+          <button class="setting-opt" onclick="setSetting('notation','engineering')">Engineering</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-label">Animation Speed</div>
+        <div class="settings-row" id="animSpeedRow">
+          <button class="setting-opt" onclick="setSetting('animSpeed','off')">Off</button>
+          <button class="setting-opt active-setting" onclick="setSetting('animSpeed','normal')">Normal</button>
+          <button class="setting-opt" onclick="setSetting('animSpeed','fast')">Fast</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-label">Auto-Save</div>
+        <div class="settings-row" id="autoSaveRow">
+          <button class="setting-opt active-setting" onclick="setSetting('autoSave','30')">30s</button>
+          <button class="setting-opt" onclick="setSetting('autoSave','60')">1min</button>
+          <button class="setting-opt" onclick="setSetting('autoSave','300')">5min</button>
+          <button class="setting-opt" onclick="setSetting('autoSave','0')">Off</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-label">Audio</div>
+        <div class="settings-toggles">
+          <label class="setting-toggle">
+            <input type="checkbox" id="musicToggle" onchange="setSetting('music', this.checked ? 'on' : 'off')">
+            <span>Music</span>
+          </label>
+          <label class="setting-toggle">
+            <input type="checkbox" id="sfxToggle" onchange="setSetting('sfx', this.checked ? 'on' : 'off')">
+            <span>Sound Effects</span>
+          </label>
+        </div>
+        <div class="settings-row" id="musicTrackRow" style="margin-top:6px;">
+          <div class="setting-placeholder">Tracks coming soon</div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-label">Other</div>
+        <div class="settings-toggles">
+          <label class="setting-toggle">
+            <input type="checkbox" id="confirmResetToggle" checked onchange="setSetting('confirmReset', this.checked ? 'on' : 'off')">
+            <span>Confirm on Reset</span>
+          </label>
+        </div>
+      </div>
+
+    </div>
+    <button class="settings-close-btn" onclick="closeSettings()">Close</button>
+  </div>
 </div>
 
 <div class="selection-overlay hidden" id="selectionOverlay">
@@ -1081,6 +1181,16 @@ function bnIsZero(a) { return a.m === 0; }
 function bnFormat(a) {
   if (a.m === 0) return "0";
   if (a.e < 3) { var n = bnToNum(a); if (n < 1000) return n.toFixed(n % 1 === 0 && n < 100 ? 0 : 1); }
+  var notation = (typeof gameSettings !== 'undefined') ? gameSettings.notation : "standard";
+  if (notation === "scientific") {
+    return a.m.toFixed(2) + "e" + a.e;
+  }
+  if (notation === "engineering") {
+    var engE = Math.floor(a.e / 3) * 3;
+    var engM = a.m * Math.pow(10, a.e - engE);
+    return engM.toFixed(2) + "\u00d710" + superscript(engE);
+  }
+  // Standard (suffixes)
   var suffixes = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
   var idx = Math.floor(a.e / 3);
   if (idx < suffixes.length) {
@@ -1088,6 +1198,12 @@ function bnFormat(a) {
     return dispM.toFixed(dispM < 10 ? 2 : dispM < 100 ? 1 : 0) + suffixes[idx];
   }
   return a.m.toFixed(2) + "e" + a.e;
+}
+
+function superscript(n) {
+  var sup = { '0': '\u2070', '1': '\u00b9', '2': '\u00b2', '3': '\u00b3', '4': '\u2074',
+              '5': '\u2075', '6': '\u2076', '7': '\u2077', '8': '\u2078', '9': '\u2079', '-': '\u207b' };
+  return String(n).split('').map(function(c) { return sup[c] || c; }).join('');
 }
 
 // ============================================================
@@ -3509,7 +3625,94 @@ function startNew() {
 // ============================================================
 // Init
 // ============================================================
-setInterval(function() { if (gameStarted) saveGame(); }, AUTO_SAVE_INTERVAL);
+// Auto-save managed by settings system
+
+
+// ============================================================
+// Settings System
+// ============================================================
+var gameSettings = {
+  notation: "standard",
+  animSpeed: "normal",
+  autoSave: "30",
+  music: "off",
+  sfx: "off",
+  confirmReset: "on"
+};
+
+function loadSettings() {
+  try {
+    var raw = localStorage.getItem("strata_settings");
+    if (raw) {
+      var saved = JSON.parse(raw);
+      for (var k in saved) { if (gameSettings.hasOwnProperty(k)) gameSettings[k] = saved[k]; }
+    }
+  } catch(e) {}
+  applySettings();
+}
+
+function saveSettings() {
+  try { localStorage.setItem("strata_settings", JSON.stringify(gameSettings)); } catch(e) {}
+}
+
+function setSetting(key, value) {
+  gameSettings[key] = value;
+  saveSettings();
+  applySettings();
+  renderSettingsUI();
+}
+
+function applySettings() {
+  // Auto-save interval
+  if (window._autoSaveInterval) clearInterval(window._autoSaveInterval);
+  var interval = parseInt(gameSettings.autoSave) * 1000;
+  if (interval > 0) {
+    window._autoSaveInterval = setInterval(function() { if (gameStarted) saveGame(); }, interval);
+  }
+  // Music/SFX toggles - placeholder for future
+  // Notation - applied in bnFormat
+}
+
+function renderSettingsUI() {
+  // Update button active states
+  var rows = {
+    notation: document.getElementById("notationRow"),
+    animSpeed: document.getElementById("animSpeedRow"),
+    autoSave: document.getElementById("autoSaveRow")
+  };
+  for (var key in rows) {
+    var row = rows[key];
+    if (!row) continue;
+    var btns = row.querySelectorAll(".setting-opt");
+    for (var i = 0; i < btns.length; i++) {
+      var onclick = btns[i].getAttribute("onclick") || "";
+      var match = onclick.match(/'([^']+)'\s*\)/);
+      if (match && match[1] === gameSettings[key]) {
+        btns[i].classList.add("active-setting");
+      } else {
+        btns[i].classList.remove("active-setting");
+      }
+    }
+  }
+  // Toggles
+  var musicTog = document.getElementById("musicToggle");
+  if (musicTog) musicTog.checked = gameSettings.music === "on";
+  var sfxTog = document.getElementById("sfxToggle");
+  if (sfxTog) sfxTog.checked = gameSettings.sfx === "on";
+  var confirmTog = document.getElementById("confirmResetToggle");
+  if (confirmTog) confirmTog.checked = gameSettings.confirmReset === "on";
+}
+
+function showSettings() {
+  renderThemeGrid();
+  renderSettingsUI();
+  document.getElementById("settingsOverlay").classList.remove("hidden");
+}
+
+function closeSettings() {
+  document.getElementById("settingsOverlay").classList.add("hidden");
+}
+
 
 // ============================================================
 // Theme System
@@ -3665,15 +3868,9 @@ function renderThemeGrid() {
   grid.innerHTML = html;
 }
 
-function showSettings() {
-  renderThemeGrid();
-  document.getElementById("settingsOverlay").classList.remove("hidden");
-}
+// showSettings/closeSettings defined in settings system above
 
-function closeSettings() {
-  document.getElementById("settingsOverlay").classList.add("hidden");
-}
-
+loadSettings();
 loadTheme();
 showStartScreen();
 </script>
