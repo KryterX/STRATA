@@ -2375,15 +2375,7 @@ function switchTab(tab) {
   // Show/hide tab-specific controls in top bar
   document.getElementById("topGenControls").style.display = tab === "generators" ? "" : "none";
   document.getElementById("topUpgControls").style.display = tab === "upgrades" ? "" : "none";
-  // Hide points + prestige bars on upgrades tab (PP shown in upgrades header)
-  var ptsBar = document.getElementById("pointsBar");
-  var pBar = document.getElementById("prestigeBar");
-  var pBtn = document.getElementById("prestigeBtn");
-  var pPrompt = document.getElementById("prestigePrompt");
-  if (ptsBar) ptsBar.style.display = tab === "upgrades" ? "none" : "";
-  if (pBar && !pBar.classList.contains("hidden")) pBar.style.display = tab === "upgrades" ? "none" : "";
-  if (pBtn) pBtn.style.display = tab === "upgrades" ? "none" : "";
-  if (pPrompt && !pPrompt.classList.contains("hidden")) pPrompt.style.display = tab === "upgrades" ? "none" : "";
+
   updateTopBars();
   if (tab === "upgrades") { renderUpgrades(); renderChips(); }
   if (tab === "challenges") renderChallenges();
@@ -2420,6 +2412,8 @@ function updateTopBars() {
 
   if (currentTab === "challenges") {
     pointsBar.classList.add("hidden"); prestigeBar.classList.add("hidden"); prestigeBtn.classList.add("hidden");
+  } else if (currentTab === "upgrades") {
+    pointsBar.classList.add("hidden"); prestigeBar.classList.add("hidden"); prestigeBtn.classList.add("hidden");
   } else if (!d.hasPrestigedOnce) {
     pointsBar.classList.remove("hidden"); prestigeBar.classList.add("hidden"); prestigeBtn.classList.add("hidden");
   } else if (currentTab === "generators") {
@@ -2449,7 +2443,7 @@ function updateUI() {
   prestigeBtn.disabled = !canP;
   document.getElementById("prestigePoints").textContent = d.prestigeCount;
 
-  if (!d.hasPrestigedOnce && (isCapped() || canPrestige())) prompt.classList.remove("hidden");
+  if (!d.hasPrestigedOnce && (isCapped() || canPrestige()) && currentTab !== "upgrades") prompt.classList.remove("hidden");
   else prompt.classList.add("hidden");
   if (isInChallenge()) prompt.classList.add("hidden");
 
