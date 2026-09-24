@@ -14,10 +14,11 @@
     --border: #1a1a2e;
     --border-hover: #2a2a4a;
     --text: #c8c8d4;
-    --text-dim: #9a9aaa;
+    --text-dim: #b0b0c0;
     --text-bright: #eeeef4;
     --cyan: #00e4ff;
     --cyan-dim: #0088aa;
+    --cyan-muted: #1a6a7a;
     --magenta: #d946ef;
     --magenta-dim: #8b2fa0;
     --amber: #f0a030;
@@ -162,7 +163,7 @@
     transition: all var(--transition); position: relative; overflow: hidden;
   }
   .gen-card:hover { border-color: var(--cyan-dim); background: var(--bg-card-hover); }
-  .gen-card.maxed { border-color: var(--amber-dim); }
+  .gen-card.maxed { border-color: var(--cyan-muted, #1a6a7a); }
   .gen-tier {
     width: 40px; height: 40px; border-radius: 6px; display: flex; align-items: center;
     justify-content: center; font-weight: 700; font-size: 0.85rem; color: #fff;
@@ -189,7 +190,7 @@
     transform: translateY(-1px);
   }
   .gen-buy:disabled { border-color: #1a1a28; color: #333; cursor: not-allowed; }
-  .gen-buy.maxed-btn { border-color: var(--amber-dim); color: var(--amber-dim); cursor: default; }
+  .gen-buy.maxed-btn { border-color: var(--cyan-muted, #1a6a7a); color: var(--cyan-muted, #1a6a7a); cursor: default; }
   .progress-bar {
     position: absolute; bottom: 0; left: 0; height: 2px;
     background: linear-gradient(90deg, var(--cyan-dim), var(--cyan));
@@ -350,7 +351,7 @@
   .defect-icon { font-size: 1rem; flex-shrink: 0; }
   .defect-info { flex: 1; }
   .defect-name { font-weight: 600; font-size: 0.75rem; color: var(--red); font-family: var(--font-mono); }
-  .defect-desc { font-size: 0.65rem; color: #884444; }
+  .defect-desc { font-size: 0.65rem; color: var(--text-dim); }
   .defect-level { font-size: 0.55rem; font-weight: 700; color: var(--red); background: #1a0808; border: 1px solid #3a1111; padding: 2px 6px; border-radius: 3px; font-family: var(--font-mono); }
   .challenge-reward {
     background: #08120a; border: 1px solid #1a3a1a;
@@ -362,7 +363,7 @@
   .reward-icon { font-size: 1rem; flex-shrink: 0; }
   .reward-info { flex: 1; }
   .reward-name { font-weight: 600; font-size: 0.75rem; color: var(--green); }
-  .reward-desc { font-size: 0.65rem; color: #448844; }
+  .reward-desc { font-size: 0.65rem; color: var(--text-dim); }
   .reward-level { font-size: 0.55rem; font-weight: 700; color: var(--green); background: #081208; border: 1px solid #113a11; padding: 2px 6px; border-radius: 3px; font-family: var(--font-mono); }
   .challenge-btn {
     width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--amber-dim);
@@ -411,7 +412,7 @@
   }
   .reward-preview-info { flex: 1; }
   .reward-preview-name { font-weight: 700; font-size: 0.95rem; color: var(--green); margin-bottom: 3px; }
-  .reward-preview-desc { font-size: 0.75rem; color: #448844; }
+  .reward-preview-desc { font-size: 0.75rem; color: var(--text-dim); }
   .reward-preview-level { font-size: 0.65rem; font-weight: 700; padding: 3px 10px; border-radius: 4px; background: #081208; color: var(--green); border: 1px solid var(--green-dim); flex-shrink: 0; font-family: var(--font-mono); }
   .reward-slots-container { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
   .reward-slot-option {
@@ -3061,7 +3062,7 @@ function renderChallenges() {
   var contentEl = document.getElementById("challengeContent");
   if (!d.challengesUnlocked) {
     statusEl.textContent = "Challenges";
-    contentEl.innerHTML = '<div style="text-align:center;color:#666;padding:40px;">Buy 2 upgrades to unlock challenges.</div>';
+    contentEl.innerHTML = '<div style="text-align:center;color:#b0b0c0;padding:40px;">Buy 2 upgrades to unlock challenges.</div>';
     return;
   }
   var completedCount = d.challenges.filter(function(c) { return c.completed; }).length;
@@ -3116,7 +3117,7 @@ function renderChallenges() {
       html += '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">';
       if (ch.capExponent) {
         html += '<div style="background:#2a1a2a;border:1px solid #5a2a5a;border-radius:6px;padding:6px 10px;font-size:0.75rem;">';
-        html += '<span style="color:#c084fc;">Goal: 1e' + ch.capExponent + '</span> <span style="color:#888;">(was 1e308)</span></div>';
+        html += '<span style="color:#c084fc;">Goal: 1e' + ch.capExponent + '</span> <span style="color:#b0b0c0;">(was 1e308)</span></div>';
       }
       if (ch.timeLimit) {
         var tm = Math.floor(ch.timeLimit / 60); var ts = ch.timeLimit % 60;
@@ -3158,7 +3159,7 @@ function renderChallenges() {
     html += '<div class="challenge-card locked"><div class="challenge-header">';
     html += '<div class="challenge-title">Challenge ' + (i + 1) + '</div>';
     html += '<div class="challenge-badge badge-locked">LOCKED</div></div>';
-    html += '<div style="color:#444;font-size:0.8rem;padding:8px 0;">Complete Challenge ' + i + ' to unlock</div></div>';
+    html += '<div style="color:#b0b0c0;font-size:0.8rem;padding:8px 0;">Complete Challenge ' + i + ' to unlock</div></div>';
   }
   contentEl.innerHTML = html;
 }
@@ -3247,7 +3248,7 @@ function renderGenerators() {
     else if (!bnIsZero(cost)) prog = Math.min(bnToNum(bnDiv(d.points, cost)) * 100, 100);
     var cardClass = isMaxed ? "gen-card maxed" : "gen-card";
     html += '<div class="' + cardClass + '"><div class="gen-tier" style="' + tierStyle + '">' + gen.tier + '</div>';
-    html += '<div class="gen-info"><div class="gen-name">Generator ' + gen.tier + ' <span style="color:#888;font-weight:400;font-size:0.8rem;">(bought ' + gen.bought + '/' + maxBuy + ' — ' + bnFormat(mult) + 'x)</span></div>';
+    html += '<div class="gen-info"><div class="gen-name">Generator ' + gen.tier + ' <span style="color:#b0b0c0;font-weight:400;font-size:0.8rem;">(bought ' + gen.bought + '/' + maxBuy + ' — ' + bnFormat(mult) + 'x)</span></div>';
     if (!bnIsZero(totalRate)) {
       html += '<span class="gen-output" id="genOut' + i + '">' + bnFormat(totalRate) + ' ' + produces + '/sec</span>';
       if (gen.tier > 1) html += '<span class="gen-count" id="genAmt' + i + '">' + (!bnIsZero(gen.amount) ? ' | Amount: ' + bnFormat(gen.amount) : '') + '</span>';
@@ -3726,7 +3727,8 @@ var THEMES = [
     ch: "#f0a030",      // amber - challenge accent
     upgDim: "#8b2fa0",
     chDim: "#a06810",
-    genDim: "#0088aa"
+    genDim: "#0088aa",
+    genMuted: "#1a6a7a",
   },
   {
     id: "arctic", name: "Arctic",
@@ -3736,7 +3738,8 @@ var THEMES = [
     ch: "#f0a030",
     upgDim: "#1d6fa5",
     chDim: "#a06810",
-    genDim: "#0088aa"
+    genDim: "#0088aa",
+    genMuted: "#1a6a7a",
   },
   {
     id: "teal", name: "Deep Teal",
@@ -3746,7 +3749,8 @@ var THEMES = [
     ch: "#ff8c42",      // warm orange
     upgDim: "#00806b",
     chDim: "#a85a20",
-    genDim: "#0088aa"
+    genDim: "#0088aa",
+    genMuted: "#1a6a7a",
   },
   {
     id: "emerald", name: "Emerald",
@@ -3756,7 +3760,8 @@ var THEMES = [
     ch: "#fbbf24",      // gold
     upgDim: "#15803d",
     chDim: "#a07810",
-    genDim: "#0088aa"
+    genDim: "#0088aa",
+    genMuted: "#1a6a7a",
   },
   {
     id: "ice", name: "Ice & Fire",
@@ -3766,7 +3771,8 @@ var THEMES = [
     ch: "#fb923c",      // orange
     upgDim: "#4f46e5",
     chDim: "#c2410c",
-    genDim: "#3b82f6"
+    genDim: "#3b82f6",
+    genMuted: "#2a4a8a",
   },
   {
     id: "mono", name: "Mono",
@@ -3776,7 +3782,8 @@ var THEMES = [
     ch: "#c9a868",
     upgDim: "#5a6272",
     chDim: "#8a7740",
-    genDim: "#6a7282"
+    genDim: "#6a7282",
+    genMuted: "#4a5262",
   },
   {
     id: "sunset", name: "Sunset",
@@ -3786,7 +3793,8 @@ var THEMES = [
     ch: "#ef4444",      // red
     upgDim: "#c2410c",
     chDim: "#991b1b",
-    genDim: "#0284c7"
+    genDim: "#0284c7",
+    genMuted: "#1a5a8a",
   },
   {
     id: "vapor", name: "Vaporwave",
@@ -3796,7 +3804,8 @@ var THEMES = [
     ch: "#a78bfa",      // violet
     upgDim: "#be185d",
     chDim: "#6d28d9",
-    genDim: "#0891b2"
+    genDim: "#0891b2",
+    genMuted: "#1a6a7a",
   },
   {
     id: "forest", name: "Forest",
@@ -3806,7 +3815,8 @@ var THEMES = [
     ch: "#d4a056",      // warm brown
     upgDim: "#166534",
     chDim: "#8a6520",
-    genDim: "#15803d"
+    genDim: "#15803d",
+    genMuted: "#1a5a2a",
   },
   {
     id: "ocean", name: "Ocean",
@@ -3816,7 +3826,8 @@ var THEMES = [
     ch: "#f59e0b",      // amber
     upgDim: "#0369a1",
     chDim: "#b45309",
-    genDim: "#0e7490"
+    genDim: "#0e7490",
+    genMuted: "#1a5a6a",
   }
 ];
 
@@ -3830,6 +3841,7 @@ function applyTheme(themeId) {
   // Generator accent (tab highlight, buy buttons, gen borders)
   root.style.setProperty("--cyan", theme.gen);
   root.style.setProperty("--cyan-dim", theme.genDim);
+  root.style.setProperty("--cyan-muted", theme.genMuted || theme.genDim);
   // Upgrade accent (buy upgrade btn, sub-tabs, sort active, chips, selection cards)
   root.style.setProperty("--magenta", theme.upg);
   root.style.setProperty("--magenta-dim", theme.upgDim);
