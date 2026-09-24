@@ -323,15 +323,17 @@
   }
   .challenge-card {
     background: var(--bg-card); border: 1px solid var(--border);
+    border-left: 3px solid var(--amber-dim);
     border-radius: var(--radius); padding: 16px 14px; width: 100%;
     transition: all var(--transition);
   }
+  .challenge-card:hover { border-color: var(--amber-dim); }
   .challenge-card:hover { border-color: var(--border-hover); }
   .challenge-card.active-challenge { border-color: var(--amber); box-shadow: 0 0 14px rgba(240,160,48,0.15); }
   .challenge-card.completed { border-color: var(--green-dim); opacity: 0.5; }
   .challenge-card.locked { border-color: var(--border); opacity: 0.3; }
   .challenge-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-  .challenge-title { font-weight: 700; font-size: 0.95rem; color: var(--text-bright); font-family: var(--font-mono); }
+  .challenge-title { font-weight: 700; font-size: 0.95rem; color: var(--amber); font-family: var(--font-mono); }
   .challenge-badge { font-size: 0.6rem; font-weight: 700; padding: 3px 10px; border-radius: 4px; font-family: var(--font-mono); letter-spacing: 0.05em; }
   .badge-available { background: #1a1408; color: var(--amber); border: 1px solid var(--amber-dim); }
   .badge-active { background: #1a1408; color: var(--amber); border: 1px solid var(--amber); animation: pulse-border 2s ease-in-out infinite alternate; }
@@ -822,6 +824,37 @@
     font-size: 0.55rem; color: var(--text-dim); margin-top: 2px;
     font-family: var(--font-mono); display: block;
   }
+
+  /* Settings overlay */
+  .settings-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(4,4,8,0.94); z-index: 1200; display: flex;
+    flex-direction: column; align-items: center; justify-content: center;
+    padding: 20px; backdrop-filter: blur(10px);
+  }
+  .settings-overlay.hidden { display: none; }
+  .settings-title { font-size: 1.2rem; font-weight: 700; color: var(--text-bright); font-family: var(--font-mono); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .settings-sub { font-size: 0.7rem; color: var(--text-dim); margin-bottom: 16px; }
+  .theme-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px; width: 100%; max-width: 500px; max-height: 60vh; overflow-y: auto;
+  }
+  .theme-card {
+    background: var(--bg-card); border: 2px solid var(--border); border-radius: var(--radius);
+    padding: 12px; cursor: pointer; transition: all 0.2s; text-align: center;
+  }
+  .theme-card:hover { border-color: var(--text-dim); transform: translateY(-2px); }
+  .theme-card.active-theme { border-color: var(--cyan); box-shadow: 0 0 12px rgba(0,228,255,0.2); }
+  .theme-card-name { font-size: 0.7rem; font-weight: 600; color: var(--text-bright); margin-bottom: 6px; font-family: var(--font-mono); }
+  .theme-card-preview { display: flex; gap: 3px; justify-content: center; }
+  .theme-swatch { width: 16px; height: 16px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.1); }
+  .settings-close-btn {
+    margin-top: 16px; padding: 10px 32px; border-radius: var(--radius);
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text); font-weight: 600; font-size: 0.75rem;
+    cursor: pointer; transition: all 0.2s; font-family: var(--font-mono);
+  }
+  .settings-close-btn:hover { border-color: var(--text); color: var(--text-bright); }
 </style>
 </head>
 <body>
@@ -865,6 +898,7 @@
     <button class="ctrl-btn" onclick="saveGame()">Save</button>
     <button class="ctrl-btn" onclick="loadGame()">Load</button>
     <button class="ctrl-btn" onclick="resetGame()">Reset</button>
+    <button class="ctrl-btn" onclick="showSettings()" style="margin-left:auto;">&#x2699;</button>
   </div>
   <div class="save-msg" id="saveMsg"></div>
 
@@ -914,12 +948,19 @@
   </div>
 </div>
 
+
+<div class="settings-overlay hidden" id="settingsOverlay">
+  <div class="settings-title">Settings</div>
+  <div class="settings-sub">Choose a color theme</div>
+  <div class="theme-grid" id="themeGrid"></div>
+  <button class="settings-close-btn" onclick="closeSettings()">Close</button>
+</div>
+
 <div class="selection-overlay hidden" id="selectionOverlay">
   <div class="selection-title">Choose an Upgrade</div>
   <div class="selection-sub" id="selectionSub">Pick 1 of 3 &#x2014; choose wisely!</div>
   <div class="upgrade-sort-bar" style="max-width:420px;" id="selSortBar">
     <button class="sort-btn active-sort" onclick="setSelectionSort('default')">Default</button>
-    <button class="sort-btn" onclick="setSelectionSort('alpha')">A-Z</button>
     <button class="sort-btn" onclick="setSelectionSort('level')">Lv</button>
     <button class="sort-btn" onclick="setSelectionSort('type')">Type</button>
   </div>
@@ -948,7 +989,6 @@
   <div class="restart-overlay-warn">This cannot be undone!</div>
   <div class="upgrade-sort-bar" style="max-width:420px;" id="restartSortBar">
     <button class="sort-btn active-sort" onclick="setRestartSort('default')">Default</button>
-    <button class="sort-btn" onclick="setRestartSort('alpha')">A-Z</button>
     <button class="sort-btn" onclick="setRestartSort('level')">Lv</button>
     <button class="sort-btn" onclick="setRestartSort('type')">Type</button>
   </div>
@@ -3470,6 +3510,171 @@ function startNew() {
 // Init
 // ============================================================
 setInterval(function() { if (gameStarted) saveGame(); }, AUTO_SAVE_INTERVAL);
+
+// ============================================================
+// Theme System
+// ============================================================
+var THEMES = [
+  {
+    id: "default", name: "Neon Night",
+    desc: "Original dark theme",
+    gen: "#00e4ff",     // cyan - generator accent
+    upg: "#d946ef",     // magenta - upgrade accent  
+    ch: "#f0a030",      // amber - challenge accent
+    upgDim: "#8b2fa0",
+    chDim: "#a06810",
+    genDim: "#0088aa"
+  },
+  {
+    id: "arctic", name: "Arctic",
+    desc: "Cool blues and teals",
+    gen: "#00e4ff",
+    upg: "#38bdf8",     // sky blue
+    ch: "#f0a030",
+    upgDim: "#1d6fa5",
+    chDim: "#a06810",
+    genDim: "#0088aa"
+  },
+  {
+    id: "teal", name: "Deep Teal",
+    desc: "Teal upgrades, warm challenges",
+    gen: "#00e4ff",
+    upg: "#00c9a7",     // teal
+    ch: "#ff8c42",      // warm orange
+    upgDim: "#00806b",
+    chDim: "#a85a20",
+    genDim: "#0088aa"
+  },
+  {
+    id: "emerald", name: "Emerald",
+    desc: "Green-forward theme",
+    gen: "#00e4ff",
+    upg: "#34d399",     // emerald
+    ch: "#fbbf24",      // gold
+    upgDim: "#15803d",
+    chDim: "#a07810",
+    genDim: "#0088aa"
+  },
+  {
+    id: "ice", name: "Ice & Fire",
+    desc: "Cool blues, hot challenges",
+    gen: "#60a5fa",     // softer blue
+    upg: "#818cf8",     // indigo
+    ch: "#fb923c",      // orange
+    upgDim: "#4f46e5",
+    chDim: "#c2410c",
+    genDim: "#3b82f6"
+  },
+  {
+    id: "mono", name: "Mono",
+    desc: "Minimal grayscale accents",
+    gen: "#a8b2c1",
+    upg: "#8892a2",
+    ch: "#c9a868",
+    upgDim: "#5a6272",
+    chDim: "#8a7740",
+    genDim: "#6a7282"
+  },
+  {
+    id: "sunset", name: "Sunset",
+    desc: "Warm orange and coral",
+    gen: "#38bdf8",     // sky blue gens
+    upg: "#f97316",     // orange
+    ch: "#ef4444",      // red
+    upgDim: "#c2410c",
+    chDim: "#991b1b",
+    genDim: "#0284c7"
+  },
+  {
+    id: "vapor", name: "Vaporwave",
+    desc: "Retro pink and cyan",
+    gen: "#22d3ee",     // cyan
+    upg: "#f472b6",     // pink
+    ch: "#a78bfa",      // violet
+    upgDim: "#be185d",
+    chDim: "#6d28d9",
+    genDim: "#0891b2"
+  },
+  {
+    id: "forest", name: "Forest",
+    desc: "Natural greens and browns",
+    gen: "#4ade80",     // green
+    upg: "#86efac",     // light green
+    ch: "#d4a056",      // warm brown
+    upgDim: "#166534",
+    chDim: "#8a6520",
+    genDim: "#15803d"
+  },
+  {
+    id: "ocean", name: "Ocean",
+    desc: "Deep sea blues",
+    gen: "#06b6d4",     // cyan
+    upg: "#0ea5e9",     // sky
+    ch: "#f59e0b",      // amber
+    upgDim: "#0369a1",
+    chDim: "#b45309",
+    genDim: "#0e7490"
+  }
+];
+
+var currentTheme = "default";
+
+function applyTheme(themeId) {
+  var theme = THEMES.find(function(t) { return t.id === themeId; });
+  if (!theme) return;
+  currentTheme = themeId;
+  var root = document.documentElement;
+  // Generator accent (tab highlight, buy buttons, gen borders)
+  root.style.setProperty("--cyan", theme.gen);
+  root.style.setProperty("--cyan-dim", theme.genDim);
+  // Upgrade accent (buy upgrade btn, sub-tabs, sort active, chips, selection cards)
+  root.style.setProperty("--magenta", theme.upg);
+  root.style.setProperty("--magenta-dim", theme.upgDim);
+  // Challenge accent (challenge tab highlight, challenge cards, defect badges)
+  root.style.setProperty("--amber", theme.ch);
+  root.style.setProperty("--amber-dim", theme.chDim);
+  // Persist
+  try { localStorage.setItem("strata_theme", themeId); } catch(e) {}
+  renderThemeGrid();
+}
+
+function loadTheme() {
+  try {
+    var saved = localStorage.getItem("strata_theme");
+    if (saved) { applyTheme(saved); return; }
+  } catch(e) {}
+  applyTheme("default");
+}
+
+function renderThemeGrid() {
+  var grid = document.getElementById("themeGrid");
+  if (!grid) return;
+  var html = "";
+  for (var i = 0; i < THEMES.length; i++) {
+    var t = THEMES[i];
+    var active = t.id === currentTheme ? " active-theme" : "";
+    html += '<div class="theme-card' + active + '" onclick="applyTheme(\'' + t.id + '\')">';
+    html += '<div class="theme-card-name">' + t.name + '</div>';
+    html += '<div class="theme-card-preview">';
+    html += '<div class="theme-swatch" style="background:' + t.gen + '"></div>';
+    html += '<div class="theme-swatch" style="background:' + t.upg + '"></div>';
+    html += '<div class="theme-swatch" style="background:' + t.ch + '"></div>';
+    html += '</div>';
+    html += '</div>';
+  }
+  grid.innerHTML = html;
+}
+
+function showSettings() {
+  renderThemeGrid();
+  document.getElementById("settingsOverlay").classList.remove("hidden");
+}
+
+function closeSettings() {
+  document.getElementById("settingsOverlay").classList.add("hidden");
+}
+
+loadTheme();
 showStartScreen();
 </script>
 
