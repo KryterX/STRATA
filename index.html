@@ -761,14 +761,6 @@
     box-shadow: 0 0 12px rgba(0,228,255,0.25); }
   .buy-all-btn.hidden { display: none; }
 
-  /* Sticky sub-headers */
-  .sticky-header {
-    position: sticky; top: 0; z-index: 10;
-    background: var(--bg-deep);
-    padding-bottom: 4px;
-    display: flex; flex-direction: column; gap: 8px;
-    width: 100%;
-  }
 
 
   /* Upgrade effect chips */
@@ -808,6 +800,13 @@
   .selection-card-plain { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 2px; }
   .selection-card-effect { font-size: 0.68rem; color: var(--magenta); font-family: var(--font-mono); }
 
+
+  /* Tab-specific controls in top bar */
+  #topGenControls { margin-top: 4px; }
+  #topUpgControls { margin-top: 4px; display: flex; flex-direction: column; gap: 4px; }
+  #topUpgControls .upgrades-header { margin-bottom: 0; }
+  #topUpgControls .upgrade-sub-tabs { margin-bottom: 0; }
+  #topUpgControls .upgrade-sort-bar { margin-bottom: 0; }
 </style>
 </head>
 <body>
@@ -853,38 +852,40 @@
     <button class="ctrl-btn" onclick="resetGame()">Reset</button>
   </div>
   <div class="save-msg" id="saveMsg"></div>
+
+  <div id="topGenControls" style="width:100%;max-width:500px;">
+    <button class="buy-all-btn hidden" id="buyAllBtn" onclick="buyAllGens()">buy all</button>
+  </div>
+
+  <div id="topUpgControls" style="display:none;width:100%;max-width:500px;">
+    <div class="upgrades-header">
+      <div class="upgrades-pp-info">
+        <div class="upgrades-pp-label">Prestige Points</div>
+        <div class="upgrades-pp-value" id="upgradesPP">0</div>
+      </div>
+      <button class="upgrade-buy-btn" id="upgradeBuyBtn" disabled onclick="startUpgradeSelection()">
+        Buy Upgrade (1 PP)
+      </button>
+    </div>
+    <div class="upgrade-sub-tabs" id="upgradeSubTabs">
+      <button class="sub-tab-btn active-sub" onclick="switchUpgradeSub('slots')">upgrades</button>
+      <button class="sub-tab-btn hidden-tab" id="permaSubBtn" onclick="switchUpgradeSub('perma')">perma buffs <span id="permCount">(0)</span></button>
+    </div>
+    <div class="upgrade-chips hidden" id="upgradeChips"></div>
+    <div class="upgrade-sort-bar" id="upgradeSortBar">
+      <button class="sort-btn active-sort" onclick="setUpgradeSort('default')">Default</button>
+      <button class="sort-btn" onclick="setUpgradeSort('alpha')">A-Z</button>
+      <button class="sort-btn" onclick="setUpgradeSort('level')">Lv</button>
+      <button class="sort-btn" onclick="setUpgradeSort('type')">Type</button>
+    </div>
+  </div>
 </div>
 
 <div class="content-area">
   <div class="tab-panel active" id="tabGenerators">
-    <div class="sticky-header">
-      <button class="buy-all-btn hidden" id="buyAllBtn" onclick="buyAllGens()">buy all</button>
-    </div>
     <div class="generators" id="genList"></div>
   </div>
   <div class="tab-panel" id="tabUpgrades">
-    <div class="sticky-header">
-      <div class="upgrades-header">
-        <div class="upgrades-pp-info">
-          <div class="upgrades-pp-label">Prestige Points</div>
-          <div class="upgrades-pp-value" id="upgradesPP">0</div>
-        </div>
-        <button class="upgrade-buy-btn" id="upgradeBuyBtn" disabled onclick="startUpgradeSelection()">
-          Buy Upgrade (1 PP)
-        </button>
-      </div>
-      <div class="upgrade-sub-tabs" id="upgradeSubTabs">
-        <button class="sub-tab-btn active-sub" onclick="switchUpgradeSub('slots')">upgrades</button>
-        <button class="sub-tab-btn hidden-tab" id="permaSubBtn" onclick="switchUpgradeSub('perma')">perma buffs <span id="permCount">(0)</span></button>
-      </div>
-      <div class="upgrade-chips hidden" id="upgradeChips"></div>
-      <div class="upgrade-sort-bar" id="upgradeSortBar">
-        <button class="sort-btn active-sort" onclick="setUpgradeSort('default')">Default</button>
-        <button class="sort-btn" onclick="setUpgradeSort('alpha')">A-Z</button>
-        <button class="sort-btn" onclick="setUpgradeSort('level')">Lv</button>
-        <button class="sort-btn" onclick="setUpgradeSort('type')">Type</button>
-      </div>
-    </div>
     <div id="upgradeSubSlots">
       <div class="upgrade-slots" id="upgradeSlots"></div>
     </div>
@@ -2356,6 +2357,9 @@ function switchTab(tab) {
   document.getElementById("btnTabGen").classList.toggle("active", tab === "generators");
   document.getElementById("btnTabUpg").classList.toggle("active", tab === "upgrades");
   document.getElementById("btnTabCh").classList.toggle("active", tab === "challenges");
+  // Show/hide tab-specific controls in top bar
+  document.getElementById("topGenControls").style.display = tab === "generators" ? "" : "none";
+  document.getElementById("topUpgControls").style.display = tab === "upgrades" ? "" : "none";
   // Hide prestige bar on upgrades tab (shown in upgrades header instead)
   var pBar = document.getElementById("prestigeBar");
   if (pBar && !pBar.classList.contains("hidden")) {
