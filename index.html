@@ -769,9 +769,7 @@
     display: flex; flex-direction: column; gap: 8px;
     width: 100%;
   }
-  .buy-all-btn {
-    position: sticky; top: 0; z-index: 10;
-  }
+
 
   /* Upgrade effect chips */
   .upgrade-chips {
@@ -859,7 +857,9 @@
 
 <div class="content-area">
   <div class="tab-panel active" id="tabGenerators">
-    <button class="buy-all-btn hidden" id="buyAllBtn" onclick="buyAllGens()">buy all</button>
+    <div class="sticky-header">
+      <button class="buy-all-btn hidden" id="buyAllBtn" onclick="buyAllGens()">buy all</button>
+    </div>
     <div class="generators" id="genList"></div>
   </div>
   <div class="tab-panel" id="tabUpgrades">
@@ -877,15 +877,15 @@
         <button class="sub-tab-btn active-sub" onclick="switchUpgradeSub('slots')">upgrades</button>
         <button class="sub-tab-btn hidden-tab" id="permaSubBtn" onclick="switchUpgradeSub('perma')">perma buffs <span id="permCount">(0)</span></button>
       </div>
-    </div>
-    <div class="upgrade-chips hidden" id="upgradeChips"></div>
-    <div id="upgradeSubSlots">
+      <div class="upgrade-chips hidden" id="upgradeChips"></div>
       <div class="upgrade-sort-bar" id="upgradeSortBar">
         <button class="sort-btn active-sort" onclick="setUpgradeSort('default')">Default</button>
         <button class="sort-btn" onclick="setUpgradeSort('alpha')">A-Z</button>
         <button class="sort-btn" onclick="setUpgradeSort('level')">Lv</button>
         <button class="sort-btn" onclick="setUpgradeSort('type')">Type</button>
       </div>
+    </div>
+    <div id="upgradeSubSlots">
       <div class="upgrade-slots" id="upgradeSlots"></div>
     </div>
     <div id="upgradeSubPerma" style="display:none;">
@@ -2006,6 +2006,31 @@ function getUpgradeBeforeAfter(id, newLevel) {
   }
 }
 
+
+function compactNum(val) {
+  // Format a number to 4 chars max: 1, 12, 123, 1.2K, 12K, 1.2M, 1e9, etc.
+  if (typeof val === 'string') {
+    // Try to parse — if it starts with x or has text, extract the number
+    var n = parseFloat(val.replace(/[^0-9.eE+-]/g, ''));
+    if (isNaN(n)) return val.substring(0, 4);
+    val = n;
+  }
+  if (val === 0) return "0";
+  var abs = Math.abs(val);
+  var sign = val < 0 ? "-" : "";
+  if (abs < 10) return sign + abs.toFixed(abs < 1 ? 2 : 1);
+  if (abs < 100) return sign + abs.toFixed(0);
+  if (abs < 1000) return sign + abs.toFixed(0);
+  if (abs < 10000) return sign + (abs/1000).toFixed(1) + "K";
+  if (abs < 1e6) return sign + Math.floor(abs/1000) + "K";
+  if (abs < 1e7) return sign + (abs/1e6).toFixed(1) + "M";
+  if (abs < 1e9) return sign + Math.floor(abs/1e6) + "M";
+  // For very large numbers, use scientific notation
+  var exp = Math.floor(Math.log10(abs));
+  var man = abs / Math.pow(10, exp);
+  return sign + man.toFixed(0) + "e" + exp;
+}
+
 function getNetEffect(id) {
   var d = D();
   var sum = getUpgradeSum(id);
@@ -2017,13 +2042,13 @@ function getNetEffect(id) {
     case "gen_expansion": return getMaxTier() + " gens";
     case "auto_buy": return sum + "/sec";
     case "break_infinity": return "uncapped";
-    case "gen_boost": var gb = getGenBoostMult(); return gb >= 1 ? "x" + gb.toFixed(0) + " out" : "\u00f7" + (1/gb).toFixed(0) + " out";
+    case "gen_boost": var gb = getGenBoostMult(); return gb >= 1 ? "x" + compactNum(gb) + " out" : "\u00f7" + compactNum(1/gb) + " out";
     case "fast_start": return "1e" + (3 * sum) + " kept";
     case "upgrade_count": return getMaxUpgradeSlots() + " slots";
     case "luck": return (1 + 1/(1+sum)).toFixed(2) + " luck";
     case "ascend": return "Lv." + getMaxLevel() + " max";
     case "overclock": return getMaxBuy() + " buys";
-    case "momentum": var _mSum = getUpgradeSum("momentum") - getDefectSum("momentum"); var _mTier = getMaxTier(); var _mMult = _mSum === 0 ? 1 : (_mSum > 0 ? Math.pow(Math.abs(_mSum)+1, Math.sqrt(_mTier)) : 1/Math.pow(Math.abs(_mSum)+1, Math.sqrt(_mTier))); return _mMult >= 1 ? "x" + (_mMult < 100 ? _mMult.toFixed(1) : _mMult.toExponential(1)) + " mom" : "\u00f7" + (1/_mMult).toFixed(1) + " mom";
+    case "momentum": var _mSum = getUpgradeSum("momentum") - getDefectSum("momentum"); var _mTier = getMaxTier(); var _mMult = _mSum === 0 ? 1 : (_mSum > 0 ? Math.pow(Math.abs(_mSum)+1, Math.sqrt(_mTier)) : 1/Math.pow(Math.abs(_mSum)+1, Math.sqrt(_mTier))); return _mMult >= 1 ? "x" + compactNum(_mMult) + " mom" : "\u00f7" + compactNum(1/_mMult) + " mom";
     case "wide_selection": return getSelectionCount() + " picks";
     case "echo": return "";
     case "boost_above": return "x" + (2 - 1/(1+sum*0.1)).toFixed(2) + " up";
@@ -2331,6 +2356,11 @@ function switchTab(tab) {
   document.getElementById("btnTabGen").classList.toggle("active", tab === "generators");
   document.getElementById("btnTabUpg").classList.toggle("active", tab === "upgrades");
   document.getElementById("btnTabCh").classList.toggle("active", tab === "challenges");
+  // Hide prestige bar on upgrades tab (shown in upgrades header instead)
+  var pBar = document.getElementById("prestigeBar");
+  if (pBar && !pBar.classList.contains("hidden")) {
+    pBar.style.display = tab === "upgrades" ? "none" : "";
+  }
   updateTopBars();
   if (tab === "upgrades") { renderUpgrades(); renderChips(); }
   if (tab === "challenges") renderChallenges();
@@ -2491,6 +2521,8 @@ function switchUpgradeSub(sub) {
   document.getElementById("upgradeSubPerma").style.display = sub === "perma" ? "" : "none";
   var chipsEl = document.getElementById("upgradeChips");
   if (chipsEl) chipsEl.style.display = sub === "slots" ? "" : "none";
+  var sortBar = document.getElementById("upgradeSortBar");
+  if (sortBar) sortBar.style.display = sub === "slots" ? "" : "none";
   var btns = document.querySelectorAll(".sub-tab-btn");
   for (var i = 0; i < btns.length; i++) {
     btns[i].classList.remove("active-sub");
