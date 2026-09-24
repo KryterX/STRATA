@@ -807,6 +807,21 @@
   #topUpgControls .upgrades-header { margin-bottom: 0; }
   #topUpgControls .upgrade-sub-tabs { margin-bottom: 0; }
   #topUpgControls .upgrade-sort-bar { margin-bottom: 0; }
+
+  /* Restart keep progress */
+  .restart-dim-btn {
+    position: relative; overflow: hidden;
+  }
+  .restart-progress {
+    position: absolute; bottom: 0; left: 0; height: 3px;
+    background: linear-gradient(90deg, var(--red-dim), var(--amber));
+    border-radius: 0 0 var(--radius) var(--radius);
+    transition: width 0.5s ease-out;
+  }
+  .restart-progress-text {
+    font-size: 0.55rem; color: var(--text-dim); margin-top: 2px;
+    font-family: var(--font-mono); display: block;
+  }
 </style>
 </head>
 <body>
@@ -2360,11 +2375,15 @@ function switchTab(tab) {
   // Show/hide tab-specific controls in top bar
   document.getElementById("topGenControls").style.display = tab === "generators" ? "" : "none";
   document.getElementById("topUpgControls").style.display = tab === "upgrades" ? "" : "none";
-  // Hide prestige bar on upgrades tab (shown in upgrades header instead)
+  // Hide points + prestige bars on upgrades tab (PP shown in upgrades header)
+  var ptsBar = document.getElementById("pointsBar");
   var pBar = document.getElementById("prestigeBar");
-  if (pBar && !pBar.classList.contains("hidden")) {
-    pBar.style.display = tab === "upgrades" ? "none" : "";
-  }
+  var pBtn = document.getElementById("prestigeBtn");
+  var pPrompt = document.getElementById("prestigePrompt");
+  if (ptsBar) ptsBar.style.display = tab === "upgrades" ? "none" : "";
+  if (pBar && !pBar.classList.contains("hidden")) pBar.style.display = tab === "upgrades" ? "none" : "";
+  if (pBtn) pBtn.style.display = tab === "upgrades" ? "none" : "";
+  if (pPrompt && !pPrompt.classList.contains("hidden")) pPrompt.style.display = tab === "upgrades" ? "none" : "";
   updateTopBars();
   if (tab === "upgrades") { renderUpgrades(); renderChips(); }
   if (tab === "challenges") renderChallenges();
@@ -2610,6 +2629,29 @@ function renderUpgrades() {
 // Dimension Restart (keep 1 upgrade, wipe everything else)
 // ============================================================
 
+
+
+function getRestartKeepProgress(dim) {
+  var d = dim || D();
+  var maxExp = d.maxExponent || 0;
+  if (maxExp < 308) return { current: 0, nextAt: 308, pct: Math.min(100, (maxExp / 308) * 100) };
+  // Walk the threshold curve to find current and next
+  var count = 1;
+  var threshold = 308;
+  var gap = 100;
+  var prevThreshold = 308;
+  while (true) {
+    prevThreshold = threshold;
+    threshold += gap;
+    if (maxExp < threshold) {
+      // We're between prevThreshold and threshold
+      var progress = (maxExp - prevThreshold) / (threshold - prevThreshold) * 100;
+      return { current: count, nextAt: threshold, pct: Math.min(100, Math.max(0, progress)) };
+    }
+    count++;
+    gap = Math.ceil(gap * 1.75);
+  }
+}
 
 function getRestartKeepCount(dim) {
   var d = dim || D();
@@ -2877,7 +2919,11 @@ function renderChallenges() {
   // Restart dimension button — always at the top when not in an active challenge
   if (!isInChallenge()) {
     var _keepN = getRestartKeepCount();
-    html += '<button class="restart-dim-btn" onclick="showRestartOverlay()">Restart Dimension (keep ' + (_keepN > 0 ? _keepN : 'no') + ' upgrade' + (_keepN !== 1 ? 's' : '') + ')</button>';
+    var _kp = getRestartKeepProgress();
+    var _keepLabel = _keepN > 0 ? _keepN : 'no';
+    var _keepPlural = _keepN !== 1 ? 's' : '';
+    var _nextLabel = _kp.pct < 100 ? '<span class="restart-progress-text">' + Math.floor(_kp.pct) + '% to next keep (e' + _kp.nextAt + ')</span>' : '';
+    html += '<button class="restart-dim-btn" onclick="showRestartOverlay()">Restart Dimension (keep ' + _keepLabel + ' upgrade' + _keepPlural + ')' + _nextLabel + '<div class="restart-progress" style="width:' + _kp.pct.toFixed(1) + '%"></div></button>';
   }
   if (completedCount >= 5) {
     statusEl.textContent = "All Challenges Complete!";
