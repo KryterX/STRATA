@@ -991,6 +991,59 @@
     border: 1px solid var(--border); border-radius: var(--radius);
   }
   .restart-chips .effect-chip { font-size: 0.58rem; padding: 2px 6px; }
+
+  /* Discovery popup (one-time) */
+  .discovery-popup {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: var(--bg-card); border: 1px solid var(--cyan-dim);
+    border-radius: var(--radius); padding: 14px 18px;
+    max-width: 360px; width: calc(100% - 40px); z-index: 1050;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    animation: popupSlideUp 0.4s ease-out;
+  }
+  @keyframes popupSlideUp {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+  .discovery-popup.hiding {
+    animation: popupSlideDown 0.3s ease-in forwards;
+  }
+  @keyframes popupSlideDown {
+    from { opacity: 1; transform: translateX(-50%) translateY(0); }
+    to { opacity: 0; transform: translateX(-50%) translateY(20px); }
+  }
+  .discovery-title {
+    font-size: 0.8rem; font-weight: 700; color: var(--cyan);
+    font-family: var(--font-mono); margin-bottom: 4px;
+  }
+  .discovery-text {
+    font-size: 0.72rem; color: var(--text); line-height: 1.5;
+  }
+  .discovery-dismiss {
+    margin-top: 8px; padding: 5px 14px; border-radius: 4px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-dim); font-size: 0.6rem; cursor: pointer;
+    font-family: var(--font-mono); float: right;
+    transition: all 0.2s;
+  }
+  .discovery-dismiss:hover { border-color: var(--text); color: var(--text); }
+
+  /* Hover tooltips */
+  .has-tooltip { position: relative; }
+  .tooltip {
+    position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+    background: #1a1a2e; border: 1px solid var(--border-hover);
+    border-radius: 5px; padding: 6px 10px; font-size: 0.62rem;
+    color: var(--text); white-space: nowrap; z-index: 1060;
+    pointer-events: none; opacity: 0; transition: opacity 0.15s;
+    font-family: var(--font-mono); box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    max-width: 250px; white-space: normal; text-align: center;
+  }
+  .has-tooltip:hover .tooltip { opacity: 1; }
+  .tooltip::after {
+    content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: #1a1a2e;
+  }
 </style>
 </head>
 <body>
@@ -1231,7 +1284,9 @@
   <button class="tab-btn active" id="btnTabGen" onclick="switchTab('generators')">Generators</button>
   <button class="tab-btn tab-upgrades" id="btnTabUpg" onclick="switchTab('upgrades')">Upgrades</button>
   <button class="tab-btn tab-challenges hidden-tab" id="btnTabCh" onclick="switchTab('challenges')">Challenges</button>
-  <div class="dim-nav hidden" id="dimNav">
+  <div id="discoveryContainer"></div>
+
+<div class="dim-nav hidden" id="dimNav">
     <button class="dim-nav-btn" id="dimPrevBtn" onclick="switchDim(-1)">&#x25C0;</button>
     <div>
       <div class="dim-nav-text" id="dimNavText">Dimension 1 / 1</div>
@@ -1759,6 +1814,7 @@ function checkChallengeUnlock() {
   if (d.challengesUnlocked) return;
   if (d.upgradeBuyCount >= 2) {
     d.challengesUnlocked = true;
+    showDiscovery('first_challenge');
     if (d.challenges.length === 0) d.challenges.push(generateChallenge(1, d));
   }
 }
@@ -1839,6 +1895,7 @@ function showPermBuffOverlay(dimNum) {
 function pickPermBuff(upgradeId) {
   if (permBuffs.indexOf(upgradeId) >= 0) return; // already taken
   permBuffs.push(upgradeId);
+  showDiscovery('first_perm_buff');
   dimCompletionCount++;
   document.getElementById("permOverlay").classList.add("hidden");
   invalidateRenderKeys();
@@ -1866,6 +1923,7 @@ function checkDimensionUnlock() {
     // Check if this is dimension 10 completion
     var completedDimNum = unlockedDims; // the dim we just completed (before incrementing)
     unlockedDims++;
+    showDiscovery('first_dimension');
     var newDim = createFreshDimension();
     dimensions.push(newDim);
     initUpgradeSlots(newDim);
@@ -2123,6 +2181,7 @@ function pickOption(index) {
     initUpgradeSlots(); ensureGeneratorCount(); invalidateRenderKeys(); updateUI();
     triggerUpgradeAnimation(def.id, opt.level, null, 0);
   }
+    showDiscovery('first_upgrade');
 }
 function discardSelection() {
   var d = D();
@@ -2459,6 +2518,7 @@ function renderChips() {
   }
   el.innerHTML = html;
 }
+  addChipTooltips();
 
 // ============================================================
 // Chip Animation Engine
@@ -2571,6 +2631,8 @@ function animateDrain(id, levels, done) {
 
 function triggerUpgradeAnimation(gainId, gainLevels, drainId, drainLevels) {
   // Called after an upgrade is placed or replaced
+  if (gainId === "break_infinity") showDiscovery('break_infinity');
+  if (gainId === "echo") showDiscovery('echo_upgrade');
   if (drainId && drainLevels > 0) {
     queueChipAnim("drain", drainId, drainLevels);
   }
@@ -2808,6 +2870,7 @@ function doPrestige() {
   if (isInChallenge()) return;
   d.prestigeCount += getPrestigeEarned();
   d.hasPrestigedOnce = true;
+  showDiscovery('first_prestige');
   var fs = getFastStartPoints(); var ms = bn(10, 0);
   d.points = bnGte(fs, ms) ? fs : ms;
   initGenerators();
@@ -3023,6 +3086,7 @@ function showRestartOverlay() {
   window._restartKeepMax = keepCount;
   currentRestartSort = "default"; restartSortLevelAsc = false;
   renderRestartSlots();
+  showDiscovery('first_restart');
   document.getElementById("restartOverlay").classList.remove("hidden");
 }
 
@@ -3072,9 +3136,10 @@ function renderRestartChips() {
     // Calculate net effect at this sum
     var effect = getNetEffectAtSum(id, owned[id].sum);
     if (!effect) continue;
-    html += '<div class="effect-chip">';
+    html += '<div class="effect-chip" id="rchip-' + id + '">';
     html += '<span class="chip-icon">' + def.icon + '</span>';
     html += '<span class="chip-value">' + effect + '</span>';
+    html += '<div class="chip-bar" id="rchipbar-' + id + '"></div>';
     html += '</div>';
   }
   el.innerHTML = html;
@@ -3144,14 +3209,64 @@ function renderRestartSlots() {
 
 function toggleRestartSlot(idx) {
   var sel = window._restartSelected;
+  var d = D();
+  var slot = d.upgradeSlots[idx];
   var pos = sel.indexOf(idx);
+  var wasAdded = false;
   if (pos >= 0) {
     sel.splice(pos, 1);
+    wasAdded = false;
   } else {
-    if (sel.length >= window._restartKeepMax) return; // at cap
+    if (sel.length >= window._restartKeepMax) return;
     sel.push(idx);
+    wasAdded = true;
   }
   renderRestartSlots();
+  // Animate the chip change
+  if (slot && slot.id !== "echo") {
+    var chipEl = document.getElementById("rchip-" + slot.id);
+    if (wasAdded && chipEl) {
+      // Fill animation on the chip
+      var bar = chipEl.querySelector(".chip-bar");
+      if (bar) {
+        bar.className = "chip-bar fill";
+        bar.style.transition = "none"; bar.style.width = "0%";
+        setTimeout(function() {
+          bar.style.transition = "width 0.4s ease-out";
+          bar.style.width = "100%";
+          chipEl.classList.add("pulse");
+          setTimeout(function() {
+            chipEl.classList.remove("pulse");
+            bar.style.transition = "opacity 0.3s"; bar.style.opacity = "0";
+            setTimeout(function() { bar.style.width = "0%"; bar.style.opacity = "1"; bar.style.transition = "none"; }, 300);
+          }, 300);
+        }, 30);
+      }
+    } else if (!wasAdded) {
+      // Check if this upgrade type is still selected via another slot
+      var stillSelected = false;
+      for (var si = 0; si < sel.length; si++) {
+        var ss = d.upgradeSlots[sel[si]];
+        if (ss && ss.id === slot.id) { stillSelected = true; break; }
+      }
+      if (!stillSelected && chipEl) {
+        // Drain animation
+        var bar = chipEl.querySelector(".chip-bar");
+        if (bar) {
+          bar.className = "chip-bar drain";
+          bar.style.transition = "none"; bar.style.width = "100%";
+          setTimeout(function() {
+            bar.style.transition = "width 0.4s ease-in";
+            bar.style.width = "0%";
+          }, 30);
+        }
+      } else if (chipEl) {
+        // Still selected via another slot — just pulse to show value updated
+        chipEl.classList.add("pulse");
+        setTimeout(function() { chipEl.classList.remove("pulse"); }, 300);
+      }
+    }
+  }
 }
 
 function confirmRestart() {
@@ -4142,6 +4257,121 @@ function renderSaveSlots() {
     }
   }
   container.innerHTML = html;
+}
+
+
+// ============================================================
+// Discovery Popups (one-time guides)
+// ============================================================
+var DISCOVERIES = {
+  first_prestige: {
+    title: "Prestige Unlocked!",
+    text: "You've hit the point cap! Prestige resets your generators but earns Prestige Points \u2014 spend them on powerful upgrades."
+  },
+  first_upgrade: {
+    title: "Upgrades",
+    text: "Upgrades boost your generators permanently. The chips at the top show your current net effects. Each prestige lets you buy more."
+  },
+  first_challenge: {
+    title: "Challenges Unlocked",
+    text: "Challenges apply penalties (defects) but reward you with high-level upgrades. Complete all 5 to unlock a new dimension."
+  },
+  first_dimension: {
+    title: "New Dimension!",
+    text: "Each dimension starts fresh but dimensions boost each other. Higher dimensions have a production penalty \u2014 upgrades in other dimensions help offset it."
+  },
+  first_restart: {
+    title: "Dimension Restart",
+    text: "Restart wipes everything in this dimension except the upgrades you choose to keep. Push further to unlock more keep slots."
+  },
+  break_infinity: {
+    title: "Break Infinity",
+    text: "The point cap is removed! Your points can now grow past 1e308. Prestige Points scale with your highest exponent."
+  },
+  first_perm_buff: {
+    title: "Permanent Buff!",
+    text: "You earned a Lv.3 buff that applies to ALL dimensions forever \u2014 even new ones. Choose wisely."
+  },
+  echo_upgrade: {
+    title: "Echo",
+    text: "Echo copies one of your existing upgrades at the rolled level. Pick which upgrade to duplicate."
+  }
+};
+
+function getDiscoveryState() {
+  try {
+    var raw = localStorage.getItem("strata_discoveries");
+    return raw ? JSON.parse(raw) : {};
+  } catch(e) { return {}; }
+}
+
+function saveDiscoveryState(state) {
+  try { localStorage.setItem("strata_discoveries", JSON.stringify(state)); } catch(e) {}
+}
+
+function showDiscovery(key) {
+  var state = getDiscoveryState();
+  if (state[key]) return; // already shown
+  var disc = DISCOVERIES[key];
+  if (!disc) return;
+  state[key] = true;
+  saveDiscoveryState(state);
+  var container = document.getElementById("discoveryContainer");
+  if (!container) return;
+  var popup = document.createElement("div");
+  popup.className = "discovery-popup";
+  popup.innerHTML = '<div class="discovery-title">' + disc.title + '</div>' +
+    '<div class="discovery-text">' + disc.text + '</div>' +
+    '<button class="discovery-dismiss" onclick="dismissDiscovery(this)">Got it</button>';
+  container.appendChild(popup);
+  // Auto-dismiss after 10 seconds
+  setTimeout(function() { dismissDiscovery(popup.querySelector(".discovery-dismiss")); }, 10000);
+}
+
+function dismissDiscovery(btn) {
+  var popup = btn.closest ? btn.closest(".discovery-popup") : btn.parentElement;
+  if (!popup) return;
+  popup.classList.add("hiding");
+  setTimeout(function() { if (popup.parentElement) popup.parentElement.removeChild(popup); }, 300);
+}
+
+// ============================================================
+// Hover Tooltips for Chips
+// ============================================================
+var CHIP_TOOLTIPS = {
+  upgrade_boost: "Increases the multiplier you get per generator purchase",
+  prestige_boost: "Multiplies prestige points earned when you prestige",
+  discount: "Reduces the cost multiplier per generator purchase. Lower = cheaper",
+  gen_expansion: "Unlocks more generator tiers. More tiers = more cascading production",
+  auto_buy: "Automatically buys the cheapest affordable generator each second",
+  break_infinity: "Removes the 1e308 point cap. Points and PP scale infinitely",
+  gen_boost: "Flat multiplier to all generator output",
+  fast_start: "Keep more points after prestige instead of starting at 10",
+  upgrade_count: "Adds more upgrade slots so you can hold more upgrades",
+  luck: "Improves odds of rolling higher-level upgrades",
+  ascend: "Raises the maximum level upgrades can roll at",
+  overclock: "Increases the max number of times you can buy each generator",
+  momentum: "Output multiplier that scales with your highest generator tier",
+  wide_selection: "More choices when buying upgrades (more options per roll)",
+  boost_above: "Multiplies production in higher-numbered dimensions",
+  boost_below: "Multiplies production in lower-numbered dimensions"
+};
+
+function addChipTooltips() {
+  // Add tooltip spans to all chips that don't already have them
+  var chips = document.querySelectorAll(".effect-chip");
+  for (var i = 0; i < chips.length; i++) {
+    var chip = chips[i];
+    if (chip.querySelector(".tooltip")) continue; // already has tooltip
+    var id = (chip.id || "").replace("chip-", "").replace("rchip-", "");
+    var tip = CHIP_TOOLTIPS[id];
+    if (!tip) continue;
+    chip.classList.add("has-tooltip");
+    var tipEl = document.createElement("span");
+    tipEl.className = "tooltip";
+    tipEl.textContent = tip;
+    chip.appendChild(tipEl);
+  }
 }
 
 // ============================================================
