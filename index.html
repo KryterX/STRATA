@@ -776,7 +776,7 @@
     display: flex; align-items: center; gap: 4px;
     padding: 3px 8px; background: var(--bg-card); border: 1px solid var(--border);
     border-radius: 5px; font-size: 0.62rem; font-family: var(--font-mono);
-    color: var(--text); position: relative; overflow: hidden;
+    color: var(--text); position: relative; overflow: visible;
     transition: border-color 0.3s, transform 0.2s;
   }
   .effect-chip.animating { border-color: var(--magenta); }
@@ -1032,14 +1032,16 @@
   .has-tooltip { position: relative; }
   .tooltip {
     position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
-    background: #1a1a2e; border: 1px solid var(--border-hover);
+    background: #1a1a2e; border: 1px solid var(--cyan-dim);
     border-radius: 5px; padding: 6px 10px; font-size: 0.62rem;
-    color: var(--text); white-space: nowrap; z-index: 1060;
-    pointer-events: none; opacity: 0; transition: opacity 0.15s;
-    font-family: var(--font-mono); box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    color: var(--text-bright); white-space: nowrap; z-index: 1060;
+    pointer-events: none; opacity: 0;
+    font-family: var(--font-mono); box-shadow: 0 2px 12px rgba(0,0,0,0.6);
     max-width: 250px; white-space: normal; text-align: center;
+    transition: opacity 0.2s ease-in-out;
   }
   .has-tooltip:hover .tooltip { opacity: 1; }
+  .tooltip.visible { opacity: 1; }
   .tooltip::after {
     content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
     border: 5px solid transparent; border-top-color: #1a1a2e;
@@ -1069,6 +1071,30 @@
   .speed-btn:hover { border-color: var(--text-dim); color: var(--text); }
   .speed-btn.active-speed { border-color: var(--green); color: var(--green); background: #081208; }
   .speed-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* Replace diff preview */
+  .diff-container { margin-top: 4px; padding: 4px 0; }
+  .diff-row {
+    display: flex; align-items: center; gap: 6px; padding: 2px 6px;
+    font-size: 0.6rem; font-family: var(--font-mono); border-radius: 3px;
+    margin-bottom: 1px;
+  }
+  .diff-icon { font-size: 0.7rem; width: 16px; text-align: center; flex-shrink: 0; }
+  .diff-values { flex: 1; color: var(--text); }
+  .diff-verdict { flex-shrink: 0; font-weight: 600; font-size: 0.55rem; }
+  .diff-better .diff-verdict { color: var(--green); }
+  .diff-worse .diff-verdict { color: var(--red); }
+  .diff-same .diff-verdict { color: var(--text-dim); }
+  .diff-better { background: rgba(0,255,136,0.05); }
+  .diff-worse { background: rgba(255,51,68,0.05); }
+  .diff-none { font-size: 0.6rem; color: var(--text-dim); font-family: var(--font-mono); text-align: center; padding: 4px; }
+
+  /* Owned slots in selection overlay */
+  .sel-owned-slot {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+    background: var(--bg-card); border-radius: 4px; margin-bottom: 3px;
+    border: 1px solid var(--border); pointer-events: none;
+  }
 </style>
 </head>
 <body>
@@ -2145,10 +2171,13 @@ function showRewardReplaceOverlay() {
   for (var i = 0; i < d.upgradeSlots.length; i++) {
     var slot = d.upgradeSlots[i]; if (!slot) continue;
     var sDef = UPGRADE_DEFS.find(function(u) { return u.id === slot.id; }); if (!sDef) continue;
+    var rDef = UPGRADE_DEFS[d.pendingReward.defIdx];
+    var rDiffs = calcReplaceDiff(i, rDef ? rDef.id : '', d.pendingReward.level);
+    var rDiffHtml = renderDiffPreview(rDiffs);
     html += '<div class="reward-slot-option" onclick="replaceSlot(' + i + ')">';
     html += '<div class="upgrade-icon">' + sDef.icon + '</div>';
     html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + sDef.name + ' <span class="upgrade-level-badge lvl-' + Math.min(slot.level, 10) + '">Lv.' + slot.level + '</span></div>';
-    html += '<div class="upgrade-slot-desc">' + sDef.descFn(slot.level) + '</div></div></div>';
+    html += '<div class="diff-container">' + rDiffHtml + '</div></div></div>';
   }
   document.getElementById("rewardSlots").innerHTML = html;
   document.getElementById("discardRewardBtn").style.display = "";
@@ -2226,6 +2255,90 @@ function discardSelection() {
   document.getElementById("selectionOverlay").classList.add("hidden");
   updateUI();
 }
+
+// ============================================================
+// Replace Diff Preview — show what changes when replacing a slot
+// ============================================================
+function calcReplaceDiff(slotIndex, newId, newLevel) {
+  var d = D();
+  var oldSlot = d.upgradeSlots[slotIndex];
+  if (!oldSlot) return [];
+  
+  // Build current upgrade sums
+  var currentSums = {};
+  for (var i = 0; i < d.upgradeSlots.length; i++) {
+    var s = d.upgradeSlots[i]; if (!s) continue;
+    if (!currentSums[s.id]) currentSums[s.id] = 0;
+    currentSums[s.id] += s.level;
+  }
+  // Add perm buffs
+  for (var p = 0; p < permBuffs.length; p++) {
+    if (!currentSums[permBuffs[p]]) currentSums[permBuffs[p]] = 0;
+    currentSums[permBuffs[p]] += 3;
+  }
+  
+  // Build new sums (remove old slot, add new upgrade)
+  var newSums = {};
+  for (var k in currentSums) newSums[k] = currentSums[k];
+  // Remove old
+  if (newSums[oldSlot.id] !== undefined) {
+    newSums[oldSlot.id] -= oldSlot.level;
+    if (newSums[oldSlot.id] <= 0) delete newSums[oldSlot.id];
+  }
+  // Add new
+  if (!newSums[newId]) newSums[newId] = 0;
+  newSums[newId] += newLevel;
+  
+  // Calculate diffs for all affected upgrade types
+  var diffs = [];
+  var allIds = {};
+  for (var k in currentSums) allIds[k] = true;
+  for (var k in newSums) allIds[k] = true;
+  
+  for (var id in allIds) {
+    var oldSum = currentSums[id] || 0;
+    var newSum = newSums[id] || 0;
+    if (oldSum === newSum) continue; // no change for this type
+    
+    var oldEffect = oldSum > 0 ? getNetEffectAtSum(id, oldSum) : "none";
+    var newEffect = newSum > 0 ? getNetEffectAtSum(id, newSum) : "none";
+    
+    if (oldEffect === newEffect) {
+      // Same display even though sums differ (threshold upgrade didn't cross boundary)
+      diffs.push({ id: id, oldEffect: oldEffect, newEffect: newEffect, verdict: "same" });
+    } else {
+      // Determine if better or worse based on the type
+      var isBetter = newSum > oldSum; // more levels = generally better
+      // Special cases where lower is better
+      if (id === "discount") isBetter = newSum > oldSum; // more discount levels = lower cost = better
+      if (id === "luck") isBetter = newSum > oldSum; // more luck = better
+      
+      diffs.push({ id: id, oldEffect: oldEffect, newEffect: newEffect, verdict: isBetter ? "better" : "worse" });
+    }
+  }
+  
+  return diffs;
+}
+
+function renderDiffPreview(diffs) {
+  if (!diffs || diffs.length === 0) return '<div class="diff-none">No net effect change</div>';
+  var html = '';
+  for (var i = 0; i < diffs.length; i++) {
+    var d = diffs[i];
+    var def = UPGRADE_DEFS.find(function(u) { return u.id === d.id; });
+    var icon = def ? def.icon : "?";
+    var verdictClass = d.verdict === "better" ? "diff-better" : d.verdict === "worse" ? "diff-worse" : "diff-same";
+    var verdictIcon = d.verdict === "better" ? "\u25B2" : d.verdict === "worse" ? "\u25BC" : "\u2014";
+    var verdictLabel = d.verdict === "same" ? "no change" : d.verdict;
+    html += '<div class="diff-row ' + verdictClass + '">';
+    html += '<span class="diff-icon">' + icon + '</span>';
+    html += '<span class="diff-values">' + d.oldEffect + ' \u2192 ' + d.newEffect + '</span>';
+    html += '<span class="diff-verdict">' + verdictIcon + ' ' + verdictLabel + '</span>';
+    html += '</div>';
+  }
+  return html;
+}
+
 function showUpgradeReplaceOverlay() {
   var d = D();
   if (!d.pendingUpgrade) return;
@@ -2244,10 +2357,12 @@ function showUpgradeReplaceOverlay() {
     var slot = d.upgradeSlots[i]; if (!slot) continue;
     var sDef = UPGRADE_DEFS.find(function(u) { return u.id === slot.id; });
     if (!sDef) continue;
+    var diffs = calcReplaceDiff(i, pu.id, pu.level);
+    var diffHtml = renderDiffPreview(diffs);
     html += '<div class="reward-slot-option" onclick="replaceUpgradeSlot(' + i + ')">';
     html += '<div class="upgrade-icon">' + sDef.icon + '</div>';
     html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + sDef.name + ' <span class="upgrade-level-badge lvl-' + Math.min(slot.level, 10) + '">Lv.' + slot.level + '</span></div>';
-    html += '<div class="upgrade-slot-desc">' + sDef.descFn(slot.level) + '</div></div></div>';
+    html += '<div class="diff-container">' + diffHtml + '</div></div></div>';
   }
   document.getElementById("rewardSlots").innerHTML = html;
   document.getElementById("discardRewardBtn").style.display = "";
@@ -2701,29 +2816,33 @@ function renderSelOwnedChips() {
   var d = D();
   var el = document.getElementById("selOwnedChips");
   if (!el) return;
-  var owned = {};
+  var filled = [];
   for (var i = 0; i < d.upgradeSlots.length; i++) {
-    var s = d.upgradeSlots[i]; if (!s || s.id === "echo") continue;
-    if (!owned[s.id]) owned[s.id] = true;
-  }
-  for (var p = 0; p < permBuffs.length; p++) { owned[permBuffs[p]] = true; }
-  var keys = Object.keys(owned);
-  if (keys.length === 0) { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.65rem;font-family:var(--font-mono);text-align:center;width:100%;">No upgrades yet</div>'; return; }
-  var html = "";
-  for (var k = 0; k < keys.length; k++) {
-    var id = keys[k];
-    var def = UPGRADE_DEFS.find(function(u) { return u.id === id; });
+    var s = d.upgradeSlots[i]; if (!s) continue;
+    var def = UPGRADE_DEFS.find(function(u) { return u.id === s.id; });
     if (!def) continue;
-    var effect = getNetEffect(id);
-    if (!effect) continue;
-    html += '<div class="effect-chip">';
-    html += '<span class="chip-icon">' + def.icon + '</span>';
-    html += '<span class="chip-value">' + effect + '</span>';
-    html += '</div>';
+    filled.push({ slot: s, def: def });
+  }
+  if (filled.length === 0) {
+    el.innerHTML = '<div style="color:var(--text-dim);font-size:0.65rem;font-family:var(--font-mono);text-align:center;width:100%;padding:8px;">No upgrades yet</div>';
+    return;
+  }
+  var html = "";
+  for (var f = 0; f < filled.length; f++) {
+    var s = filled[f].slot;
+    var def = filled[f].def;
+    var desc = getUpgradePlainDesc(def.id);
+    var ne = getNetEffect(def.id);
+    if (ne) desc += " (" + ne + ")";
+    html += '<div class="sel-owned-slot">';
+    html += '<div class="upgrade-icon" style="font-size:0.8rem;">' + def.icon + '</div>';
+    html += '<div class="upgrade-slot-info" style="flex:1;"><div class="upgrade-slot-name" style="font-size:0.72rem;">' + def.name + ' <span class="upgrade-level-badge lvl-' + Math.min(s.level, 10) + '">Lv.' + s.level + '</span></div>';
+    html += '<div class="upgrade-slot-desc" style="font-size:0.6rem;">' + desc + '</div></div></div>';
   }
   el.innerHTML = html;
   addChipTooltips();
 }
+
 
 function renderSelectionOverlay() {
   var d = D(); var c = document.getElementById("selectionOptions"); var html = "";
@@ -3702,6 +3821,7 @@ var lastTime = performance.now();
 function gameTick() {
   var now = performance.now(); var dt = (now - lastTime) / 1000; lastTime = now;
   var speedMult = tickTimeBank(dt); dt *= speedMult;
+  if (dt > 0.5) dt = 0.5; // cap per-frame dt to prevent computation spikes
 
   // Tick ALL dimensions (throttle background dims for performance)
   if (!window._bgTickCounter) window._bgTickCounter = 0;
@@ -3715,9 +3835,10 @@ function gameTick() {
 
     // Autobuy
     d.autobuyTimer = (d.autobuyTimer || 0) + bgDt;
-    if (d.autobuyTimer >= 1) {
+    while (d.autobuyTimer >= 1) {
       d.autobuyTimer -= 1;
       doAutoBuyForDim(di);
+      if (d.autobuyTimer >= 10) { d.autobuyTimer = 0; break; } // safety cap
       // TEST MODE: buy all affordable generators every second
       if (DEBUG_AUTO_BUY_ALL) {
         var maxBuy = getMaxBuy(d);
@@ -4461,34 +4582,37 @@ function addChipTooltips() {
   var chips = document.querySelectorAll(".effect-chip");
   for (var i = 0; i < chips.length; i++) {
     var chip = chips[i];
-    if (chip.querySelector(".tooltip")) continue;
+    if (chip.getAttribute("data-tip-attached")) continue;
+    chip.setAttribute("data-tip-attached", "1");
     var id = (chip.id || "").replace("chip-", "").replace("rchip-", "");
     var tip = CHIP_TOOLTIPS[id];
     if (!tip) continue;
     chip.classList.add("has-tooltip");
-    var tipEl = document.createElement("span");
+    chip.style.overflow = "visible";
+    var tipEl = document.createElement("div");
     tipEl.className = "tooltip";
     tipEl.textContent = tip;
     chip.appendChild(tipEl);
-    // Mobile: tap to show, tap again or tap elsewhere to hide
+    // Desktop: mouseenter/mouseleave
     (function(c, t) {
-      c.addEventListener("touchstart", function(e) {
-        e.preventDefault();
-        var isVisible = t.style.opacity === "1";
-        // Hide all tooltips first
-        document.querySelectorAll(".tooltip").forEach(function(tt) { tt.style.opacity = "0"; });
-        if (!isVisible) t.style.opacity = "1";
+      c.addEventListener("mouseenter", function() {
+        t.classList.add("visible");
+      });
+      c.addEventListener("mouseleave", function() {
+        t.classList.remove("visible");
+      });
+      // Mobile: tap to toggle
+      c.addEventListener("click", function(e) {
+        var isVis = t.classList.contains("visible");
+        // Hide all tooltips
+        document.querySelectorAll(".tooltip.visible").forEach(function(tt) { tt.classList.remove("visible"); });
+        if (!isVis) {
+          t.classList.add("visible");
+          // Auto-hide after 4 seconds
+          setTimeout(function() { t.classList.remove("visible"); }, 4000);
+        }
       });
     })(chip, tipEl);
-  }
-  // Tap elsewhere to dismiss all tooltips
-  if (!window._tooltipDismissAttached) {
-    window._tooltipDismissAttached = true;
-    document.addEventListener("touchstart", function(e) {
-      if (!e.target.closest || !e.target.closest(".has-tooltip")) {
-        document.querySelectorAll(".tooltip").forEach(function(t) { t.style.opacity = "0"; });
-      }
-    });
   }
 }
 
