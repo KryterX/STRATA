@@ -1044,6 +1044,31 @@
     content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
     border: 5px solid transparent; border-top-color: #1a1a2e;
   }
+
+  /* Time Bank */
+  .time-bank {
+    width: 100%; max-width: 500px; display: flex;
+    align-items: center; gap: 8px; margin-bottom: 4px;
+  }
+  .time-bank.hidden { display: none; }
+  .time-bank-label {
+    font-size: 0.65rem; color: var(--text-dim); font-family: var(--font-mono);
+    white-space: nowrap;
+  }
+  .time-bank-value {
+    font-size: 0.75rem; font-weight: 700; color: var(--green);
+    font-family: var(--font-mono); min-width: 50px;
+  }
+  .time-bank-value.depleted { color: var(--text-dim); }
+  .speed-buttons { display: flex; gap: 3px; }
+  .speed-btn {
+    padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-dim); font-size: 0.6rem;
+    cursor: pointer; transition: all 0.2s; font-family: var(--font-mono);
+  }
+  .speed-btn:hover { border-color: var(--text-dim); color: var(--text); }
+  .speed-btn.active-speed { border-color: var(--green); color: var(--green); background: #081208; }
+  .speed-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -1090,6 +1115,18 @@
     <button class="ctrl-btn" onclick="showSettings()" style="margin-left:auto;">&#x2699;</button>
   </div>
   <div class="save-msg" id="saveMsg"></div>
+
+  <div class="time-bank hidden" id="timeBank">
+    <div class="time-bank-label">⏱</div>
+    <div class="time-bank-value" id="timeBankValue">0:00</div>
+    <div class="speed-buttons">
+      <button class="speed-btn active-speed" onclick="setGameSpeed(1)">1x</button>
+      <button class="speed-btn" onclick="setGameSpeed(2)">2x</button>
+      <button class="speed-btn" onclick="setGameSpeed(3)">3x</button>
+      <button class="speed-btn" onclick="setGameSpeed(5)">5x</button>
+      <button class="speed-btn" onclick="setGameSpeed(10)">10x</button>
+    </div>
+  </div>
 
   <div id="topGenControls" style="width:100%;max-width:500px;">
     <button class="buy-all-btn hidden" id="buyAllBtn" onclick="buyAllGens()">buy all</button>
@@ -3664,6 +3701,7 @@ function doAutoBuyForDim(dimIdx) {
 var lastTime = performance.now();
 function gameTick() {
   var now = performance.now(); var dt = (now - lastTime) / 1000; lastTime = now;
+  var speedMult = tickTimeBank(dt); dt *= speedMult;
 
   // Tick ALL dimensions (throttle background dims for performance)
   if (!window._bgTickCounter) window._bgTickCounter = 0;
@@ -3785,6 +3823,7 @@ function deserializeBn(b) { return b && b.m !== undefined ? bn(b.m, b.e) : bn(0,
 
 function saveGame() {
   var data = {
+      bankedTime: bankedTime,
     activeDimIdx: activeDimIdx,
     unlockedDims: unlockedDims,
     multiDimUnlocked: multiDimUnlocked,
@@ -3866,34 +3905,11 @@ function loadGame() {
       dimensions.push(d);
     }
 
-    // Offline progress for all dimensions
+    // Bank offline time instead of simulating
     if (data.timestamp) {
       var elapsed = (Date.now() - data.timestamp) / 1000;
       if (elapsed > 0) {
-        var ot = Math.min(elapsed, 86400); var steps = 100; var sdt = ot / steps;
-        for (var di = 0; di < dimensions.length; di++) {
-          var d = dimensions[di];
-          var _ogb = getGenBoostMult(d);
-          var _omm = getMomentumMult(d);
-          var _odp = getDimPenalty(di);
-          var _ocb = getCrossDimBoost(di);
-          var oShared = bnFromNum(_ogb * _omm * _odp * _ocb * sdt);
-          for (var s = 0; s < steps; s++) {
-            var cap = hasBreakInfinity(d) ? false : bnGte(d.points, BASE_POINT_CAP);
-            if (cap) break;
-            for (var i = d.generators.length - 1; i >= 0; i--) {
-              var gen = d.generators[i];
-              if (gen.bought === 0 && bnIsZero(gen.amount)) continue;
-              var total = gen.bought > 0 ? bnAdd(bn(1, 0), gen.amount) : gen.amount;
-              if (bnIsZero(total)) continue;
-              var prod = bnMul(bnMul(total, getPurchaseMultiplier(gen, d)), oShared);
-              if (gen.tier === 1) {
-                d.points = bnAdd(d.points, prod);
-                if (!hasBreakInfinity(d) && bnGte(d.points, BASE_POINT_CAP)) { d.points = { m: BASE_POINT_CAP.m, e: BASE_POINT_CAP.e }; break; }
-              } else { d.generators[i - 1].amount = bnAdd(d.generators[i - 1].amount, prod); }
-            }
-          }
-        }
+        var ot = Math.min(elapsed, 86400);
         // Check for timed challenge expiry during offline time
         for (var ci = 0; ci < dimensions.length; ci++) {
           var cd = dimensions[ci];
@@ -3904,7 +3920,6 @@ function loadGame() {
             if (tl > 0) {
               var chElapsed = (Date.now() - cd.challengeStartTime) / 1000;
               if (chElapsed >= tl) {
-                // Challenge expired during offline — fail it
                 cd.activeChallengeIdx = -1;
                 var _fs2 = getFastStartPoints(cd); var _ms2 = bn(10,0);
                 cd.points = bnGte(_fs2,_ms2) ? _fs2 : _ms2;
@@ -3912,7 +3927,12 @@ function loadGame() {
             }
           }
         }
-        showSaveMsg("Loaded! +" + Math.floor(ot) + "s offline progress");
+        // Add offline time to bank + any previously banked time
+        bankedTime = (data.bankedTime || 0) + ot;
+        gameSpeed = 1;
+        updateTimeBankUI();
+        showSaveMsg("Loaded! +" + Math.floor(ot) + "s banked (use speed controls)");
+        showDiscovery("time_bank");
       }
     } else { showSaveMsg("Game loaded!"); }
 
@@ -4262,6 +4282,80 @@ function renderSaveSlots() {
 }
 
 
+
+// ============================================================
+// Time Bank — banked offline time as speed multiplier
+// ============================================================
+var bankedTime = 0; // seconds of banked time remaining
+var gameSpeed = 1;  // current speed multiplier (1x, 2x, 3x, 5x, 10x)
+
+function setGameSpeed(speed) {
+  if (speed > 1 && bankedTime <= 0) return; // can't go fast with no banked time
+  gameSpeed = speed;
+  updateTimeBankUI();
+}
+
+function addBankedTime(seconds) {
+  bankedTime += seconds;
+  updateTimeBankUI();
+}
+
+function tickTimeBank(dt) {
+  // Called every game tick with real dt
+  if (gameSpeed <= 1) return 1; // no cost at 1x
+  var cost = (gameSpeed - 1) * dt; // banked time consumed per second
+  if (bankedTime <= 0) {
+    gameSpeed = 1;
+    updateTimeBankUI();
+    return 1;
+  }
+  if (cost > bankedTime) {
+    // Partial — use remaining banked time then drop to 1x
+    var fraction = bankedTime / (gameSpeed - 1);
+    bankedTime = 0;
+    gameSpeed = 1;
+    updateTimeBankUI();
+    return 1 + (gameSpeed - 1) * (fraction / dt); // approximate blended speed
+  }
+  bankedTime -= cost;
+  updateTimeBankUI();
+  return gameSpeed;
+}
+
+function formatBankedTime(seconds) {
+  if (seconds <= 0) return "0:00";
+  if (seconds >= 3600) {
+    var h = Math.floor(seconds / 3600);
+    var m = Math.floor((seconds % 3600) / 60);
+    return h + ":" + (m < 10 ? "0" : "") + m + ":" + (Math.floor(seconds % 60) < 10 ? "0" : "") + Math.floor(seconds % 60);
+  }
+  var m = Math.floor(seconds / 60);
+  var s = Math.floor(seconds % 60);
+  return m + ":" + (s < 10 ? "0" : "") + s;
+}
+
+function updateTimeBankUI() {
+  var el = document.getElementById("timeBank");
+  if (!el) return;
+  if (bankedTime > 0 || gameSpeed > 1) {
+    el.classList.remove("hidden");
+  } else {
+    el.classList.add("hidden");
+    return;
+  }
+  var valEl = document.getElementById("timeBankValue");
+  if (valEl) {
+    valEl.textContent = formatBankedTime(bankedTime);
+    valEl.classList.toggle("depleted", bankedTime <= 0);
+  }
+  var btns = document.querySelectorAll(".speed-btn");
+  for (var i = 0; i < btns.length; i++) {
+    var spd = parseInt(btns[i].textContent);
+    btns[i].classList.toggle("active-speed", spd === gameSpeed);
+    btns[i].disabled = spd > 1 && bankedTime <= 0;
+  }
+}
+
 // ============================================================
 // Discovery Popups (one-time guides)
 // ============================================================
@@ -4297,6 +4391,10 @@ var DISCOVERIES = {
   echo_upgrade: {
     title: "Echo",
     text: "Echo copies one of your existing upgrades at the rolled level. Pick which upgrade to duplicate."
+  },
+  time_bank: {
+    title: "Time Banked!",
+    text: "Your offline time has been banked. Use the speed controls to run the game at 2x, 3x, 5x, or 10x speed. Banked time depletes faster at higher speeds."
   }
 };
 
