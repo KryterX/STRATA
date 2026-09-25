@@ -2517,8 +2517,8 @@ function renderChips() {
     html += '</div>';
   }
   el.innerHTML = html;
-}
   addChipTooltips();
+}
 
 // ============================================================
 // Chip Animation Engine
@@ -2685,6 +2685,7 @@ function renderSelOwnedChips() {
     html += '</div>';
   }
   el.innerHTML = html;
+  addChipTooltips();
 }
 
 function renderSelectionOverlay() {
@@ -3143,6 +3144,7 @@ function renderRestartChips() {
     html += '</div>';
   }
   el.innerHTML = html;
+  addChipTooltips();
 }
 
 function renderRestartSlots() {
@@ -4358,11 +4360,10 @@ var CHIP_TOOLTIPS = {
 };
 
 function addChipTooltips() {
-  // Add tooltip spans to all chips that don't already have them
   var chips = document.querySelectorAll(".effect-chip");
   for (var i = 0; i < chips.length; i++) {
     var chip = chips[i];
-    if (chip.querySelector(".tooltip")) continue; // already has tooltip
+    if (chip.querySelector(".tooltip")) continue;
     var id = (chip.id || "").replace("chip-", "").replace("rchip-", "");
     var tip = CHIP_TOOLTIPS[id];
     if (!tip) continue;
@@ -4371,6 +4372,25 @@ function addChipTooltips() {
     tipEl.className = "tooltip";
     tipEl.textContent = tip;
     chip.appendChild(tipEl);
+    // Mobile: tap to show, tap again or tap elsewhere to hide
+    (function(c, t) {
+      c.addEventListener("touchstart", function(e) {
+        e.preventDefault();
+        var isVisible = t.style.opacity === "1";
+        // Hide all tooltips first
+        document.querySelectorAll(".tooltip").forEach(function(tt) { tt.style.opacity = "0"; });
+        if (!isVisible) t.style.opacity = "1";
+      });
+    })(chip, tipEl);
+  }
+  // Tap elsewhere to dismiss all tooltips
+  if (!window._tooltipDismissAttached) {
+    window._tooltipDismissAttached = true;
+    document.addEventListener("touchstart", function(e) {
+      if (!e.target.closest || !e.target.closest(".has-tooltip")) {
+        document.querySelectorAll(".tooltip").forEach(function(t) { t.style.opacity = "0"; });
+      }
+    });
   }
 }
 
