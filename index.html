@@ -965,6 +965,32 @@
     color: var(--text-dim) !important;
   }
   .start-back:hover { opacity: 1; }
+
+  /* View owned in selection overlay */
+  .sel-controls-row { display: flex; gap: 6px; width: 100%; max-width: 420px; align-items: stretch; }
+  .sel-view-btn {
+    padding: 6px 10px; border-radius: 5px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-dim); font-size: 0.6rem;
+    cursor: pointer; transition: all 0.2s; font-family: var(--font-mono);
+    text-transform: uppercase; white-space: nowrap;
+  }
+  .sel-view-btn:hover { border-color: var(--text-dim); color: var(--text); }
+  .sel-view-btn.active { border-color: var(--cyan); color: var(--cyan); }
+  .sel-owned-chips {
+    width: 100%; max-width: 420px; display: flex; flex-wrap: wrap; gap: 4px;
+    margin-bottom: 6px; padding: 8px; background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: var(--radius);
+  }
+  .sel-owned-chips.hidden { display: none; }
+  .sel-owned-chips .effect-chip { font-size: 0.58rem; padding: 2px 6px; }
+
+  /* Restart overlay chips */
+  .restart-chips {
+    width: 100%; max-width: 420px; display: flex; flex-wrap: wrap; gap: 4px;
+    margin-bottom: 8px; padding: 8px; background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: var(--radius);
+  }
+  .restart-chips .effect-chip { font-size: 0.58rem; padding: 2px 6px; }
 </style>
 </head>
 <body>
@@ -1033,7 +1059,6 @@
     <div class="upgrade-chips hidden" id="upgradeChips"></div>
     <div class="upgrade-sort-bar" id="upgradeSortBar">
       <button class="sort-btn active-sort" onclick="setUpgradeSort('default')">Default</button>
-      <button class="sort-btn" onclick="setUpgradeSort('alpha')">A-Z</button>
       <button class="sort-btn" onclick="setUpgradeSort('level')">Lv</button>
       <button class="sort-btn" onclick="setUpgradeSort('type')">Type</button>
     </div>
@@ -1141,10 +1166,14 @@
 <div class="selection-overlay hidden" id="selectionOverlay">
   <div class="selection-title">Choose an Upgrade</div>
   <div class="selection-sub" id="selectionSub">Pick 1 of 3 &#x2014; choose wisely!</div>
-  <div class="upgrade-sort-bar" style="max-width:420px;" id="selSortBar">
+  <div class="sel-owned-chips hidden" id="selOwnedChips"></div>
+  <div class="sel-controls-row">
+    <button class="sel-view-btn" id="selViewBtn" onclick="toggleSelOwned()">view owned</button>
+    <div class="upgrade-sort-bar" style="flex:1;" id="selSortBar">
     <button class="sort-btn active-sort" onclick="setSelectionSort('default')">Default</button>
     <button class="sort-btn" onclick="setSelectionSort('level')">Lv</button>
     <button class="sort-btn" onclick="setSelectionSort('type')">Type</button>
+    </div>
   </div>
   <div class="selection-options" id="selectionOptions"></div>
   <button class="reward-discard-btn" onclick="discardSelection()" style="margin-top:14px;">Discard All</button>
@@ -1167,6 +1196,7 @@
 
 <div class="restart-overlay hidden" id="restartOverlay">
   <div class="restart-overlay-title">Restart Dimension</div>
+  <div class="restart-chips" id="restartChips"></div>
   <div class="restart-overlay-sub">Choose ONE upgrade to keep. Everything else in this dimension will be wiped — points, generators, prestige, all other upgrades, and challenge progress.</div>
   <div class="restart-overlay-warn">This cannot be undone!</div>
   <div class="upgrade-sort-bar" style="max-width:420px;" id="restartSortBar">
@@ -2028,6 +2058,7 @@ function showRewardReplaceOverlay() {
   document.getElementById("rewardSlots").innerHTML = html;
   document.getElementById("discardRewardBtn").style.display = "";
   document.getElementById("discardRewardBtn").onclick = function() { discardReward(); };
+  document.getElementById("rewardOverlay").classList.remove("hidden");
 }
 
 function replaceSlot(index) {
@@ -2061,6 +2092,8 @@ function startUpgradeSelection() {
   d.selectionOptions = generateOptions(); d.selectionActive = true;
   currentSelectionSort = "default"; selSortLevelAsc = false;
   renderSelectionOverlay();
+  document.getElementById("selOwnedChips").classList.add("hidden");
+  document.getElementById("selViewBtn").classList.remove("active");
   document.getElementById("selectionOverlay").classList.remove("hidden");
   updateUI();
 }
@@ -2548,6 +2581,50 @@ function triggerUpgradeAnimation(gainId, gainLevels, drainId, drainLevels) {
 
 
 
+
+// ============================================================
+// View Owned in Selection Overlay
+// ============================================================
+function toggleSelOwned() {
+  var el = document.getElementById("selOwnedChips");
+  var btn = document.getElementById("selViewBtn");
+  if (el.classList.contains("hidden")) {
+    el.classList.remove("hidden");
+    btn.classList.add("active");
+    renderSelOwnedChips();
+  } else {
+    el.classList.add("hidden");
+    btn.classList.remove("active");
+  }
+}
+
+function renderSelOwnedChips() {
+  var d = D();
+  var el = document.getElementById("selOwnedChips");
+  if (!el) return;
+  var owned = {};
+  for (var i = 0; i < d.upgradeSlots.length; i++) {
+    var s = d.upgradeSlots[i]; if (!s || s.id === "echo") continue;
+    if (!owned[s.id]) owned[s.id] = true;
+  }
+  for (var p = 0; p < permBuffs.length; p++) { owned[permBuffs[p]] = true; }
+  var keys = Object.keys(owned);
+  if (keys.length === 0) { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.65rem;font-family:var(--font-mono);text-align:center;width:100%;">No upgrades yet</div>'; return; }
+  var html = "";
+  for (var k = 0; k < keys.length; k++) {
+    var id = keys[k];
+    var def = UPGRADE_DEFS.find(function(u) { return u.id === id; });
+    if (!def) continue;
+    var effect = getNetEffect(id);
+    if (!effect) continue;
+    html += '<div class="effect-chip">';
+    html += '<span class="chip-icon">' + def.icon + '</span>';
+    html += '<span class="chip-value">' + effect + '</span>';
+    html += '</div>';
+  }
+  el.innerHTML = html;
+}
+
 function renderSelectionOverlay() {
   var d = D(); var c = document.getElementById("selectionOptions"); var html = "";
   var sub = document.getElementById("selectionSub");
@@ -2960,6 +3037,49 @@ function setRestartSort(mode) {
   renderRestartSlots();
 }
 
+
+function renderRestartChips() {
+  var el = document.getElementById("restartChips");
+  if (!el) return;
+  var d = D();
+  var selected = window._restartSelected || [];
+  // Build a simulated upgrade set from selected slots + perm buffs
+  var simSlots = [];
+  for (var i = 0; i < selected.length; i++) {
+    var slot = d.upgradeSlots[selected[i]];
+    if (slot) simSlots.push(slot);
+  }
+  // Collect unique upgrade types
+  var owned = {};
+  for (var i = 0; i < simSlots.length; i++) {
+    var s = simSlots[i]; if (!s || s.id === "echo") continue;
+    if (!owned[s.id]) owned[s.id] = { sum: 0 };
+    owned[s.id].sum += s.level;
+  }
+  // Add perm buffs
+  for (var p = 0; p < permBuffs.length; p++) {
+    var pid = permBuffs[p];
+    if (!owned[pid]) owned[pid] = { sum: 0 };
+    owned[pid].sum += 3; // perm buff = Lv.3
+  }
+  var keys = Object.keys(owned);
+  if (keys.length === 0) { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.6rem;font-family:var(--font-mono);text-align:center;width:100%;">select upgrades to preview</div>'; return; }
+  var html = "";
+  for (var k = 0; k < keys.length; k++) {
+    var id = keys[k];
+    var def = UPGRADE_DEFS.find(function(u) { return u.id === id; });
+    if (!def) continue;
+    // Calculate net effect at this sum
+    var effect = getNetEffectAtSum(id, owned[id].sum);
+    if (!effect) continue;
+    html += '<div class="effect-chip">';
+    html += '<span class="chip-icon">' + def.icon + '</span>';
+    html += '<span class="chip-value">' + effect + '</span>';
+    html += '</div>';
+  }
+  el.innerHTML = html;
+}
+
 function renderRestartSlots() {
   var d = D();
   var keepCount = window._restartKeepMax;
@@ -3015,6 +3135,7 @@ function renderRestartSlots() {
   }
   var maxExp = d.maxExponent || 0;
   document.getElementById("restartSlots").innerHTML = html;
+  renderRestartChips();
   var titleEl = document.querySelector(".restart-overlay-title");
   if (titleEl) titleEl.textContent = "Restart Dimension";
   var subEl = document.querySelector(".restart-overlay-sub");
@@ -3747,8 +3868,8 @@ function showSaveSelect() {
       var aDateStr = aDate.toLocaleDateString() + " " + aDate.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
       var aDims = activeData.dimensions ? activeData.dimensions.length : 1;
       var aDimIdx = (activeData.activeDimIdx || 0) + 1;
-      var slotLabel = curSlot >= 0 && SAVE_SLOT_NAMES[curSlot] ? SAVE_SLOT_NAMES[curSlot].name : "Unsaved";
-      var slotLetter = curSlot >= 0 && SAVE_SLOT_NAMES[curSlot] ? SAVE_SLOT_NAMES[curSlot].letter : "\u25B6";
+      var slotLabel = curSlot >= 0 && getSlotName(curSlot) ? getSlotName(curSlot).name : "Unsaved";
+      var slotLetter = curSlot >= 0 && getSlotName(curSlot) ? getSlotName(curSlot).letter : "\u25B6";
       html += '<button class="start-slot-btn start-slot-active" onclick="startContinue()">';
       html += '<span class="start-slot-letter">' + slotLetter + '</span>';
       html += '<span class="start-slot-info">' + slotLabel + ' \u2014 Dim ' + aDimIdx + '/' + aDims + '</span>';
@@ -3763,15 +3884,16 @@ function showSaveSelect() {
   }
   // Named save slots — skip the active one
   var hasOtherSlots = false;
-  for (var si = 0; si < SAVE_SLOT_COUNT; si++) {
+  var _scCount = getSaveSlotCount();
+  for (var si = 0; si < _scCount; si++) {
     if (si === curSlot) continue;
     if (getSaveSlotInfo(si)) { hasOtherSlots = true; break; }
   }
   if (hasOtherSlots) {
     html += '<div class="start-slots-divider"></div>';
-    for (var si = 0; si < SAVE_SLOT_COUNT; si++) {
+    for (var si = 0; si < _scCount; si++) {
       if (si === curSlot) continue;
-      var sn = SAVE_SLOT_NAMES[si];
+      var sn = getSlotName(si);
       var info = getSaveSlotInfo(si);
       if (!info) continue;
       var date = new Date(info.timestamp);
@@ -3799,7 +3921,7 @@ function loadFromSlotAndStart(slot) {
     gameStarted = true;
     lastTime = performance.now();
     requestAnimationFrame(gameTick);
-  } catch(e) { showSaveMsg("Failed to load " + SAVE_SLOT_NAMES[slot].name); }
+  } catch(e) { showSaveMsg("Failed to load " + getSlotName(slot).name); }
 }
 
 function startContinue() {
@@ -3855,10 +3977,10 @@ function setActiveSlot(idx) {
 }
 
 function getNextFreeSlot() {
-  for (var i = 0; i < SAVE_SLOT_COUNT; i++) {
+  for (var i = 0; i < 100; i++) {
     if (!getSaveSlotInfo(i)) return i;
   }
-  return 0; // all full, overwrite Alpha
+  return 0; // shouldn't happen
 }
 
 function syncToActiveSlot() {
@@ -3903,15 +4025,46 @@ function importSave() {
 // ============================================================
 // Multiple Save Slots
 // ============================================================
-var SAVE_SLOT_COUNT = 5;
-
-var SAVE_SLOT_NAMES = [
+var GREEK_ALPHABET = [
   { letter: "\u03b1", name: "Alpha" },
   { letter: "\u03b2", name: "Beta" },
   { letter: "\u03b3", name: "Gamma" },
   { letter: "\u03b4", name: "Delta" },
-  { letter: "\u03b5", name: "Epsilon" }
+  { letter: "\u03b5", name: "Epsilon" },
+  { letter: "\u03b6", name: "Zeta" },
+  { letter: "\u03b7", name: "Eta" },
+  { letter: "\u03b8", name: "Theta" },
+  { letter: "\u03b9", name: "Iota" },
+  { letter: "\u03ba", name: "Kappa" },
+  { letter: "\u03bb", name: "Lambda" },
+  { letter: "\u03bc", name: "Mu" },
+  { letter: "\u03bd", name: "Nu" },
+  { letter: "\u03be", name: "Xi" },
+  { letter: "\u03bf", name: "Omicron" },
+  { letter: "\u03c0", name: "Pi" },
+  { letter: "\u03c1", name: "Rho" },
+  { letter: "\u03c3", name: "Sigma" },
+  { letter: "\u03c4", name: "Tau" },
+  { letter: "\u03c5", name: "Upsilon" },
+  { letter: "\u03c6", name: "Phi" },
+  { letter: "\u03c7", name: "Chi" },
+  { letter: "\u03c8", name: "Psi" },
+  { letter: "\u03c9", name: "Omega" }
 ];
+
+function getSlotName(idx) {
+  if (idx < GREEK_ALPHABET.length) return GREEK_ALPHABET[idx];
+  return { letter: "#", name: "Save " + (idx + 1) };
+}
+
+function getSaveSlotCount() {
+  // Count how many slots exist (find highest occupied index)
+  var highest = -1;
+  for (var i = 0; i < 100; i++) {
+    try { if (localStorage.getItem(getSaveSlotKey(i))) highest = i; } catch(e) { break; }
+  }
+  return highest + 1;
+}
 
 
 function getSaveSlotKey(slot) { return "strata_slot_" + slot; }
@@ -3935,7 +4088,7 @@ function saveToSlot(slot) {
   if (!raw) { showSaveMsg("No active save!"); return; }
   try {
     localStorage.setItem(getSaveSlotKey(slot), raw);
-    showSaveMsg("Saved to " + SAVE_SLOT_NAMES[slot].name + "!");
+    showSaveMsg("Saved to " + getSlotName(slot).name + "!");
     renderSaveSlots();
   } catch(e) { showSaveMsg("Slot save failed!"); }
 }
@@ -3943,19 +4096,19 @@ function saveToSlot(slot) {
 function loadFromSlot(slot) {
   try {
     var raw = localStorage.getItem(getSaveSlotKey(slot));
-    if (!raw) { showSaveMsg(SAVE_SLOT_NAMES[slot].name + " is empty!"); return; }
+    if (!raw) { showSaveMsg(getSlotName(slot).name + " is empty!"); return; }
     safeSetItem("nestedIdleSave2", raw);
     setActiveSlot(slot);
     loadGame();
-    showSaveMsg("Loaded " + SAVE_SLOT_NAMES[slot].name + "!");
+    showSaveMsg("Loaded " + getSlotName(slot).name + "!");
     renderSaveSlots();
   } catch(e) { showSaveMsg("Slot load failed!"); }
 }
 
 function deleteSlot(slot) {
-  if (!confirm("Delete " + SAVE_SLOT_NAMES[slot].name + " save?")) return;
+  if (!confirm("Delete " + getSlotName(slot).name + " save?")) return;
   localStorage.removeItem(getSaveSlotKey(slot));
-  showSaveMsg(SAVE_SLOT_NAMES[slot].name + " deleted.");
+  showSaveMsg(getSlotName(slot).name + " deleted.");
   renderSaveSlots();
 }
 
@@ -3963,8 +4116,9 @@ function renderSaveSlots() {
   var container = document.getElementById("saveSlots");
   if (!container) return;
   var html = "";
-  for (var i = 0; i < SAVE_SLOT_COUNT; i++) {
-    var sn = SAVE_SLOT_NAMES[i];
+  var _slotCount = getSaveSlotCount();
+  for (var i = 0; i <= _slotCount; i++) {
+    var sn = getSlotName(i);
     var info = getSaveSlotInfo(i);
     if (info) {
       var date = new Date(info.timestamp);
