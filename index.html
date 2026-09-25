@@ -1095,6 +1095,18 @@
     background: var(--bg-card); border-radius: 4px; margin-bottom: 3px;
     border: 1px solid var(--border); pointer-events: none;
   }
+
+  /* Auto Prestige toggle on upgrade slot */
+  .upgrade-slot.ap-on { cursor: pointer; }
+  .upgrade-slot.ap-off { cursor: pointer; opacity: 0.6; }
+  .upgrade-slot.ap-on:hover, .upgrade-slot.ap-off:hover { border-color: var(--cyan-dim); }
+  .ap-toggle-badge {
+    font-size: 0.5rem; font-weight: 700; padding: 1px 6px; border-radius: 3px;
+    margin-left: 6px; font-family: var(--font-mono); letter-spacing: 0.05em;
+    display: inline-block; vertical-align: middle;
+  }
+  .ap-badge-on { background: #0a1a0a; color: var(--green); border: 1px solid var(--green-dim); }
+  .ap-badge-off { background: #1a0a0a; color: var(--red); border: 1px solid var(--red-dim); }
 </style>
 </head>
 <body>
@@ -1457,12 +1469,13 @@ var UPGRADE_DEFS = [
   { id: "break_infinity", name: "Break Infinity",  icon: "∅", descFn: function(l) { return "remove point cap"; } },
   { id: "gen_boost",      name: "Generator Boost", icon: "μ", descFn: function(l) { return "x" + (10*l) + " all output"; } },
   { id: "fast_start",     name: "Fast Start",      icon: "λ", descFn: function(l) { return "keep 1e" + (3*l) + " on prestige"; } },
-  { id: "upgrade_count",  name: "Upgrade Count",   icon: "π", descFn: function(l) { return "+" + (3 + Math.floor(0.5*l)) + " slots (max 20)"; } },
+  { id: "upgrade_count",  name: "Upgrade Count",   icon: "π", descFn: function(l) { return "+" + Math.max(1, Math.floor(0.7*l)) + " slots (max 20)"; } },
   { id: "luck",           name: "Luck",            icon: "ψ", descFn: function(l) { return "better roll odds"; } },
   { id: "ascend",         name: "Ascend",          icon: "Ξ", descFn: function(l) { return "higher max upgrade lv (max 25)"; } },
   { id: "overclock",      name: "Overclock",       icon: "θ", descFn: function(l) { return "more max gen buys (max 500)"; } },
   { id: "momentum",       name: "Momentum",        icon: "χ", descFn: function(l) { return "x" + (l+1) + "^sqrt(tier) output"; } },
   { id: "wide_selection",  name: "Wide Selection",   icon: "Π", descFn: function(l) { return "more upgrade choices (max 15)"; } }
+  ,{ id: "auto_prestige",    name: "Auto Prestige",     icon: "⟲", descFn: function(l) { return "auto prestige at " + l + " base PP"; } }
   ,{ id: "echo",             name: "Echo",              icon: "∂", descFn: function(l) { return "copy owned upgrade at lv." + l; } }
 ];
 
@@ -1478,6 +1491,7 @@ var multiDimUnlocked = false; var permBuffs = []; var dimCompletionCount = 0;
 var permBuffs = []; // permanent Lv.3 upgrades earned by completing dimensions
 var dimCompletionCount = 0; // how many dimensions have awarded a perm buff
 var currentTab = "generators";
+var autoPrestigeEnabled = true;
 
 // Resolve upgrade by defIdx (legacy) or id (preferred)
 function resolveUpgradeDef(ref) {
@@ -1928,7 +1942,7 @@ function completeChallenge() {
 // ============================================================
 // Permanent Buffs — earned by completing dimensions
 // ============================================================
-var PERM_BUFF_POOL = ["prestige_boost","discount","gen_expansion","auto_buy","break_infinity","fast_start","upgrade_count","luck","ascend","overclock","wide_selection","boost_above","boost_below"];
+var PERM_BUFF_POOL = ["prestige_boost","discount","gen_expansion","auto_buy","break_infinity","fast_start","upgrade_count","luck","ascend","overclock","wide_selection","auto_prestige","boost_above","boost_below"];
 
 function showPermBuffOverlay(dimNum) {
   var html = "";
@@ -2441,6 +2455,7 @@ function getUpgradePlainDesc(id) {
     case "overclock": return "Increases max generator purchases";
     case "momentum": return "Output scales with highest gen tier";
     case "wide_selection": return "More choices when buying upgrades";
+    case "auto_prestige": return "Auto-prestiges when PP threshold is reached";
     case "echo": return "Copies one of your existing upgrades";
     case "boost_above": return "Boosts higher dimensions";
     case "boost_below": return "Boosts lower dimensions";
@@ -2464,8 +2479,10 @@ function getUpgradeBeforeAfter(id, newLevel) {
       return curCost + "x \u2192 " + afterCost + "x cost per buy";
     case "gen_expansion":
       var curGens = getMaxTier();
-      var gain = afterSum > 0 ? Math.max(1, 250 * (1 - 1 / (1 + afterSum / 50))) : 0;
-      var afterGens = Math.floor(50 + gain);
+      var _defGE = getDefectSum("gen_expansion");
+      var _gainGE = afterSum > 0 ? Math.max(1, 250 * (1 - 1 / (1 + afterSum / 50))) : 0;
+      var _lossGE = _defGE > 0 ? Math.max(1, 250 * (1 - 1 / (1 + _defGE / 50))) : 0;
+      var afterGens = Math.max(1, Math.floor(50 + _gainGE - _lossGE));
       return curGens + " \u2192 " + afterGens + " generators";
     case "auto_buy":
       return curSum + " \u2192 " + afterSum + " auto-buys/sec";
@@ -2480,16 +2497,8 @@ function getUpgradeBeforeAfter(id, newLevel) {
       return curKeep + " \u2192 1e" + (3 * afterSum) + " kept on prestige";
     case "upgrade_count":
       var curSlots = getMaxUpgradeSlots();
-      // Estimate after — use raw calc
-      var rawSum = 0;
-      for (var i = 0; i < d.upgradeSlots.length; i++) {
-        var s = d.upgradeSlots[i];
-        if (s && s.id === "upgrade_count") rawSum += 3 + Math.floor(0.7 * s.level);
-      }
-      rawSum += getPermBuffSum("upgrade_count") * 3;
-      rawSum += 3 + Math.floor(0.7 * newLevel);
-      var afterGain = rawSum > 0 ? Math.max(1, 16 * (1 - 1 / (1 + rawSum / 16))) : 0;
-      var afterSlots = Math.floor(BASE_UPGRADE_SLOTS + afterGain);
+      var afterLvlSum = curSum + newLevel;
+      var afterSlots = Math.min(20, BASE_UPGRADE_SLOTS + Math.floor(0.7 * afterLvlSum));
       return curSlots + " \u2192 " + afterSlots + " slots";
     case "luck":
       var curBase = (1 + 1 / (1 + curSum)).toFixed(2);
@@ -2515,6 +2524,8 @@ function getUpgradeBeforeAfter(id, newLevel) {
     case "wide_selection":
       var curSel = 3 + curSum; var afterSel = Math.min(15, 3 + afterSum);
       return curSel + " \u2192 " + afterSel + " choices";
+    case "auto_prestige":
+      return "auto at ≤" + curSum + " PP → ≤" + afterSum + " base PP";
     case "echo":
       return "copies at Lv." + newLevel;
     case "boost_above":
@@ -2573,6 +2584,7 @@ function getNetEffect(id) {
     case "overclock": return getMaxBuy() + " buys";
     case "momentum": var _mSum = getUpgradeSum("momentum") - getDefectSum("momentum"); var _mTier = getMaxTier(); var _mMult = _mSum === 0 ? 1 : (_mSum > 0 ? Math.pow(Math.abs(_mSum)+1, Math.sqrt(_mTier)) : 1/Math.pow(Math.abs(_mSum)+1, Math.sqrt(_mTier))); return _mMult >= 1 ? "x" + compactNum(_mMult) + " mom" : "\u00f7" + compactNum(1/_mMult) + " mom";
     case "wide_selection": return getSelectionCount() + " picks";
+    case "auto_prestige": var _apSum = getUpgradeSum("auto_prestige"); return _apSum > 0 ? "≤" + _apSum + " PP" : "";
     case "echo": return "";
     case "boost_above": return "x" + (2 - 1/(1+sum*0.1)).toFixed(2) + " up";
     case "boost_below": return "x" + (2 - 1/(1+sum*0.1)).toFixed(2) + " dn";
@@ -2597,13 +2609,7 @@ function getNetEffectAtSum(id, sum) {
       return "\u00f7" + (10 * Math.abs(sum)) + " out";
     case "fast_start": return sum > 0 ? "1e" + (3 * sum) + " kept" : "10 kept";
     case "upgrade_count":
-      var rawSum = 0; var d = D();
-      for (var i = 0; i < d.upgradeSlots.length; i++) {
-        var s = d.upgradeSlots[i]; if (s && s.id === "upgrade_count") rawSum += 3 + Math.floor(0.7 * s.level);
-      }
-      rawSum += getPermBuffSum("upgrade_count") * 3;
-      var ug = rawSum > 0 ? Math.max(1, 16 * (1 - 1 / (1 + rawSum / 16))) : 0;
-      return Math.floor(BASE_UPGRADE_SLOTS + ug) + " slots";
+      return Math.min(20, BASE_UPGRADE_SLOTS + Math.floor(0.7 * sum)) + " slots";
     case "luck": return (1 + 1/(1+sum)).toFixed(2) + " luck";
     case "ascend":
       var ag = sum > 0 ? Math.max(1, 20 * (1 - 1 / (1 + sum / 20))) : 0;
@@ -2613,6 +2619,7 @@ function getNetEffectAtSum(id, sum) {
       return Math.floor(BASE_MAX_BUY + og) + " buys";
     case "momentum": return "x? mom"; // can't easily calc without tier context
     case "wide_selection": return Math.min(15, 3 + sum) + " picks";
+    case "auto_prestige": return sum > 0 ? "\u2264" + sum + " PP" : "off";
     default: return "";
   }
 }
@@ -2634,6 +2641,13 @@ function getThresholdProgress(id, oldSum, newSum) {
     default:
       return 100; // linear — every level is a full change
   }
+}
+
+
+function toggleAutoPrestige() {
+  autoPrestigeEnabled = !autoPrestigeEnabled;
+  invalidateRenderKeys();
+  updateUI();
 }
 
 function renderChips() {
@@ -2779,6 +2793,7 @@ function animateDrain(id, levels, done) {
 function triggerUpgradeAnimation(gainId, gainLevels, drainId, drainLevels) {
   // Called after an upgrade is placed or replaced
   if (gainId === "break_infinity") showDiscovery('break_infinity');
+  if (gainId === "auto_prestige") showDiscovery('auto_prestige');
   if (gainId === "echo") showDiscovery('echo_upgrade');
   if (drainId && drainLevels > 0) {
     queueChipAnim("drain", drainId, drainLevels);
@@ -2887,15 +2902,13 @@ function switchDim(dir) {
 // ============================================================
 function getDefectDescription(defId, level) {
   switch (defId) {
-    case "upgrade_boost": return "buy base " + (2 - 0.2 * level).toFixed(1) + "x (weaker)";
-    case "discount": return "cost base " + (10 * Math.pow(1/0.8, level)).toFixed(1) + "x per buy";
-    case "gen_expansion": return "-" + (10 * level) + " generators";
-    case "gen_boost": return "all output /" + (10 * level);
-    
-    case "overclock": return "-" + (25 * level) + " max gen buys";
-    case "momentum": return "/" + (level+1) + "^sqrt(tier) output";
-    
-    default: return "Unknown defect";
+    case "upgrade_boost": return "buy multiplier " + (2 - 0.2 * level).toFixed(1) + "x (reduced)";
+    case "discount": return "costs " + Math.pow(1/0.8, level).toFixed(1) + "x more per buy";
+    case "gen_expansion": return "-" + (10 * level) + " max generators";
+    case "gen_boost": return "all output \u00f7" + (10 * level);
+    case "overclock": return "-" + (25 * level) + " max gen purchases";
+    case "momentum": return "output \u00f7" + (level+1) + "^\u221a(tier)";
+    default: return "Unknown penalty";
   }
 }
 function getDefectIcon(defId) {
@@ -3163,8 +3176,12 @@ function renderUpgrades() {
       // Show totals for stacking upgrades
       var _ts = getUpgradeSum(slot.id);
       desc = getUpgradePlainDesc(def ? def.id : ""); var _ne = getNetEffect(def ? def.id : ""); if (_ne) desc += " (" + _ne + ")";
-      html += '<div class="upgrade-slot filled"><div class="upgrade-icon">' + (def ? def.icon : "?") + '</div>';
-      html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + (def ? def.name : "?") + ' <span class="upgrade-level-badge lvl-' + Math.min(slot.level, 10) + '">Lv.' + slot.level + '</span></div>';
+      var isAP = def && def.id === "auto_prestige";
+      var apClass = isAP ? (autoPrestigeEnabled ? " ap-on" : " ap-off") : "";
+      var apClick = isAP ? ' onclick="toggleAutoPrestige()"' : "";
+      var apBadge = isAP ? ' <span class="ap-toggle-badge ' + (autoPrestigeEnabled ? 'ap-badge-on' : 'ap-badge-off') + '">' + (autoPrestigeEnabled ? 'ON' : 'OFF') + '</span>' : "";
+      html += '<div class="upgrade-slot filled' + apClass + '"' + apClick + '><div class="upgrade-icon">' + (def ? def.icon : "?") + '</div>';
+      html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + (def ? def.name : "?") + ' <span class="upgrade-level-badge lvl-' + Math.min(slot.level, 10) + '">Lv.' + slot.level + '</span>' + apBadge + '</div>';
       html += '<div class="upgrade-slot-desc">' + desc + '</div></div></div>';
     } else {
       emptyCount++;
@@ -3845,6 +3862,23 @@ function gameTick() {
       }
     }
 
+    // Auto Prestige
+    var _apLevel = autoPrestigeEnabled ? getUpgradeSum("auto_prestige", d) : 0;
+    if (_apLevel > 0 && d.activeChallengeIdx < 0) {
+      var _basePP = getBasePP(d);
+      if (_basePP > 0 && _basePP <= _apLevel) {
+        // Auto prestige — earn capped PP with mult
+        var _apMult = getPrestigeBoostMult(d);
+        var _earned = _basePP * _apMult;
+        d.prestigeCount += _earned;
+        d.hasPrestigedOnce = true;
+        var _fs = getFastStartPoints(d); var _ms = bn(10, 0);
+        d.points = bnGte(_fs, _ms) ? _fs : _ms;
+        initGenerators(d);
+        if (di === activeDimIdx) invalidateRenderKeys();
+      }
+    }
+
     // Production (optimized: cache shared multipliers, skip idle gens)
     if (!cap) {
       var _gb = getGenBoostMult(d);
@@ -3940,6 +3974,7 @@ function deserializeBn(b) { return b && b.m !== undefined ? bn(b.m, b.e) : bn(0,
 function saveGame() {
   var data = {
       bankedTime: bankedTime,
+      autoPrestigeEnabled: autoPrestigeEnabled,
     activeDimIdx: activeDimIdx,
     unlockedDims: unlockedDims,
     multiDimUnlocked: multiDimUnlocked,
@@ -4045,6 +4080,7 @@ function loadGame() {
         }
         // Add offline time to bank + any previously banked time
         bankedTime = (data.bankedTime || 0) + ot;
+        autoPrestigeEnabled = data.autoPrestigeEnabled !== false;
         gameSpeed = 1;
         updateTimeBankUI();
         showSaveMsg("Loaded! +" + Math.floor(ot) + "s banked (use speed controls)");
@@ -4504,6 +4540,10 @@ var DISCOVERIES = {
     title: "Permanent Buff!",
     text: "You earned a Lv.3 buff that applies to ALL dimensions forever \u2014 even new ones. Choose wisely."
   },
+  auto_prestige: {
+    title: "Auto Prestige",
+    text: "Your game will automatically prestige when PP earned is at or below your Auto Prestige level. Prestige multiplier still applies. Works in background dimensions!"
+  },
   echo_upgrade: {
     title: "Echo",
     text: "Echo copies one of your existing upgrades at the rolled level. Pick which upgrade to duplicate."
@@ -4570,7 +4610,8 @@ var CHIP_TOOLTIPS = {
   momentum: "Output multiplier that scales with your highest generator tier",
   wide_selection: "More choices when buying upgrades (more options per roll)",
   boost_above: "Multiplies production in higher-numbered dimensions",
-  boost_below: "Multiplies production in lower-numbered dimensions"
+  boost_below: "Multiplies production in lower-numbered dimensions",
+  auto_prestige: "Auto-prestiges when base PP earned is at or below this level. Prestige mult still applies. Stacks across copies."
 };
 
 function addChipTooltips() {
