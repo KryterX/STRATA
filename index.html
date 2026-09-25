@@ -2584,7 +2584,7 @@ function getNetEffect(id) {
     case "overclock": return getMaxBuy() + " buys";
     case "momentum": var _mSum = getUpgradeSum("momentum") - getDefectSum("momentum"); var _mTier = getMaxTier(); var _mMult = _mSum === 0 ? 1 : (_mSum > 0 ? Math.pow(Math.abs(_mSum)+1, Math.sqrt(_mTier)) : 1/Math.pow(Math.abs(_mSum)+1, Math.sqrt(_mTier))); return _mMult >= 1 ? "x" + compactNum(_mMult) + " mom" : "\u00f7" + compactNum(1/_mMult) + " mom";
     case "wide_selection": return getSelectionCount() + " picks";
-    case "auto_prestige": var _apSum = getUpgradeSum("auto_prestige"); return _apSum > 0 ? "≤" + _apSum + " PP" : "";
+    case "auto_prestige": var _apSum = getUpgradeSum("auto_prestige"); return _apSum > 0 ? "≤" + _apSum + " PP " + (autoPrestigeEnabled ? "ON" : "OFF") : "";
     case "echo": return "";
     case "boost_above": return "x" + (2 - 1/(1+sum*0.1)).toFixed(2) + " up";
     case "boost_below": return "x" + (2 - 1/(1+sum*0.1)).toFixed(2) + " dn";
@@ -2646,6 +2646,12 @@ function getThresholdProgress(id, oldSum, newSum) {
 
 function toggleAutoPrestige() {
   autoPrestigeEnabled = !autoPrestigeEnabled;
+  // Reset tracking for fresh optimization
+  var d = D();
+  d._apRunStart = Date.now();
+  d._apLastExp = 0;
+  d._apLastCheckTime = null;
+  d._apCheckCounter = 0;
   invalidateRenderKeys();
   updateUI();
 }
@@ -3035,6 +3041,7 @@ function doPrestige() {
   if (isInChallenge()) return;
   d.prestigeCount += getPrestigeEarned();
   d.hasPrestigedOnce = true;
+  d._apRunStart = Date.now(); d._apLastExp = 0; d._apLastCheckTime = null; d._apCheckCounter = 0;
   showDiscovery('first_prestige');
   var fs = getFastStartPoints(); var ms = bn(10, 0);
   d.points = bnGte(fs, ms) ? fs : ms;
@@ -3862,20 +3869,74 @@ function gameTick() {
       }
     }
 
-    // Auto Prestige
+    // Auto Prestige — PP efficiency optimizer
     var _apLevel = autoPrestigeEnabled ? getUpgradeSum("auto_prestige", d) : 0;
-    if (_apLevel > 0 && d.activeChallengeIdx < 0) {
+    if (_apLevel > 0 && d.activeChallengeIdx < 0 && canPrestige(d)) {
       var _basePP = getBasePP(d);
-      if (_basePP > 0 && _basePP <= _apLevel) {
-        // Auto prestige — earn capped PP with mult
+      if (_basePP > 0) {
+        // Cap at auto level
+        var _cappedPP = Math.min(_basePP, _apLevel);
         var _apMult = getPrestigeBoostMult(d);
-        var _earned = _basePP * _apMult;
-        d.prestigeCount += _earned;
-        d.hasPrestigedOnce = true;
-        var _fs = getFastStartPoints(d); var _ms = bn(10, 0);
-        d.points = bnGte(_fs, _ms) ? _fs : _ms;
-        initGenerators(d);
-        if (di === activeDimIdx) invalidateRenderKeys();
+        var _earned = _cappedPP * _apMult;
+        
+        // If at or above cap, prestige immediately
+        if (_basePP >= _apLevel) {
+          d.prestigeCount += _earned;
+          d.hasPrestigedOnce = true;
+          var _fs = getFastStartPoints(d); var _ms = bn(10, 0);
+          d.points = bnGte(_fs, _ms) ? _fs : _ms;
+          d._apRunStart = Date.now();
+          d._apLastExp = 0;
+          initGenerators(d);
+          if (di === activeDimIdx) invalidateRenderKeys();
+        } else {
+          // Below cap — check if waiting for +1 PP is worth it
+          if (!d._apRunStart) d._apRunStart = Date.now();
+          if (!d._apCheckCounter) d._apCheckCounter = 0;
+          d._apCheckCounter++;
+          
+          // Check every 10 frames
+          if (d._apCheckCounter % 10 === 0) {
+            var _curExp = bnLog10(d.points);
+            var _expThreshold = hasBreakInfinity(d) ? PRESTIGE_EXP_THRESHOLD : 308;
+            var _expToNext = _expThreshold - (_curExp % _expThreshold);
+            var _runTime = (Date.now() - d._apRunStart) / 1000;
+            
+            if (_runTime > 1) {
+              // Calculate growth rate from last check
+              var _lastExp = d._apLastExp || 0;
+              var _expGrowth = _curExp - _lastExp;
+              
+              if (_expGrowth > 0 && d._apLastCheckTime) {
+                var _checkDt = (Date.now() - d._apLastCheckTime) / 1000;
+                var _expRate = _expGrowth / _checkDt;
+                
+                if (_expRate > 0) {
+                  var _timeToNextPP = _expToNext / _expRate;
+                  
+                  // PP/sec if prestige now vs wait
+                  var _ppSecNow = _earned / _runTime;
+                  var _ppSecWait = ((_cappedPP + 1) * _apMult) / (_runTime + _timeToNextPP);
+                  
+                  // If prestiging now is better, or if waiting would take more than 30s
+                  if (_ppSecNow >= _ppSecWait || _timeToNextPP > 30) {
+                    d.prestigeCount += _earned;
+                    d.hasPrestigedOnce = true;
+                    var _fs2 = getFastStartPoints(d); var _ms2 = bn(10, 0);
+                    d.points = bnGte(_fs2, _ms2) ? _fs2 : _ms2;
+                    d._apRunStart = Date.now();
+                    d._apLastExp = 0;
+                    d._apLastCheckTime = null;
+                    initGenerators(d);
+                    if (di === activeDimIdx) invalidateRenderKeys();
+                  }
+                }
+              }
+            }
+            d._apLastExp = _curExp;
+            d._apLastCheckTime = Date.now();
+          }
+        }
       }
     }
 
