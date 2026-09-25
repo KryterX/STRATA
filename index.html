@@ -1107,6 +1107,33 @@
   }
   .ap-badge-on { background: #0a1a0a; color: var(--green); border: 1px solid var(--green-dim); }
   .ap-badge-off { background: #1a0a0a; color: var(--red); border: 1px solid var(--red-dim); }
+
+  /* Stats tab */
+  .stats-section { width: 100%; margin-bottom: 12px; }
+  .stats-section-label {
+    font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase;
+    letter-spacing: 0.12em; font-family: var(--font-mono); margin-bottom: 6px; font-weight: 600;
+  }
+  .stat-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 10px; background: var(--bg-card); border-radius: 4px;
+    margin-bottom: 2px; font-family: var(--font-mono); font-size: 0.68rem;
+  }
+  .stat-name { color: var(--text-dim); }
+  .stat-value { color: var(--text-bright); font-weight: 600; }
+  .stat-highlight { color: var(--green); font-size: 0.8rem; }
+  .stat-speedrun-btn {
+    width: 100%; padding: 8px; border-radius: var(--radius);
+    border: 1px solid var(--green-dim); background: transparent;
+    color: var(--green); font-weight: 600; font-size: 0.7rem;
+    cursor: pointer; font-family: var(--font-mono); transition: all 0.2s;
+  }
+  .stat-speedrun-btn:hover { background: var(--green); color: var(--bg-deep); }
+
+  .milestone-done { border-left: 2px solid var(--amber); }
+  .milestone-done .stat-name { color: var(--amber); }
+  .milestone-locked { opacity: 0.4; }
+  .milestone-popup { border-color: var(--amber-dim) !important; }
 </style>
 </head>
 <body>
@@ -1208,6 +1235,9 @@
   <div class="tab-panel" id="tabChallenges">
     <div class="challenge-status" id="challengeStatus"></div>
     <div id="challengeContent"></div>
+  </div>
+  <div class="tab-panel" id="tabStats">
+    <div id="statsContent"></div>
   </div>
 </div>
 
@@ -1359,6 +1389,7 @@
   <button class="tab-btn active" id="btnTabGen" onclick="switchTab('generators')">Generators</button>
   <button class="tab-btn tab-upgrades" id="btnTabUpg" onclick="switchTab('upgrades')">Upgrades</button>
   <button class="tab-btn tab-challenges hidden-tab" id="btnTabCh" onclick="switchTab('challenges')">Challenges</button>
+  <button class="tab-btn" id="btnTabStats" onclick="switchTab('stats')">Stats</button>
   <div id="discoveryContainer"></div>
 
 <div class="dim-nav hidden" id="dimNav">
@@ -1921,7 +1952,10 @@ function completeChallenge() {
   if (!isInChallenge()) return;
   var ch = d.challenges[d.activeChallengeIdx];
   ch.completed = true;
-  d.prestigeCount += getPrestigeEarned();
+  var _ppEarned = getPrestigeEarned();
+  d.prestigeCount += _ppEarned;
+  trackPrestige();
+  trackPPEarned(_ppEarned);
   d.hasPrestigedOnce = true;
   d.pendingRewardOptions = ch.rewardOptions || [ch.reward];
   d.pendingReward = d.pendingRewardOptions[0]; // backward compat
@@ -2221,6 +2255,7 @@ function startUpgradeSelection() {
   var d = D();
   var cost = getUpgradePPCost(); if (d.prestigeCount < cost) return;
   d.prestigeCount -= cost; d.upgradeBuyCount++;
+  gameStats.totalUpgradesBought++;
   checkChallengeUnlock();
   d.selectionOptions = generateOptions(); d.selectionActive = true;
   currentSelectionSort = "default"; selSortLevelAsc = false;
@@ -2947,15 +2982,18 @@ function switchTab(tab) {
   document.getElementById("tabGenerators").classList.toggle("active", tab === "generators");
   document.getElementById("tabUpgrades").classList.toggle("active", tab === "upgrades");
   document.getElementById("tabChallenges").classList.toggle("active", tab === "challenges");
+  document.getElementById("tabStats").classList.toggle("active", tab === "stats");
   document.getElementById("btnTabGen").classList.toggle("active", tab === "generators");
   document.getElementById("btnTabUpg").classList.toggle("active", tab === "upgrades");
   document.getElementById("btnTabCh").classList.toggle("active", tab === "challenges");
+  document.getElementById("btnTabStats").classList.toggle("active", tab === "stats");
   // Show/hide tab-specific controls in top bar
   document.getElementById("topGenControls").style.display = tab === "generators" ? "" : "none";
   document.getElementById("topUpgControls").style.display = tab === "upgrades" ? "" : "none";
 
   updateTopBars();
   if (tab === "upgrades") { renderUpgrades(); renderChips(); }
+  if (tab === "stats") renderStatsTab();
   if (tab === "challenges") renderChallenges();
 }
 
@@ -2990,7 +3028,7 @@ function updateTopBars() {
 
   if (currentTab === "challenges") {
     pointsBar.classList.add("hidden"); prestigeBar.classList.add("hidden"); prestigeBtn.classList.add("hidden");
-  } else if (currentTab === "upgrades") {
+  } else if (currentTab === "upgrades" || currentTab === "stats") {
     pointsBar.classList.add("hidden"); prestigeBar.classList.add("hidden"); prestigeBtn.classList.add("hidden");
   } else if (!d.hasPrestigedOnce) {
     pointsBar.classList.remove("hidden"); prestigeBar.classList.add("hidden"); prestigeBtn.classList.add("hidden");
@@ -3039,7 +3077,10 @@ function doPrestige() {
   var d = D();
   if (!canPrestige()) return;
   if (isInChallenge()) return;
-  d.prestigeCount += getPrestigeEarned();
+  var _ppEarned = getPrestigeEarned();
+  d.prestigeCount += _ppEarned;
+  trackPrestige();
+  trackPPEarned(_ppEarned);
   d.hasPrestigedOnce = true;
   d._apRunStart = Date.now(); d._apLastExp = 0; d._apLastCheckTime = null; d._apCheckCounter = 0;
   showDiscovery('first_prestige');
@@ -3815,7 +3856,9 @@ function buyGen(index) {
   var d = D(); if (isCapped()) return;
   var gen = d.generators[index]; if (gen.bought >= getMaxBuy()) return;
   var cost = getCost(gen.tier, gen.bought);
-  if (bnGte(d.points, cost)) { d.points = bnSub(d.points, cost); gen.bought++; lastGenRenderKey = ""; renderGenerators(); }
+  if (bnGte(d.points, cost)) { d.points = bnSub(d.points, cost); gen.bought++;
+    gameStats.totalGeneratorsBought++;
+    if (gen.tier === 2 && gen.bought === 1) showDiscovery('gen_cascade'); lastGenRenderKey = ""; renderGenerators(); }
 }
 
 function doAutoBuyForDim(dimIdx) {
@@ -3882,6 +3925,7 @@ function gameTick() {
         // If at or above cap, prestige immediately
         if (_basePP >= _apLevel) {
           d.prestigeCount += _earned;
+          trackPPEarned(_earned); trackPrestige();
           d.hasPrestigedOnce = true;
           var _fs = getFastStartPoints(d); var _ms = bn(10, 0);
           d.points = bnGte(_fs, _ms) ? _fs : _ms;
@@ -3921,6 +3965,7 @@ function gameTick() {
                   // If prestiging now is better, or if waiting would take more than 30s
                   if (_ppSecNow >= _ppSecWait || _timeToNextPP > 30) {
                     d.prestigeCount += _earned;
+          trackPPEarned(_earned); trackPrestige();
                     d.hasPrestigedOnce = true;
                     var _fs2 = getFastStartPoints(d); var _ms2 = bn(10, 0);
                     d.points = bnGte(_fs2, _ms2) ? _fs2 : _ms2;
@@ -4022,6 +4067,9 @@ function gameTick() {
     }
   }
   document.getElementById("prestigeBtn").style.setProperty("--pp-pct", _ppPct.toFixed(1) + "%");
+  updatePlayTime(dt);
+  if (window._bgTickCounter && window._bgTickCounter % 60 === 0) checkMilestones();
+  if (currentTab === "stats") renderStatsTab();
   updateUI();
   requestAnimationFrame(gameTick);
 }
@@ -4035,6 +4083,7 @@ function deserializeBn(b) { return b && b.m !== undefined ? bn(b.m, b.e) : bn(0,
 function saveGame() {
   var data = {
       bankedTime: bankedTime,
+      gameStats: gameStats,
       autoPrestigeEnabled: autoPrestigeEnabled,
     activeDimIdx: activeDimIdx,
     unlockedDims: unlockedDims,
@@ -4141,10 +4190,18 @@ function loadGame() {
         }
         // Add offline time to bank + any previously banked time
         bankedTime = (data.bankedTime || 0) + ot;
+        if (data.gameStats) {
+          for (var sk in data.gameStats) { if (gameStats.hasOwnProperty(sk)) gameStats[sk] = data.gameStats[sk]; }
+        }
+        gameStats.currentRunStart = Date.now();
         autoPrestigeEnabled = data.autoPrestigeEnabled !== false;
         gameSpeed = 1;
         updateTimeBankUI();
-        showSaveMsg("Loaded! +" + Math.floor(ot) + "s banked (use speed controls)");
+        var offlineMsg = "Welcome back! ";
+        if (ot >= 3600) offlineMsg += Math.floor(ot/3600) + "h ";
+        if (ot >= 60) offlineMsg += Math.floor((ot%3600)/60) + "m ";
+        offlineMsg += Math.floor(ot%60) + "s banked";
+        showSaveMsg(offlineMsg);
         showDiscovery("time_bank");
       }
     } else { showSaveMsg("Game loaded!"); }
@@ -4280,6 +4337,9 @@ function startContinue() {
   activeSlotIdx = getActiveSlot();
   loadGame();
   invalidateRenderKeys();
+  updatePlayTime(dt);
+  if (window._bgTickCounter && window._bgTickCounter % 60 === 0) checkMilestones();
+  if (currentTab === "stats") renderStatsTab();
   updateUI();
   requestAnimationFrame(gameTick);
 }
@@ -4297,6 +4357,9 @@ function startNew() {
   currentTab = "generators";
   switchTab("generators");
   invalidateRenderKeys();
+  updatePlayTime(dt);
+  if (window._bgTickCounter && window._bgTickCounter % 60 === 0) checkMilestones();
+  if (currentTab === "stats") renderStatsTab();
   updateUI();
   requestAnimationFrame(gameTick);
 }
@@ -4569,6 +4632,118 @@ function updateTimeBankUI() {
   }
 }
 
+
+// ============================================================
+// Stats Tracking & Speedrun Timer
+// ============================================================
+var gameStats = {
+  totalPlayTime: 0,         // seconds
+  totalPrestiges: 0,
+  totalPPEarned: 0,
+  highestExponent: 0,
+  fastestPrestige: Infinity, // seconds (time from reset to prestige)
+  totalGeneratorsBought: 0,
+  totalUpgradesBought: 0,
+  challengesCompleted: 0,
+  dimensionsCompleted: 0,
+  currentRunStart: Date.now(),
+  dimStartTimes: [],         // timestamp per dimension start
+  dimBestTimes: [],          // best time per dimension (seconds)
+  speedrunStart: 0,          // timestamp when speedrun started
+  speedrunActive: false,
+  speedrunSplits: []         // { dim: N, time: seconds }
+};
+
+function startSpeedrun() {
+  gameStats.speedrunStart = Date.now();
+  gameStats.speedrunActive = true;
+  gameStats.speedrunSplits = [];
+  showSaveMsg("Speedrun started!");
+}
+
+function recordSplit(dimNum) {
+  if (!gameStats.speedrunActive) return;
+  var elapsed = (Date.now() - gameStats.speedrunStart) / 1000;
+  gameStats.speedrunSplits.push({ dim: dimNum, time: elapsed });
+}
+
+function formatTime(seconds) {
+  if (!isFinite(seconds) || seconds <= 0) return "--:--";
+  var h = Math.floor(seconds / 3600);
+  var m = Math.floor((seconds % 3600) / 60);
+  var s = Math.floor(seconds % 60);
+  if (h > 0) return h + ":" + (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  return m + ":" + (s < 10 ? "0" : "") + s;
+}
+
+function trackPrestige() {
+  gameStats.totalPrestiges++;
+  var runTime = (Date.now() - gameStats.currentRunStart) / 1000;
+  if (runTime < gameStats.fastestPrestige) gameStats.fastestPrestige = runTime;
+  gameStats.currentRunStart = Date.now();
+}
+
+function trackPPEarned(amount) {
+  gameStats.totalPPEarned += amount;
+}
+
+function updatePlayTime(dt) {
+  gameStats.totalPlayTime += dt;
+  var curExp = bnLog10(D().points);
+  if (curExp > gameStats.highestExponent) gameStats.highestExponent = curExp;
+}
+
+function renderStatsTab() {
+  var el = document.getElementById("statsContent");
+  if (!el) return;
+  var s = gameStats;
+  var html = "";
+  
+  // Speedrun section
+  html += '<div class="stats-section">';
+  html += '<div class="stats-section-label">Speedrun</div>';
+  if (s.speedrunActive) {
+    var elapsed = (Date.now() - s.speedrunStart) / 1000;
+    html += '<div class="stat-row"><span class="stat-name">Current Run</span><span class="stat-value stat-highlight">' + formatTime(elapsed) + '</span></div>';
+    if (s.speedrunSplits.length > 0) {
+      for (var i = 0; i < s.speedrunSplits.length; i++) {
+        html += '<div class="stat-row"><span class="stat-name">Dim ' + s.speedrunSplits[i].dim + ' Split</span><span class="stat-value">' + formatTime(s.speedrunSplits[i].time) + '</span></div>';
+      }
+    }
+  } else {
+    html += '<div class="stat-row"><button class="stat-speedrun-btn" onclick="startSpeedrun()">Start Speedrun</button></div>';
+  }
+  html += '</div>';
+  
+  // General stats
+  html += '<div class="stats-section">';
+  html += '<div class="stats-section-label">Progress</div>';
+  html += '<div class="stat-row"><span class="stat-name">Total Play Time</span><span class="stat-value">' + formatTime(s.totalPlayTime) + '</span></div>';
+  html += '<div class="stat-row"><span class="stat-name">Highest Exponent</span><span class="stat-value">e' + Math.floor(s.highestExponent) + '</span></div>';
+  html += '<div class="stat-row"><span class="stat-name">Total Prestiges</span><span class="stat-value">' + s.totalPrestiges + '</span></div>';
+  html += '<div class="stat-row"><span class="stat-name">Total PP Earned</span><span class="stat-value">' + s.totalPPEarned + '</span></div>';
+  html += '<div class="stat-row"><span class="stat-name">Fastest Prestige</span><span class="stat-value">' + formatTime(s.fastestPrestige) + '</span></div>';
+  html += '<div class="stat-row"><span class="stat-name">Generators Bought</span><span class="stat-value">' + s.totalGeneratorsBought + '</span></div>';
+  html += '<div class="stat-row"><span class="stat-name">Upgrades Bought</span><span class="stat-value">' + s.totalUpgradesBought + '</span></div>';
+  html += '<div class="stat-row"><span class="stat-name">Challenges Completed</span><span class="stat-value">' + s.challengesCompleted + '</span></div>';
+  html += '<div class="stat-row"><span class="stat-name">Dimensions Completed</span><span class="stat-value">' + s.dimensionsCompleted + '</span></div>';
+  html += '</div>';
+  
+
+  // Milestones section
+  html += '<div class="stats-section">';
+  html += '<div class="stats-section-label">Milestones</div>';
+  for (var mi = 0; mi < MILESTONES.length; mi++) {
+    var m = MILESTONES[mi];
+    var unlocked = !!unlockedMilestones[m.id];
+    var cls = unlocked ? "stat-row milestone-done" : "stat-row milestone-locked";
+    var icon = unlocked ? "\u2605" : "\u2606";
+    html += '<div class="' + cls + '"><span class="stat-name">' + icon + ' ' + m.name + '</span><span class="stat-value">' + m.desc + '</span></div>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
 // ============================================================
 // Discovery Popups (one-time guides)
 // ============================================================
@@ -4608,6 +4783,10 @@ var DISCOVERIES = {
   echo_upgrade: {
     title: "Echo",
     text: "Echo copies one of your existing upgrades at the rolled level. Pick which upgrade to duplicate."
+  },
+  gen_cascade: {
+    title: "Generator Cascade",
+    text: "Higher generators produce lower generators. Gen 2 creates Gen 1s, which create points. The higher you go, the more powerful the cascade!"
   },
   time_bank: {
     title: "Time Banked!",
@@ -4967,6 +5146,94 @@ function renderThemeGrid() {
 
 // showSettings/closeSettings defined in settings system above
 
+
+
+// ============================================================
+// Milestones / Achievements
+// ============================================================
+var MILESTONES = [
+  { id: "e10", name: "Getting Started", desc: "Reach 1e10 points", check: function() { return bnLog10(D().points) >= 10; } },
+  { id: "e100", name: "Climbing", desc: "Reach 1e100 points", check: function() { return bnLog10(D().points) >= 100; } },
+  { id: "e308", name: "The Wall", desc: "Reach 1e308 points", check: function() { return bnLog10(D().points) >= 308; } },
+  { id: "first_prestige", name: "Reset!", desc: "Prestige for the first time", check: function() { return gameStats.totalPrestiges >= 1; } },
+  { id: "prestige10", name: "Prestige Veteran", desc: "Prestige 10 times", check: function() { return gameStats.totalPrestiges >= 10; } },
+  { id: "prestige100", name: "Prestige Master", desc: "Prestige 100 times", check: function() { return gameStats.totalPrestiges >= 100; } },
+  { id: "pp100", name: "PP Hoarder", desc: "Earn 100 total PP", check: function() { return gameStats.totalPPEarned >= 100; } },
+  { id: "challenge1", name: "Challenger", desc: "Complete your first challenge", check: function() { return gameStats.challengesCompleted >= 1; } },
+  { id: "challenge5", name: "Unstoppable", desc: "Complete all 5 challenges", check: function() { return gameStats.challengesCompleted >= 5; } },
+  { id: "dim2", name: "New Horizons", desc: "Unlock dimension 2", check: function() { return unlockedDims >= 2; } },
+  { id: "e1000", name: "Beyond Infinity", desc: "Reach 1e1000 points", check: function() { return gameStats.highestExponent >= 1000; } },
+  { id: "e10000", name: "Exponential", desc: "Reach 1e10000 points", check: function() { return gameStats.highestExponent >= 10000; } },
+  { id: "fast_prestige", name: "Speed Demon", desc: "Prestige in under 30 seconds", check: function() { return gameStats.fastestPrestige < 30; } },
+  { id: "gen50", name: "Full House", desc: "Buy 50 generators total", check: function() { return gameStats.totalGeneratorsBought >= 50; } },
+  { id: "slots20", name: "Maximized", desc: "Reach 20 upgrade slots", check: function() { return getMaxUpgradeSlots() >= 20; } }
+];
+
+var unlockedMilestones = {};
+
+function loadMilestones() {
+  try {
+    var raw = localStorage.getItem("strata_milestones");
+    if (raw) unlockedMilestones = JSON.parse(raw);
+  } catch(e) {}
+}
+
+function saveMilestones() {
+  try { localStorage.setItem("strata_milestones", JSON.stringify(unlockedMilestones)); } catch(e) {}
+}
+
+function checkMilestones() {
+  for (var i = 0; i < MILESTONES.length; i++) {
+    var m = MILESTONES[i];
+    if (unlockedMilestones[m.id]) continue;
+    try {
+      if (m.check()) {
+        unlockedMilestones[m.id] = Date.now();
+        saveMilestones();
+        showMilestonePopup(m);
+      }
+    } catch(e) {}
+  }
+}
+
+function showMilestonePopup(milestone) {
+  var container = document.getElementById("discoveryContainer");
+  if (!container) return;
+  var popup = document.createElement("div");
+  popup.className = "discovery-popup milestone-popup";
+  popup.innerHTML = '<div class="discovery-title" style="color:var(--amber);">\u2605 ' + milestone.name + '</div>' +
+    '<div class="discovery-text">' + milestone.desc + '</div>' +
+    '<button class="discovery-dismiss" onclick="dismissDiscovery(this)">Nice!</button>';
+  container.appendChild(popup);
+  setTimeout(function() { dismissDiscovery(popup.querySelector(".discovery-dismiss")); }, 6000);
+}
+
+// ============================================================
+// Keyboard Shortcuts
+// ============================================================
+document.addEventListener("keydown", function(e) {
+  if (!gameStarted) return;
+  // Don't intercept when typing in inputs
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+  // Don't intercept when an overlay is open
+  var overlays = ["selectionOverlay", "rewardOverlay", "restartOverlay", "echoOverlay", "permOverlay", "settingsOverlay"];
+  for (var i = 0; i < overlays.length; i++) {
+    var ov = document.getElementById(overlays[i]);
+    if (ov && !ov.classList.contains("hidden")) return;
+  }
+  
+  switch(e.key.toLowerCase()) {
+    case "1": switchTab("generators"); break;
+    case "2": switchTab("upgrades"); break;
+    case "3": switchTab("challenges"); break;
+    case "4": switchTab("stats"); break;
+    case "p": if (canPrestige() && !isInChallenge()) doPrestige(); break;
+    case "s": if (!e.ctrlKey && !e.metaKey) { saveGame(); e.preventDefault(); } break;
+    case "b": if (currentTab === "generators") buyAllGens(); break;
+  }
+});
+
+loadMilestones();
 loadSettings();
 loadTheme();
 showStartScreen();
