@@ -1587,15 +1587,10 @@ function getFastStartPoints(dim) {
 }
 
 function getMaxUpgradeSlots(dim) {
-  // Asymptotic: approaches 20 (base 4 + up to 16).
-  var d = dim || D(); var rawSum = 0;
-  for (var i = 0; i < d.upgradeSlots.length; i++) {
-    var s = d.upgradeSlots[i];
-    if (s && s.id === "upgrade_count") rawSum += 3 + Math.floor(0.7 * s.level);
-  }
-  rawSum += getPermBuffSum("upgrade_count") * 3; // perm buff adds 2 raw
-  var gain = rawSum > 0 ? Math.max(1, 16 * (1 - 1 / (1 + rawSum / 16))) : 0;
-  return Math.floor(BASE_UPGRADE_SLOTS + gain);
+  // Base 5 + floor(0.7 * total levels), capped at 20
+  var d = dim || D();
+  var totalLevels = getUpgradeSum("upgrade_count", d);
+  return Math.min(20, BASE_UPGRADE_SLOTS + Math.floor(0.7 * totalLevels));
 }
 function getMaxLevel(dim) {
   // Asymptotic: approaches 25 (base 5 + up to 20).
