@@ -3951,13 +3951,13 @@ function gameTick() {
           d._apCheckCounter++;
           
           // Check every 10 frames
-          if (d._apCheckCounter % 10 === 0) {
+          if (d._apCheckCounter % 60 === 0) {
             var _curExp = bnLog10(d.points);
             var _expThreshold = hasBreakInfinity(d) ? PRESTIGE_EXP_THRESHOLD : 308;
             var _expToNext = _expThreshold - (_curExp % _expThreshold);
             var _runTime = (Date.now() - d._apRunStart) / 1000;
             
-            if (_runTime > 1) {
+            if (_runTime > 3) {
               // Calculate growth rate from last check
               var _lastExp = d._apLastExp || 0;
               var _expGrowth = _curExp - _lastExp;
@@ -3974,7 +3974,7 @@ function gameTick() {
                   var _ppSecWait = ((_cappedPP + 1) * _apMult) / (_runTime + _timeToNextPP);
                   
                   // If prestiging now is better, or if waiting would take more than 30s
-                  if (_ppSecNow >= _ppSecWait || _timeToNextPP > 30) {
+                  if (_ppSecNow >= _ppSecWait || _timeToNextPP > 60) {
                     d.prestigeCount += _earned;
           trackPPEarned(_earned); trackPrestige();
                     d.hasPrestigedOnce = true;
