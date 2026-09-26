@@ -3937,7 +3937,7 @@ function buyGen(index) {
 }
 
 function doAutoBuyForDim(dimIdx) {
-  if (di === activeDimIdx) hardAchievements.usedAutoBuyThisDim = true;
+  if (dimIdx === activeDimIdx) hardAchievements.usedAutoBuyThisDim = true;
   var d = dimensions[dimIdx];
   var count = getAutoBuyCount(d); if (count === 0) return;
   if (hasBreakInfinity(d) ? false : bnGte(d.points, BASE_POINT_CAP)) return;
