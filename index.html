@@ -3957,7 +3957,7 @@ function gameTick() {
             var _expToNext = _expThreshold - (_curExp % _expThreshold);
             var _runTime = (Date.now() - d._apRunStart) / 1000;
             
-            if (_runTime > 3) {
+            if (_runTime > 10) {
               // Calculate growth rate from last check
               var _lastExp = d._apLastExp || 0;
               var _expGrowth = _curExp - _lastExp;
