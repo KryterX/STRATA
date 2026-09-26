@@ -1543,7 +1543,7 @@ var UPGRADE_DEFS = [
   { id: "break_infinity", name: "Break Infinity",  icon: "∅", descFn: function(l) { return "remove point cap"; } },
   { id: "gen_boost",      name: "Generator Boost", icon: "μ", descFn: function(l) { return "x" + (10*l) + " all output"; } },
   { id: "fast_start",     name: "Fast Start",      icon: "λ", descFn: function(l) { return "keep 1e" + (3*l) + " on prestige"; } },
-  { id: "upgrade_count",  name: "Upgrade Count",   icon: "π", descFn: function(l) { return "+" + Math.max(1, Math.floor(0.7*l)) + " slots (max 20)"; } },
+  { id: "upgrade_count",  name: "Upgrade Count",   icon: "π", descFn: function(l) { return "+" + Math.floor(2*Math.pow(l,0.6)) + " slots (max 20)"; } },
   { id: "luck",           name: "Luck",            icon: "ψ", descFn: function(l) { return "better roll odds"; } },
   { id: "ascend",         name: "Ascend",          icon: "Ξ", descFn: function(l) { return "higher max upgrade lv (max 25)"; } },
   { id: "overclock",      name: "Overclock",       icon: "θ", descFn: function(l) { return "more max gen buys (max 500)"; } },
@@ -1598,6 +1598,8 @@ function asymptotic(sum, cap, scale) {
 
 
 function createFreshDimension() {
+  hardAchievements.usedAutoBuyThisDim = false;
+  hardAchievements.usedAutoPrestigeThisDim = false;
   return {
     points: bn(10, 0),
     generators: [],
@@ -1675,10 +1677,10 @@ function getFastStartPoints(dim) {
 }
 
 function getMaxUpgradeSlots(dim) {
-  // Base 5 + floor(0.7 * total levels), capped at 20
+  // Base 5 + floor(2 * x^0.6), capped at 20
   var d = dim || D();
-  var totalLevels = getUpgradeSum("upgrade_count", d);
-  return Math.min(20, BASE_UPGRADE_SLOTS + Math.floor(0.7 * totalLevels));
+  var x = getUpgradeSum("upgrade_count", d);
+  return Math.min(20, BASE_UPGRADE_SLOTS + Math.floor(2 * Math.pow(x, 0.6)));
 }
 function getMaxLevel(dim) {
   // Asymptotic: approaches 25 (base 5 + up to 20).
@@ -2083,6 +2085,10 @@ function checkDimensionUnlock() {
   if (allDone && activeDimIdx === unlockedDims - 1) {
     // Check if this is dimension 10 completion
     var completedDimNum = unlockedDims; // the dim we just completed (before incrementing)
+    
+    var _dimTime = gameStats.gameTime;
+    if (_dimTime < hardAchievements.dimCompletionTime) hardAchievements.dimCompletionTime = _dimTime;
+    gameStats.dimensionsCompleted++;
     unlockedDims++;
     screenShimmer(getThemeColor("--cyan"));
     showDiscovery('first_dimension');
@@ -2473,6 +2479,7 @@ function replaceUpgradeSlot(index) {
   var d = D();
   if (!d.pendingUpgrade) return;
   var oldSlot = d.upgradeSlots[index];
+  if (oldSlot && d.pendingUpgrade && d.pendingUpgrade.level < oldSlot.level && d.pendingUpgrade.id === oldSlot.id) hardAchievements.everDowngraded = true;
   var drainId = oldSlot ? oldSlot.id : null;
   var drainLvl = oldSlot ? oldSlot.level : 0;
   var gainId = d.pendingUpgrade.id;
@@ -2589,7 +2596,7 @@ function getUpgradeBeforeAfter(id, newLevel) {
     case "upgrade_count":
       var curSlots = getMaxUpgradeSlots();
       var afterLvlSum = curSum + newLevel;
-      var afterSlots = Math.min(20, BASE_UPGRADE_SLOTS + Math.floor(0.7 * afterLvlSum));
+      var afterSlots = Math.min(20, BASE_UPGRADE_SLOTS + Math.floor(2 * Math.pow(afterLvlSum, 0.6)));
       return curSlots + " \u2192 " + afterSlots + " slots";
     case "luck":
       var curBase = (1 + 1 / (1 + curSum)).toFixed(2);
@@ -2606,12 +2613,13 @@ function getUpgradeBeforeAfter(id, newLevel) {
       var afterBuy = Math.floor(BASE_MAX_BUY + afterGainO);
       return curBuy + " \u2192 " + afterBuy + " max buys";
     case "momentum":
-      var h = getHighestGenTierBought();
-      var sqH = Math.sqrt(h);
-      var curM = curSum === 0 ? 1 : Math.pow(curSum + 1, sqH);
-      var afterM = Math.pow(afterSum + 1, sqH);
-      if (h === 0) return "x1 (buy a gen first)";
-      return "x" + curM.toFixed(1) + " \u2192 x" + afterM.toFixed(1) + " output";
+      var _mTierBA = getMaxTier();
+      var _sqBA = Math.sqrt(_mTierBA);
+      var curM = curSum === 0 ? 1 : Math.pow(Math.abs(curSum) + 1, _sqBA);
+      var afterM = afterSum === 0 ? 1 : Math.pow(Math.abs(afterSum) + 1, _sqBA);
+      if (curSum < 0) curM = 1 / curM;
+      if (afterSum < 0) afterM = 1 / afterM;
+      return "x" + compactNum(curM) + " \u2192 x" + compactNum(afterM) + " output (at " + _mTierBA + " gens)";
     case "wide_selection":
       var curSel = 3 + curSum; var afterSel = Math.min(15, 3 + afterSum);
       return curSel + " \u2192 " + afterSel + " choices";
@@ -2700,7 +2708,7 @@ function getNetEffectAtSum(id, sum) {
       return "\u00f7" + (10 * Math.abs(sum)) + " out";
     case "fast_start": return sum > 0 ? "1e" + (3 * sum) + " kept" : "10 kept";
     case "upgrade_count":
-      return Math.min(20, BASE_UPGRADE_SLOTS + Math.floor(0.7 * sum)) + " slots";
+      return Math.min(20, BASE_UPGRADE_SLOTS + Math.floor(2 * Math.pow(sum, 0.6))) + " slots";
     case "luck": return (1 + 1/(1+sum)).toFixed(2) + " luck";
     case "ascend":
       var ag = sum > 0 ? Math.max(1, 20 * (1 - 1 / (1 + sum / 20))) : 0;
@@ -2708,7 +2716,7 @@ function getNetEffectAtSum(id, sum) {
     case "overclock":
       var og = sum > 0 ? Math.max(1, 400 * (1 - 1 / (1 + sum / 50))) : 0;
       return Math.floor(BASE_MAX_BUY + og) + " buys";
-    case "momentum": return "x? mom"; // can't easily calc without tier context
+    case "momentum": var _mTAS = typeof getMaxTier !== "undefined" ? getMaxTier() : 50; var _mmAS = sum === 0 ? 1 : Math.pow(Math.abs(sum)+1, Math.sqrt(_mTAS)); return "x" + compactNum(_mmAS) + " mom";
     case "wide_selection": return Math.min(15, 3 + sum) + " picks";
     case "auto_prestige": return sum > 0 ? "\u2264" + sum + " PP" : "off";
     default: return "";
@@ -2999,12 +3007,19 @@ function switchDim(dir) {
 // ============================================================
 function getDefectDescription(defId, level) {
   switch (defId) {
-    case "upgrade_boost": return "buy multiplier " + (2 - 0.2 * level).toFixed(1) + "x (reduced)";
-    case "discount": return "costs " + Math.pow(1/0.8, level).toFixed(1) + "x more per buy";
-    case "gen_expansion": return "-" + (10 * level) + " max generators";
+    case "upgrade_boost": return "buy base reduced to " + (2 - 0.2 * level).toFixed(1) + "x";
+    case "discount": return "costs " + Math.pow(1/0.8, level).toFixed(2) + "x more per buy";
+    case "gen_expansion":
+      var _deLoss = level > 0 ? Math.max(1, 250 * (1 - 1 / (1 + level / 50))) : 0;
+      return "-" + Math.floor(_deLoss) + " max generators";
     case "gen_boost": return "all output \u00f7" + (10 * level);
-    case "overclock": return "-" + (25 * level) + " max gen purchases";
-    case "momentum": return "output \u00f7" + (level+1) + "^\u221a(tier)";
+    case "overclock":
+      var _ocLoss = level > 0 ? Math.max(1, 400 * (1 - 1 / (1 + level / 50))) : 0;
+      return "-" + Math.floor(_ocLoss) + " max gen purchases";
+    case "momentum":
+      var _mTier = getMaxTier();
+      var _mPenalty = Math.pow(level + 1, Math.sqrt(_mTier));
+      return "output \u00f7" + compactNum(_mPenalty);
     default: return "Unknown penalty";
   }
 }
@@ -3115,6 +3130,7 @@ function updateUI() {
   prestigeBtn.innerHTML = canP ? "<span>Prestige +" + ppEarned + "</span>" : "<span>Prestige</span>";
   prestigeBtn.disabled = !canP;
   document.getElementById("prestigePoints").textContent = d.prestigeCount;
+  if (d.prestigeCount > hardAchievements.maxPPHoarded) hardAchievements.maxPPHoarded = d.prestigeCount;
 
   if (!d.hasPrestigedOnce && (isCapped() || canPrestige()) && currentTab !== "upgrades") prompt.classList.remove("hidden");
   else prompt.classList.add("hidden");
@@ -3921,6 +3937,7 @@ function buyGen(index) {
 }
 
 function doAutoBuyForDim(dimIdx) {
+  if (di === activeDimIdx) hardAchievements.usedAutoBuyThisDim = true;
   var d = dimensions[dimIdx];
   var count = getAutoBuyCount(d); if (count === 0) return;
   if (hasBreakInfinity(d) ? false : bnGte(d.points, BASE_POINT_CAP)) return;
@@ -3985,6 +4002,7 @@ function gameTick() {
         if (_basePP >= _apLevel) {
           d.prestigeCount += _earned;
           trackPPEarned(_earned); trackPrestige();
+          hardAchievements.usedAutoPrestigeThisDim = true;
           d.hasPrestigedOnce = true;
           var _fs = getFastStartPoints(d); var _ms = bn(10, 0);
           d.points = bnGte(_fs, _ms) ? _fs : _ms;
@@ -4025,6 +4043,7 @@ function gameTick() {
                   if (_ppSecNow >= _ppSecWait || _timeToNextPP > 60) {
                     d.prestigeCount += _earned;
           trackPPEarned(_earned); trackPrestige();
+                    hardAchievements.usedAutoPrestigeThisDim = true;
                     d.hasPrestigedOnce = true;
                     var _fs2 = getFastStartPoints(d); var _ms2 = bn(10, 0);
                     d.points = bnGte(_fs2, _ms2) ? _fs2 : _ms2;
@@ -4143,6 +4162,7 @@ function saveGame() {
   var data = {
       bankedTime: bankedTime,
       gameStats: gameStats,
+      hardAchievements: hardAchievements,
       autoPrestigeEnabled: autoPrestigeEnabled,
     activeDimIdx: activeDimIdx,
     unlockedDims: unlockedDims,
@@ -4251,6 +4271,9 @@ function loadGame() {
         bankedTime = (data.bankedTime || 0) + ot;
         if (data.gameStats) {
           for (var sk in data.gameStats) { if (gameStats.hasOwnProperty(sk)) gameStats[sk] = data.gameStats[sk]; }
+        }
+        if (data.hardAchievements) {
+          for (var hk in data.hardAchievements) { if (hardAchievements.hasOwnProperty(hk)) hardAchievements[hk] = data.hardAchievements[hk]; }
         }
         gameStats.currentRunStart = Date.now();
         autoPrestigeEnabled = data.autoPrestigeEnabled !== false;
@@ -4707,6 +4730,16 @@ var gameStats = {
   dimensionsCompleted: 0,
   currentRunStart: Date.now()
 };
+
+// Hard achievement tracking
+var hardAchievements = {
+  dimCompletionTime: Infinity,  // fastest dim completion in game seconds
+  usedAutoBuyThisDim: false,
+  usedAutoPrestigeThisDim: false,
+  everDowngraded: false,        // replaced higher with lower
+  maxPPHoarded: 0               // highest PP held without spending
+};
+
 
 
 
@@ -5324,7 +5357,27 @@ var MILESTONES = [
   
   // Secret/Fun
   { id: "collector", name: "Collector", desc: "Own one of every base upgrade type", check: function() { var types = {}; var d = D(); for (var i = 0; i < d.upgradeSlots.length; i++) { if (d.upgradeSlots[i]) types[d.upgradeSlots[i].id] = true; } return Object.keys(types).length >= 12; } },
-  { id: "architect_smiles", name: "The Architect Smiles", desc: "Complete the game", check: function() { return unlockedDims >= 10 && gameStats.dimensionsCompleted >= 10; } }
+  { id: "architect_smiles", name: "The Architect Smiles", desc: "Complete the game", check: function() { return unlockedDims >= 10 && gameStats.dimensionsCompleted >= 10; } },
+  
+  // ═══ HARD ACHIEVEMENTS ═══
+  { id: "sub60", name: "Sub-60", desc: "Complete all 5 challenges in a dim within 60s game time", check: function() { return hardAchievements.dimCompletionTime < 60; } },
+  { id: "no_auto", name: "Purist Run", desc: "Complete a dimension without Auto Buy or Auto Prestige", check: function() { return gameStats.dimensionsCompleted > 0 && !hardAchievements.usedAutoBuyThisDim && !hardAchievements.usedAutoPrestigeThisDim; } },
+  { id: "ironman", name: "Ironman", desc: "Restart keeping 0 upgrades, then reach e308", check: function() { var d = D(); return d.upgradeSlots.length > 0 && getFilledSlotCount() === 0 && bnLog10(d.points) >= 308; } },
+  { id: "glass_cannon", name: "Glass Cannon", desc: "Reach e10000 with only 3 filled upgrade slots", check: function() { return gameStats.highestExponent >= 10000 && getFilledSlotCount() <= 3; } },
+  { id: "hoarder", name: "Hoarder", desc: "Accumulate 200 PP without spending", check: function() { return hardAchievements.maxPPHoarded >= 200; } },
+  { id: "downgrade", name: "Downgrade", desc: "Replace an upgrade with a lower level of the same type", check: function() { return hardAchievements.everDowngraded; } },
+  { id: "patience", name: "Patience", desc: "Accumulate 24 hours of banked time", check: function() { return typeof bankedTime !== 'undefined' && bankedTime >= 86400; } },
+  { id: "heat_death", name: "Heat Death", desc: "Reach e1,000,000 exponent", check: function() { return gameStats.highestExponent >= 1000000; } },
+  { id: "googolplex", name: "Googolplex", desc: "Reach e10,000,000 exponent", check: function() { return gameStats.highestExponent >= 10000000; } },
+  { id: "stacked", name: "Stacked", desc: "Have 5 copies of the same upgrade type", check: function() { var d = D(); var counts = {}; for (var i = 0; i < d.upgradeSlots.length; i++) { var s = d.upgradeSlots[i]; if (s) { counts[s.id] = (counts[s.id] || 0) + 1; } } for (var k in counts) { if (counts[k] >= 5) return true; } return false; } },
+  { id: "minimalist", name: "Minimalist", desc: "Complete a challenge with 3 or fewer upgrades", check: function() { return gameStats.challengesCompleted > 0 && getFilledSlotCount() <= 3; } },
+  { id: "handicapped", name: "Handicapped", desc: "Complete Challenge 5 (5 defects)", check: function() { var d = D(); return d.challenges.length >= 5 && d.challenges[4] && d.challenges[4].completed; } },
+  { id: "true_bottom", name: "True Bottom", desc: "Every dimension has all 5 challenges complete", check: function() { for (var i = 0; i < dimensions.length; i++) { var ch = dimensions[i].challenges; if (!ch || ch.length < 5) return false; for (var j = 0; j < 5; j++) { if (!ch[j] || !ch[j].completed) return false; } } return dimensions.length >= 10; } },
+  { id: "architects_fav", name: "Architect's Favorite", desc: "Complete the game in under 2 hours game time", check: function() { return gameStats.dimensionsCompleted >= 10 && gameStats.gameTime < 7200; } },
+  { id: "overflow", name: "Overflow", desc: "Momentum multiplier exceeds e100", check: function() { var mm = getMomentumMult(); return mm > 0 && Math.log10(mm) >= 100; } },
+  { id: "prestige1000", name: "Prestige Legend", desc: "Prestige 1,000 times", check: function() { return gameStats.totalPrestiges >= 1000; } },
+  { id: "speed_demon3", name: "Blink", desc: "Prestige in under 3 seconds", check: function() { return gameStats.fastestPrestige < 3; } },
+  { id: "full_spectrum", name: "Full Spectrum", desc: "Own 15+ different upgrade types across all dimensions", check: function() { var types = {}; for (var di = 0; di < dimensions.length; di++) { for (var i = 0; i < dimensions[di].upgradeSlots.length; i++) { var s = dimensions[di].upgradeSlots[i]; if (s) types[s.id] = true; } } return Object.keys(types).length >= 15; } }
 ]
 
 var unlockedMilestones = {};
