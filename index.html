@@ -4069,7 +4069,7 @@ function gameTick() {
     }
   }
   document.getElementById("prestigeBtn").style.setProperty("--pp-pct", _ppPct.toFixed(1) + "%");
-  updatePlayTime(dt);
+  updatePlayTime(realDt, dt);
   if (window._bgTickCounter && window._bgTickCounter % 60 === 0) checkMilestones();
   if (currentTab === "stats") renderStatsTab();
   updateUI();
@@ -4357,9 +4357,7 @@ function startNew() {
   currentTab = "generators";
   switchTab("generators");
   invalidateRenderKeys();
-  updatePlayTime(dt);
-  if (window._bgTickCounter && window._bgTickCounter % 60 === 0) checkMilestones();
-  if (currentTab === "stats") renderStatsTab();
+  lastTime = performance.now();
   updateUI();
   requestAnimationFrame(gameTick);
 }
