@@ -3957,6 +3957,7 @@ function doAutoBuyForDim(dimIdx) {
 // ============================================================
 var lastTime = performance.now();
 function gameTick() {
+  try {
   var now = performance.now(); var dt = (now - lastTime) / 1000; var realDt = dt; lastTime = now;
   var speedMult = tickTimeBank(dt); dt *= speedMult;
   if (dt > 0.5) dt = 0.5; // cap per-frame dt to prevent computation spikes
@@ -4149,6 +4150,7 @@ function gameTick() {
   if (window._bgTickCounter && window._bgTickCounter % 60 === 0) checkMilestones();
   if (currentTab === "stats") renderStatsTab();
   updateUI();
+  } catch(e) { console.error("gameTick error:", e); }
   requestAnimationFrame(gameTick);
 }
 
