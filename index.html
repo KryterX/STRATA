@@ -1134,6 +1134,47 @@
   .milestone-done .stat-name { color: var(--amber); }
   .milestone-locked { opacity: 0.4; }
   .milestone-popup { border-color: var(--amber-dim) !important; }
+
+  /* Particle effects */
+  .particle-container {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none; z-index: 9998; overflow: hidden;
+  }
+  .particle {
+    position: absolute; border-radius: 50%;
+    pointer-events: none; will-change: transform, opacity;
+  }
+  /* Ambient floating particles */
+  .ambient-particle {
+    position: absolute; width: 2px; height: 2px; border-radius: 50%;
+    background: var(--cyan); opacity: 0.15;
+    pointer-events: none; will-change: transform;
+    animation: floatUp linear infinite;
+  }
+  @keyframes floatUp {
+    0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+    10% { opacity: 0.15; }
+    90% { opacity: 0.15; }
+    100% { transform: translateY(-20px) translateX(30px); opacity: 0; }
+  }
+  /* Confetti piece */
+  .confetti {
+    position: absolute; width: 6px; height: 6px;
+    pointer-events: none; will-change: transform, opacity;
+  }
+  /* Screen shimmer */
+  .shimmer-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none; z-index: 9997;
+    background: linear-gradient(135deg, transparent 40%, var(--cyan) 50%, transparent 60%);
+    opacity: 0; animation: shimmerWave 1.5s ease-in-out forwards;
+    background-size: 200% 200%;
+  }
+  @keyframes shimmerWave {
+    0% { opacity: 0; background-position: -100% -100%; }
+    30% { opacity: 0.08; }
+    100% { opacity: 0; background-position: 200% 200%; }
+  }
 </style>
 </head>
 <body>
@@ -1391,7 +1432,8 @@
   <button class="tab-btn tab-upgrades" id="btnTabUpg" onclick="switchTab('upgrades')">Upgrades</button>
   <button class="tab-btn tab-challenges hidden-tab" id="btnTabCh" onclick="switchTab('challenges')">Challenges</button>
   <button class="tab-btn" id="btnTabStats" onclick="switchTab('stats')">Stats</button>
-  <div id="discoveryContainer"></div>
+  <div class="particle-container" id="particleContainer"></div>
+<div id="discoveryContainer"></div>
 
 <div class="dim-nav hidden" id="dimNav">
     <button class="dim-nav-btn" id="dimPrevBtn" onclick="switchDim(-1)">&#x25C0;</button>
@@ -1958,6 +2000,7 @@ function startChallenge(idx) {
 }
 
 function completeChallenge() {
+  spawnConfetti(25);
   var d = D();
   if (!isInChallenge()) return;
   var ch = d.challenges[d.activeChallengeIdx];
@@ -1966,6 +2009,8 @@ function completeChallenge() {
   d.prestigeCount += _ppEarned;
   trackPrestige();
   trackPPEarned(_ppEarned);
+  var _pBtn = document.getElementById('prestigeBtn');
+  if (_pBtn) { var _r = _pBtn.getBoundingClientRect(); spawnParticleBurst(_r.left + _r.width/2, _r.top, getThemeColor('--magenta'), 15, 100); }
   d.hasPrestigedOnce = true;
   d.pendingRewardOptions = ch.rewardOptions || [ch.reward];
   d.pendingReward = d.pendingRewardOptions[0]; // backward compat
@@ -2039,6 +2084,7 @@ function checkDimensionUnlock() {
     // Check if this is dimension 10 completion
     var completedDimNum = unlockedDims; // the dim we just completed (before incrementing)
     unlockedDims++;
+    screenShimmer(getThemeColor("--cyan"));
     showDiscovery('first_dimension');
     var newDim = createFreshDimension();
     dimensions.push(newDim);
@@ -3092,6 +3138,8 @@ function doPrestige() {
   d.prestigeCount += _ppEarned;
   trackPrestige();
   trackPPEarned(_ppEarned);
+  var _pBtn = document.getElementById('prestigeBtn');
+  if (_pBtn) { var _r = _pBtn.getBoundingClientRect(); spawnParticleBurst(_r.left + _r.width/2, _r.top, getThemeColor('--magenta'), 15, 100); }
   d.hasPrestigedOnce = true;
   d._apRunStart = Date.now(); d._apLastExp = 0; d._apLastCheckTime = null; d._apCheckCounter = 0;
   showDiscovery('first_prestige');
@@ -4338,6 +4386,7 @@ function loadFromSlotAndStart(slot) {
     document.getElementById("startScreen").classList.add("hidden");
     gameStarted = true;
     lastTime = performance.now();
+    initAmbientParticles();
     requestAnimationFrame(gameTick);
   } catch(e) { showSaveMsg("Failed to load " + getSlotName(slot).name); }
 }
@@ -4348,6 +4397,7 @@ function startContinue() {
   activeSlotIdx = getActiveSlot();
   loadGame();
   invalidateRenderKeys();
+  initAmbientParticles();
   lastTime = performance.now();
   updateUI();
   requestAnimationFrame(gameTick);
@@ -4366,6 +4416,7 @@ function startNew() {
   currentTab = "generators";
   switchTab("generators");
   invalidateRenderKeys();
+  initAmbientParticles();
   lastTime = performance.now();
   updateUI();
   requestAnimationFrame(gameTick);
@@ -5130,26 +5181,151 @@ function renderThemeGrid() {
 
 
 
+
+// ============================================================
+// Visual Effects — Theme-Aware Particles
+// ============================================================
+function getThemeColor(cssVar) {
+  return getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim() || '#00e4ff';
+}
+
+function spawnParticleBurst(x, y, color, count, spread) {
+  var container = document.getElementById('particleContainer');
+  if (!container) return;
+  var c = color || getThemeColor('--cyan');
+  var n = count || 12;
+  var s = spread || 120;
+  for (var i = 0; i < n; i++) {
+    var p = document.createElement('div');
+    p.className = 'particle';
+    var size = 3 + Math.random() * 4;
+    var angle = (Math.PI * 2 / n) * i + (Math.random() - 0.5) * 0.5;
+    var velocity = s * (0.5 + Math.random() * 0.5);
+    var dx = Math.cos(angle) * velocity;
+    var dy = Math.sin(angle) * velocity - 40; // bias upward
+    var dur = 600 + Math.random() * 400;
+    p.style.cssText = 'left:' + x + 'px;top:' + y + 'px;width:' + size + 'px;height:' + size + 'px;background:' + c + ';opacity:0.9;';
+    container.appendChild(p);
+    (function(el, dx, dy, dur) {
+      var start = performance.now();
+      function animate(now) {
+        var t = (now - start) / dur;
+        if (t >= 1) { el.remove(); return; }
+        el.style.transform = 'translate(' + (dx * t) + 'px,' + (dy * t + 80 * t * t) + 'px)';
+        el.style.opacity = String(0.9 * (1 - t));
+        requestAnimationFrame(animate);
+      }
+      requestAnimationFrame(animate);
+    })(p, dx, dy, dur);
+  }
+}
+
+function spawnConfetti(count) {
+  var container = document.getElementById('particleContainer');
+  if (!container) return;
+  var colors = [getThemeColor('--cyan'), getThemeColor('--magenta'), getThemeColor('--amber'), getThemeColor('--green'), '#fff'];
+  var n = count || 30;
+  for (var i = 0; i < n; i++) {
+    var c = document.createElement('div');
+    c.className = 'confetti';
+    var color = colors[Math.floor(Math.random() * colors.length)];
+    var x = Math.random() * window.innerWidth;
+    var size = 4 + Math.random() * 4;
+    var isSquare = Math.random() > 0.5;
+    c.style.cssText = 'left:' + x + 'px;top:-10px;width:' + size + 'px;height:' + (isSquare ? size : size * 2) + 'px;background:' + color + ';border-radius:' + (isSquare ? '1px' : '50%') + ';';
+    container.appendChild(c);
+    (function(el) {
+      var speed = 200 + Math.random() * 300;
+      var wobble = 50 + Math.random() * 80;
+      var dur = 2000 + Math.random() * 1500;
+      var start = performance.now();
+      function animate(now) {
+        var t = (now - start) / dur;
+        if (t >= 1) { el.remove(); return; }
+        var yPos = speed * t * t * 3;
+        var xWob = Math.sin(t * 8) * wobble * t;
+        var rot = t * 720;
+        el.style.transform = 'translateY(' + yPos + 'px) translateX(' + xWob + 'px) rotate(' + rot + 'deg)';
+        el.style.opacity = String(t > 0.7 ? (1 - t) / 0.3 : 1);
+        requestAnimationFrame(animate);
+      }
+      requestAnimationFrame(animate);
+    })(c);
+  }
+}
+
+function spawnStarBurst(x, y) {
+  spawnParticleBurst(x, y, getThemeColor('--amber'), 8, 80);
+}
+
+function screenShimmer(color) {
+  var shimmer = document.createElement('div');
+  shimmer.className = 'shimmer-overlay';
+  if (color) shimmer.style.background = 'linear-gradient(135deg, transparent 40%, ' + color + ' 50%, transparent 60%)';
+  document.body.appendChild(shimmer);
+  setTimeout(function() { shimmer.remove(); }, 1500);
+}
+
+function initAmbientParticles() {
+  var container = document.getElementById('particleContainer');
+  if (!container) return;
+  for (var i = 0; i < 8; i++) {
+    var p = document.createElement('div');
+    p.className = 'ambient-particle';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.animationDuration = (15 + Math.random() * 20) + 's';
+    p.style.animationDelay = (-Math.random() * 20) + 's';
+    container.appendChild(p);
+  }
+}
+
 // ============================================================
 // Milestones / Achievements
 // ============================================================
 var MILESTONES = [
-  { id: "e10", name: "Getting Started", desc: "Reach 1e10 points", check: function() { return bnLog10(D().points) >= 10; } },
-  { id: "e100", name: "Climbing", desc: "Reach 1e100 points", check: function() { return bnLog10(D().points) >= 100; } },
-  { id: "e308", name: "The Wall", desc: "Reach 1e308 points", check: function() { return bnLog10(D().points) >= 308; } },
+  // Early Game
+  { id: "first_gen", name: "First Steps", desc: "Buy your first generator", check: function() { return gameStats.totalGeneratorsBought >= 1; } },
+  { id: "e10", name: "Getting Started", desc: "Reach 1e10 points", check: function() { return gameStats.highestExponent >= 10; } },
+  { id: "cascade", name: "Cascade", desc: "Buy Generator 2", check: function() { var d = D(); return d.generators.length >= 2 && d.generators[1].bought > 0; } },
+  { id: "e100", name: "Climbing", desc: "Reach 1e100 points", check: function() { return gameStats.highestExponent >= 100; } },
+  { id: "e308", name: "The Wall", desc: "Hit the 1e308 cap", check: function() { return gameStats.highestExponent >= 308; } },
   { id: "first_prestige", name: "Reset!", desc: "Prestige for the first time", check: function() { return gameStats.totalPrestiges >= 1; } },
+  { id: "big_spender", name: "Big Spender", desc: "Spend 10 PP total", check: function() { return gameStats.totalPPEarned >= 10; } },
+  { id: "fully_loaded", name: "Fully Loaded", desc: "Fill all upgrade slots", check: function() { return getFilledSlotCount() >= getMaxUpgradeSlots() && getMaxUpgradeSlots() >= 5; } },
+  
+  // Mid Game
   { id: "prestige10", name: "Prestige Veteran", desc: "Prestige 10 times", check: function() { return gameStats.totalPrestiges >= 10; } },
-  { id: "prestige100", name: "Prestige Master", desc: "Prestige 100 times", check: function() { return gameStats.totalPrestiges >= 100; } },
+  { id: "no_ceiling", name: "No Ceiling", desc: "Obtain Break Infinity", check: function() { return hasBreakInfinity(); } },
   { id: "pp100", name: "PP Hoarder", desc: "Earn 100 total PP", check: function() { return gameStats.totalPPEarned >= 100; } },
+  { id: "e1000", name: "Infinity+1", desc: "Reach 1e1000 points", check: function() { return gameStats.highestExponent >= 1000; } },
+  { id: "discount_hunter", name: "Discount Hunter", desc: "Get cost multiplier below 0.15x", check: function() { return Math.pow(0.8, getUpgradeSum('discount')) < 0.15; } },
+  { id: "momentum_builder", name: "Momentum Builder", desc: "Reach x1M momentum", check: function() { return getMomentumMult() >= 1000000; } },
+  { id: "slot_machine", name: "Slot Machine", desc: "Reach 15 upgrade slots", check: function() { return getMaxUpgradeSlots() >= 15; } },
+  { id: "gen50", name: "Full House", desc: "Buy 50 generators total", check: function() { return gameStats.totalGeneratorsBought >= 50; } },
+  { id: "speed_demon", name: "Speed Demon", desc: "Prestige in under 30 seconds", check: function() { return gameStats.fastestPrestige < 30; } },
+  { id: "rapid_fire", name: "Rapid Fire", desc: "Prestige 50 times", check: function() { return gameStats.totalPrestiges >= 50; } },
+  
+  // Challenges
   { id: "challenge1", name: "Challenger", desc: "Complete your first challenge", check: function() { return gameStats.challengesCompleted >= 1; } },
   { id: "challenge5", name: "Unstoppable", desc: "Complete all 5 challenges", check: function() { return gameStats.challengesCompleted >= 5; } },
-  { id: "dim2", name: "New Horizons", desc: "Unlock dimension 2", check: function() { return unlockedDims >= 2; } },
-  { id: "e1000", name: "Beyond Infinity", desc: "Reach 1e1000 points", check: function() { return gameStats.highestExponent >= 1000; } },
+  
+  // Late Game
+  { id: "dim2", name: "New Horizons", desc: "Unlock Dimension 2", check: function() { return unlockedDims >= 2; } },
+  { id: "dim5", name: "Deep Strata", desc: "Reach Dimension 5", check: function() { return unlockedDims >= 5; } },
+  { id: "dim10", name: "The Bottom", desc: "Reach Dimension 10", check: function() { return unlockedDims >= 10; } },
+  { id: "prestige100", name: "Prestige Master", desc: "Prestige 100 times", check: function() { return gameStats.totalPrestiges >= 100; } },
   { id: "e10000", name: "Exponential", desc: "Reach 1e10000 points", check: function() { return gameStats.highestExponent >= 10000; } },
-  { id: "fast_prestige", name: "Speed Demon", desc: "Prestige in under 30 seconds", check: function() { return gameStats.fastestPrestige < 30; } },
-  { id: "gen50", name: "Full House", desc: "Buy 50 generators total", check: function() { return gameStats.totalGeneratorsBought >= 50; } },
-  { id: "slots20", name: "Maximized", desc: "Reach 20 upgrade slots", check: function() { return getMaxUpgradeSlots() >= 20; } }
-];
+  { id: "e100000", name: "Astronomical", desc: "Reach 1e100000 points", check: function() { return gameStats.highestExponent >= 100000; } },
+  { id: "automated", name: "Automated", desc: "Have auto-prestige and auto-buy active", check: function() { return autoPrestigeEnabled && getUpgradeSum('auto_prestige') > 0 && getUpgradeSum('auto_buy') > 0; } },
+  { id: "time_lord", name: "Time Lord", desc: "Spend 1 hour of banked time", check: function() { return gameStats.gameTime - gameStats.realTime >= 3600; } },
+  { id: "speed_demon2", name: "Lightning", desc: "Prestige in under 10 seconds", check: function() { return gameStats.fastestPrestige < 10; } },
+  { id: "pp_million", name: "PP Millionaire", desc: "Earn 1,000,000 total PP", check: function() { return gameStats.totalPPEarned >= 1000000; } },
+  { id: "all_slots", name: "All In", desc: "Reach and fill all 20 slots", check: function() { return getMaxUpgradeSlots() >= 20 && getFilledSlotCount() >= 20; } },
+  
+  // Secret/Fun
+  { id: "collector", name: "Collector", desc: "Own one of every base upgrade type", check: function() { var types = {}; var d = D(); for (var i = 0; i < d.upgradeSlots.length; i++) { if (d.upgradeSlots[i]) types[d.upgradeSlots[i].id] = true; } return Object.keys(types).length >= 12; } },
+  { id: "architect_smiles", name: "The Architect Smiles", desc: "Complete the game", check: function() { return unlockedDims >= 10 && gameStats.dimensionsCompleted >= 10; } }
+]
 
 var unlockedMilestones = {};
 
@@ -5179,6 +5355,7 @@ function checkMilestones() {
 }
 
 function showMilestonePopup(milestone) {
+  spawnStarBurst(window.innerWidth / 2, window.innerHeight / 2);
   var container = document.getElementById("discoveryContainer");
   if (!container) return;
   var popup = document.createElement("div");
