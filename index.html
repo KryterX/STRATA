@@ -1013,7 +1013,7 @@
     to { opacity: 0; transform: translateX(-50%) translateY(20px); }
   }
   .discovery-title {
-    font-size: 0.8rem; font-weight: 700; color: var(--cyan);
+    font-size: 0.75rem; font-weight: 700; color: var(--cyan); font-style: italic;
     font-family: var(--font-mono); margin-bottom: 4px;
   }
   .discovery-text {
@@ -1141,6 +1141,7 @@
 <div class="start-screen" id="startScreen">
   <div class="start-title">strata</div>
   <div class="start-sub">an incremental experience</div>
+  <div class="start-sub" style="font-size:0.55rem;margin-top:8px;max-width:280px;line-height:1.5;opacity:0.6;font-style:italic;">You found it. Most never do. One point of light — that's all you need to begin.</div>
   <div class="start-buttons" id="startButtons"></div>
   <div class="start-version">v0.1</div>
 </div>
@@ -2992,6 +2993,7 @@ function switchTab(tab) {
   document.getElementById("topUpgControls").style.display = tab === "upgrades" ? "" : "none";
 
   updateTopBars();
+  if (tab === "generators") renderGenerators();
   if (tab === "upgrades") { renderUpgrades(); renderChips(); }
   if (tab === "stats") renderStatsTab();
   if (tab === "challenges") renderChallenges();
@@ -3881,7 +3883,7 @@ function doAutoBuyForDim(dimIdx) {
 // ============================================================
 var lastTime = performance.now();
 function gameTick() {
-  var now = performance.now(); var dt = (now - lastTime) / 1000; lastTime = now;
+  var now = performance.now(); var dt = (now - lastTime) / 1000; var realDt = dt; lastTime = now;
   var speedMult = tickTimeBank(dt); dt *= speedMult;
   if (dt > 0.5) dt = 0.5; // cap per-frame dt to prevent computation spikes
 
@@ -4337,9 +4339,7 @@ function startContinue() {
   activeSlotIdx = getActiveSlot();
   loadGame();
   invalidateRenderKeys();
-  updatePlayTime(dt);
-  if (window._bgTickCounter && window._bgTickCounter % 60 === 0) checkMilestones();
-  if (currentTab === "stats") renderStatsTab();
+  lastTime = performance.now();
   updateUI();
   requestAnimationFrame(gameTick);
 }
@@ -4637,35 +4637,20 @@ function updateTimeBankUI() {
 // Stats Tracking & Speedrun Timer
 // ============================================================
 var gameStats = {
-  totalPlayTime: 0,         // seconds
+  realTime: 0,               // seconds — wall clock time with game open
+  gameTime: 0,               // seconds — simulated time (affected by speed)
   totalPrestiges: 0,
   totalPPEarned: 0,
   highestExponent: 0,
-  fastestPrestige: Infinity, // seconds (time from reset to prestige)
+  fastestPrestige: Infinity,
   totalGeneratorsBought: 0,
   totalUpgradesBought: 0,
   challengesCompleted: 0,
   dimensionsCompleted: 0,
-  currentRunStart: Date.now(),
-  dimStartTimes: [],         // timestamp per dimension start
-  dimBestTimes: [],          // best time per dimension (seconds)
-  speedrunStart: 0,          // timestamp when speedrun started
-  speedrunActive: false,
-  speedrunSplits: []         // { dim: N, time: seconds }
+  currentRunStart: Date.now()
 };
 
-function startSpeedrun() {
-  gameStats.speedrunStart = Date.now();
-  gameStats.speedrunActive = true;
-  gameStats.speedrunSplits = [];
-  showSaveMsg("Speedrun started!");
-}
 
-function recordSplit(dimNum) {
-  if (!gameStats.speedrunActive) return;
-  var elapsed = (Date.now() - gameStats.speedrunStart) / 1000;
-  gameStats.speedrunSplits.push({ dim: dimNum, time: elapsed });
-}
 
 function formatTime(seconds) {
   if (!isFinite(seconds) || seconds <= 0) return "--:--";
@@ -4687,8 +4672,9 @@ function trackPPEarned(amount) {
   gameStats.totalPPEarned += amount;
 }
 
-function updatePlayTime(dt) {
-  gameStats.totalPlayTime += dt;
+function updatePlayTime(realDt, gameDt) {
+  gameStats.realTime += realDt;
+  gameStats.gameTime += gameDt;
   var curExp = bnLog10(D().points);
   if (curExp > gameStats.highestExponent) gameStats.highestExponent = curExp;
 }
@@ -4699,26 +4685,16 @@ function renderStatsTab() {
   var s = gameStats;
   var html = "";
   
-  // Speedrun section
+  // Timers
   html += '<div class="stats-section">';
-  html += '<div class="stats-section-label">Speedrun</div>';
-  if (s.speedrunActive) {
-    var elapsed = (Date.now() - s.speedrunStart) / 1000;
-    html += '<div class="stat-row"><span class="stat-name">Current Run</span><span class="stat-value stat-highlight">' + formatTime(elapsed) + '</span></div>';
-    if (s.speedrunSplits.length > 0) {
-      for (var i = 0; i < s.speedrunSplits.length; i++) {
-        html += '<div class="stat-row"><span class="stat-name">Dim ' + s.speedrunSplits[i].dim + ' Split</span><span class="stat-value">' + formatTime(s.speedrunSplits[i].time) + '</span></div>';
-      }
-    }
-  } else {
-    html += '<div class="stat-row"><button class="stat-speedrun-btn" onclick="startSpeedrun()">Start Speedrun</button></div>';
-  }
+  html += '<div class="stats-section-label">Time</div>';
+  html += '<div class="stat-row"><span class="stat-name">Real Time</span><span class="stat-value">' + formatTime(s.realTime) + '</span></div>';
+  html += '<div class="stat-row"><span class="stat-name">Game Time</span><span class="stat-value stat-highlight">' + formatTime(s.gameTime) + '</span></div>';
   html += '</div>';
   
   // General stats
   html += '<div class="stats-section">';
   html += '<div class="stats-section-label">Progress</div>';
-  html += '<div class="stat-row"><span class="stat-name">Total Play Time</span><span class="stat-value">' + formatTime(s.totalPlayTime) + '</span></div>';
   html += '<div class="stat-row"><span class="stat-name">Highest Exponent</span><span class="stat-value">e' + Math.floor(s.highestExponent) + '</span></div>';
   html += '<div class="stat-row"><span class="stat-name">Total Prestiges</span><span class="stat-value">' + s.totalPrestiges + '</span></div>';
   html += '<div class="stat-row"><span class="stat-name">Total PP Earned</span><span class="stat-value">' + s.totalPPEarned + '</span></div>';
@@ -4728,9 +4704,8 @@ function renderStatsTab() {
   html += '<div class="stat-row"><span class="stat-name">Challenges Completed</span><span class="stat-value">' + s.challengesCompleted + '</span></div>';
   html += '<div class="stat-row"><span class="stat-name">Dimensions Completed</span><span class="stat-value">' + s.dimensionsCompleted + '</span></div>';
   html += '</div>';
-  
 
-  // Milestones section
+// Milestones section
   html += '<div class="stats-section">';
   html += '<div class="stats-section-label">Milestones</div>';
   for (var mi = 0; mi < MILESTONES.length; mi++) {
@@ -4749,48 +4724,48 @@ function renderStatsTab() {
 // ============================================================
 var DISCOVERIES = {
   first_prestige: {
-    title: "Prestige Unlocked!",
-    text: "You've hit the point cap! Prestige resets your generators but earns Prestige Points \u2014 spend them on powerful upgrades."
+    title: "The Architect",
+    text: "You've hit the ceiling of this layer. I remember when I hit mine. Everything resets, but you're not starting over \u2014 you're starting better. That's the difference. Prestige points let you reshape the foundation."
   },
   first_upgrade: {
-    title: "Upgrades",
-    text: "Upgrades boost your generators permanently. The chips at the top show your current net effects. Each prestige lets you buy more."
+    title: "The Architect",
+    text: "Now you're shaping things. Every upgrade changes how deep you can go next time. The chips at the top show your net effects \u2014 that's the real picture of what you've built."
   },
   first_challenge: {
-    title: "Challenges Unlocked",
-    text: "Challenges apply penalties (defects) but reward you with high-level upgrades. Complete all 5 to unlock a new dimension."
+    title: "The Architect",
+    text: "This one will fight back. The defects are real \u2014 they'll weaken your generators, raise your costs, slow you down. But what you earn here is worth the pain. Complete all five to go deeper."
   },
   first_dimension: {
-    title: "New Dimension!",
-    text: "Each dimension starts fresh but dimensions boost each other. Higher dimensions have a production penalty \u2014 upgrades in other dimensions help offset it."
+    title: "The Architect",
+    text: "Another layer. The strata go deeper than I thought. Each one starts empty, but they're connected \u2014 what you build in one echoes in the others. Higher dimensions are harder, but the rewards ripple downward."
   },
   first_restart: {
-    title: "Dimension Restart",
-    text: "Restart wipes everything in this dimension except the upgrades you choose to keep. Push further to unlock more keep slots."
+    title: "The Architect",
+    text: "Starting over in the same layer? Bold. Keep what served you, discard what didn't. Push further to unlock more keep slots \u2014 the progress bar shows how close you are."
   },
   break_infinity: {
-    title: "Break Infinity",
-    text: "The point cap is removed! Your points can now grow past 1e308. Prestige Points scale with your highest exponent."
+    title: "The Architect",
+    text: "You broke through. The ceiling was never real \u2014 just a number someone decided was big enough. Not anymore. Your points scale infinitely now, and so does your prestige."
   },
   first_perm_buff: {
-    title: "Permanent Buff!",
-    text: "You earned a Lv.3 buff that applies to ALL dimensions forever \u2014 even new ones. Choose wisely."
-  },
-  auto_prestige: {
-    title: "Auto Prestige",
-    text: "Your game will automatically prestige when PP earned is at or below your Auto Prestige level. Prestige multiplier still applies. Works in background dimensions!"
+    title: "The Architect",
+    text: "Some things survive the reset. This buff will follow you across every dimension, forever. Choose the one that matters most \u2014 you don't get to change your mind."
   },
   echo_upgrade: {
-    title: "Echo",
-    text: "Echo copies one of your existing upgrades at the rolled level. Pick which upgrade to duplicate."
+    title: "The Architect",
+    text: "Echo copies one of your existing upgrades at the rolled level. A mirror of what you've already built. Pick the original wisely."
+  },
+  auto_prestige: {
+    title: "The Architect",
+    text: "Smart. Let the machine handle the repetition \u2014 you focus on the choices that matter. It'll fire when the math says it's optimal. Toggle it on the upgrade tile."
   },
   gen_cascade: {
-    title: "Generator Cascade",
-    text: "Higher generators produce lower generators. Gen 2 creates Gen 1s, which create points. The higher you go, the more powerful the cascade!"
+    title: "The Architect",
+    text: "Good \u2014 you bought your second tier. Each generator feeds the one below it. Gen 2 creates Gen 1s, which create points. The deeper you build, the faster everything flows. That's the cascade."
   },
   time_bank: {
-    title: "Time Banked!",
-    text: "Your offline time has been banked. Use the speed controls to run the game at 2x, 3x, 5x, or 10x speed. Banked time depletes faster at higher speeds."
+    title: "The Architect",
+    text: "Time you weren't here, saved for when you are. Use the speed controls to burn through it \u2014 2x, 5x, 10x. Higher speeds drain the bank faster. Spend it wisely, or recklessly. Your call."
   }
 };
 
