@@ -1805,29 +1805,38 @@ function getSelectionCount() {
 }
 function generateOptions(count) {
   var n = count || getSelectionCount();
+  var d = D();
   var opts = [];
   
-  // 1. Create a lightweight pool of available choices.
-  // We save the original array index ('defIdx') right alongside the reference.
+  // First-ever upgrade: guarantee at least one production booster
+  var firstUpgrade = d.upgradeBuyCount === 1;
+  var boosterIds = ["gen_expansion", "discount", "gen_boost", "momentum", "upgrade_boost"];
+  
   var pool = UPGRADE_DEFS.map((def, index) => {
     return { defIdx: index, def: def };
   });
 
   for (var i = 0; i < n; i++) {
-    // If we run out of unique upgrades in the pool, stop to avoid an infinite loop
     if (pool.length === 0) break;
 
-    // 2. Pick a random index out of the remaining pool
-    var poolIdx = Math.floor(Math.random() * pool.length);
+    var poolIdx;
+    if (firstUpgrade && i === 0) {
+      // Force first option to be a production booster
+      var boosterIndices = [];
+      for (var b = 0; b < pool.length; b++) {
+        if (boosterIds.indexOf(pool[b].def.id) >= 0) boosterIndices.push(b);
+      }
+      poolIdx = boosterIndices.length > 0 
+        ? boosterIndices[Math.floor(Math.random() * boosterIndices.length)]
+        : Math.floor(Math.random() * pool.length);
+    } else {
+      poolIdx = Math.floor(Math.random() * pool.length);
+    }
+    
     var chosen = pool[poolIdx];
-    
     var lv = rollLevel();
-    
-    // 3. Push the original, unshifted index to your final selection
     opts.push({ defIdx: chosen.defIdx, level: lv });
 
-    // 4. Fast Remove: Swap the chosen item with the LAST item in the pool, 
-    // then pop it off. This avoids heavy array shifting performance penalties.
     pool[poolIdx] = pool[pool.length - 1];
     pool.pop();
   }
