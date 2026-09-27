@@ -1175,6 +1175,10 @@
     30% { opacity: 0.08; }
     100% { opacity: 0; background-position: 200% 200%; }
   }
+
+  /* Missing CSS fixes */
+  .dim-unlock-sub { font-size: 0.7rem; color: var(--text-dim); text-align: center; margin-top: 4px; font-family: var(--font-mono); }
+  .challenge-card.locked { opacity: 0.5; }
 </style>
 </head>
 <body>
@@ -4290,14 +4294,7 @@ function loadGame() {
         }
         // Add offline time to bank + any previously banked time
         bankedTime = (data.bankedTime || 0) + ot;
-        if (data.gameStats) {
-          for (var sk in data.gameStats) { if (gameStats.hasOwnProperty(sk)) gameStats[sk] = data.gameStats[sk]; }
-        }
-        if (data.hardAchievements) {
-          for (var hk in data.hardAchievements) { if (hardAchievements.hasOwnProperty(hk)) hardAchievements[hk] = data.hardAchievements[hk]; }
-        }
         gameStats.currentRunStart = Date.now();
-        autoPrestigeEnabled = data.autoPrestigeEnabled !== false;
         gameSpeed = 1;
         updateTimeBankUI();
         var offlineMsg = "Welcome back! ";
@@ -4309,6 +4306,15 @@ function loadGame() {
       }
     } else { showSaveMsg("Game loaded!"); }
 
+    // Restore saved state
+    if (data.gameStats) {
+      for (var sk in data.gameStats) { if (gameStats.hasOwnProperty(sk)) gameStats[sk] = data.gameStats[sk]; }
+    }
+    if (data.hardAchievements) {
+      for (var hk in data.hardAchievements) { if (hardAchievements.hasOwnProperty(hk)) hardAchievements[hk] = data.hardAchievements[hk]; }
+    }
+    gameStats.currentRunStart = Date.now();
+    autoPrestigeEnabled = data.autoPrestigeEnabled !== false;
     switchTab(currentTab);
     if (D().pendingReward) showRewardOverlay();
     invalidateRenderKeys();
