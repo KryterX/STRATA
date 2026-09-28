@@ -1967,18 +1967,22 @@ function generateOptions(count) {
 // ============================================================
 // Challenge System (dim-aware via D())
 // ============================================================
-function getChallengeDefectLevel(challengeNum, dim) {
+function getChallengeBaseLevel(challengeNum, dim) {
+  // Base level — used for reward levels (unaffected by Defect Resist)
   var maxLvl = getMaxLevel(dim);
-  var base;
   switch (challengeNum) {
-    case 1: base = 1; break;
-    case 2: base = Math.max(1, Math.floor(maxLvl * 0.4)); break;
-    case 3: base = Math.max(1, Math.floor(maxLvl * 0.6)); break;
-    case 4: base = Math.max(1, Math.floor(maxLvl * 0.8)); break;
-    case 5: base = Math.max(1, maxLvl); break;
-    default: base = 1;
+    case 1: return 1;
+    case 2: return Math.max(1, Math.floor(maxLvl * 0.4));
+    case 3: return Math.max(1, Math.floor(maxLvl * 0.6));
+    case 4: return Math.max(1, Math.floor(maxLvl * 0.8));
+    case 5: return Math.max(1, maxLvl);
+    default: return 1;
   }
-  // Defect Resist from higher dims
+}
+
+function getChallengeDefectLevel(challengeNum, dim) {
+  // Actual defect level — reduced by Defect Resist from higher dims
+  var base = getChallengeBaseLevel(challengeNum, dim);
   var resist = getDefectResistBonus(activeDimIdx);
   return Math.max(1, base - resist);
 }
@@ -2009,7 +2013,7 @@ function generateChallenge(challengeNum, dim) {
     defectIds.push(pool[idx]); pool.splice(idx, 1);
   }
   // Generate 3 reward options, all at the challenge's defect level
-  var rewardLevel = getChallengeDefectLevel(challengeNum, dim);
+  var rewardLevel = getChallengeBaseLevel(challengeNum, dim);
   var rewardOptions = [];
   var _crossDimOnly2 = ["carry_weight","depth_charge","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
   var pool = [];
