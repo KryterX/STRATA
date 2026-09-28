@@ -1910,9 +1910,21 @@ function generateOptions(count) {
   var firstUpgrade = d.upgradeBuyCount === 1;
   var boosterIds = ["gen_expansion", "discount", "gen_boost", "momentum", "upgrade_boost"];
   
-  var pool = UPGRADE_DEFS.map((def, index) => {
-    return { defIdx: index, def: def };
-  });
+  // Filter pool based on active dimension
+  var crossDimOnly = ["carry_weight","depth_charge","foundation","defect_resist","wide_reward","pp_drip","inheritance"];
+  var pool = [];
+  for (var pi = 0; pi < UPGRADE_DEFS.length; pi++) {
+    var _def = UPGRADE_DEFS[pi];
+    // Cross-dim upgrades: only available in Dim 2+ (activeDimIdx > 0)
+    if (crossDimOnly.indexOf(_def.id) >= 0 && activeDimIdx === 0) continue;
+    // Boost Above: only available after completing this dim's challenges
+    if (_def.id === "boost_above") {
+      var _dd = D();
+      var _chDone = _dd.challenges.filter(function(c) { return c.completed; }).length;
+      if (_chDone < 5) continue;
+    }
+    pool.push({ defIdx: pi, def: _def });
+  }
 
   for (var i = 0; i < n; i++) {
     if (pool.length === 0) break;
@@ -1989,9 +2001,18 @@ function generateChallenge(challengeNum, dim) {
   // Generate 3 reward options, all at the challenge's defect level
   var rewardLevel = getChallengeDefectLevel(challengeNum, dim);
   var rewardOptions = [];
-  var pool = UPGRADE_DEFS.map((def, index) => {
-  return { defIdx: index };
-});
+  var _crossDimOnly2 = ["carry_weight","depth_charge","foundation","defect_resist","wide_reward","pp_drip","inheritance"];
+  var pool = [];
+  for (var _cpi = 0; _cpi < UPGRADE_DEFS.length; _cpi++) {
+    var _cdef = UPGRADE_DEFS[_cpi];
+    if (_crossDimOnly2.indexOf(_cdef.id) >= 0 && activeDimIdx === 0) continue;
+    if (_cdef.id === "boost_above") {
+      var _cdd = D();
+      var _cchDone = _cdd.challenges.filter(function(c) { return c.completed; }).length;
+      if (_cchDone < 5) continue;
+    }
+    pool.push({ defIdx: _cpi });
+  }
 
 for (var ri = 0; ri < 3 + Math.min(7, getWideRewardBonus(activeDimIdx) > 0 ? Math.ceil(getWideRewardBonus(activeDimIdx) * 0.7) : 0); ri++) {
   // Safety check: stop if we run out of unique upgrades entirely
