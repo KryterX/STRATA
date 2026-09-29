@@ -1509,7 +1509,7 @@
 </div>
 
 <script>
-var STRATA_VERSION = "v1.6";
+var STRATA_VERSION = "v1.5";
 
 // ============================================================
 // BigNum
@@ -2675,6 +2675,8 @@ function replaceUpgradeSlot(index) {
   if (!d.pendingUpgrade) return;
   var oldSlot = d.upgradeSlots[index];
   if (oldSlot && d.pendingUpgrade && d.pendingUpgrade.level < oldSlot.level && d.pendingUpgrade.id === oldSlot.id) hardAchievements.everDowngraded = true;
+  // Revert inheritance boost if replacing an inheritance slot
+  if (oldSlot) revertInheritanceBoost(oldSlot);
   var drainId = oldSlot ? oldSlot.id : null;
   var drainLvl = oldSlot ? oldSlot.level : 0;
   var gainId = d.pendingUpgrade.id;
@@ -3858,11 +3860,17 @@ function toggleRestartSlot(idx) {
 function confirmRestart() {
   document.getElementById("restartOverlay").classList.add("hidden");
   var d = D();
+  // Revert inheritance boosts on slots that won't be kept
+  var keptSet = {};
+  for (var ki = 0; ki < window._restartSelected.length; ki++) keptSet[window._restartSelected[ki]] = true;
+  for (var ri = 0; ri < d.upgradeSlots.length; ri++) {
+    if (!keptSet[ri] && d.upgradeSlots[ri]) revertInheritanceBoost(d.upgradeSlots[ri]);
+  }
   var keptUpgrades = [];
   for (var i = 0; i < window._restartSelected.length; i++) {
     var idx = window._restartSelected[i];
     var slot = d.upgradeSlots[idx];
-    if (slot) keptUpgrades.push({ id: slot.id, level: slot.level });
+    if (slot) { var _kept = { id: slot.id, level: slot.level }; if (slot._inheritTarget) _kept._inheritTarget = slot._inheritTarget; keptUpgrades.push(_kept); }
   }
   dimensions[activeDimIdx] = createFreshDimension();
   var fresh = D();
@@ -3883,12 +3891,20 @@ function cancelRestart() {
 function restartDimension(keepSlotIdxArray) {
   document.getElementById("restartOverlay").classList.add("hidden");
   var d = D();
+  // Revert inheritance boosts on slots that won't be kept
+  var keptSet = {};
+  if (Array.isArray(keepSlotIdxArray)) {
+    for (var ki = 0; ki < keepSlotIdxArray.length; ki++) keptSet[keepSlotIdxArray[ki]] = true;
+  }
+  for (var ri = 0; ri < d.upgradeSlots.length; ri++) {
+    if (!keptSet[ri] && d.upgradeSlots[ri]) revertInheritanceBoost(d.upgradeSlots[ri]);
+  }
   var keptUpgrades = [];
   if (Array.isArray(keepSlotIdxArray)) {
     for (var i = 0; i < keepSlotIdxArray.length; i++) {
       var idx = keepSlotIdxArray[i];
       var slot = d.upgradeSlots[idx];
-      if (slot) keptUpgrades.push({ id: slot.id, level: slot.level });
+      if (slot) { var _kept = { id: slot.id, level: slot.level }; if (slot._inheritTarget) _kept._inheritTarget = slot._inheritTarget; keptUpgrades.push(_kept); }
     }
   }
   dimensions[activeDimIdx] = createFreshDimension();
@@ -5168,6 +5184,22 @@ function renderStatsTab() {
 // Inheritance — boost a lower dim upgrade by +level
 // ============================================================
 var pendingInheritanceSlotIdx = -1; // which slot in current dim holds the Inheritance upgrade
+
+
+function revertInheritanceBoost(slot) {
+  // If this slot is inheritance with an active target, revert the target's level
+  if (!slot || slot.id !== "inheritance" || !slot._inheritTarget) return;
+  var target = slot._inheritTarget;
+  var targetDim = dimensions[target.dim];
+  if (!targetDim) return;
+  for (var i = 0; i < targetDim.upgradeSlots.length; i++) {
+    if (targetDim.upgradeSlots[i] && targetDim.upgradeSlots[i].id === target.upgradeId) {
+      targetDim.upgradeSlots[i].level = target.originalLevel || 1;
+      break;
+    }
+  }
+  slot._inheritTarget = null;
+}
 
 function showInheritanceOverlay(slotIdx) {
   pendingInheritanceSlotIdx = slotIdx;
