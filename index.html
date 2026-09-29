@@ -1509,7 +1509,7 @@
 </div>
 
 <script>
-var STRATA_VERSION = "v1.5";
+var STRATA_VERSION = "v1.6";
 
 // ============================================================
 // BigNum
@@ -1966,7 +1966,7 @@ function generateOptions(count) {
   var boosterIds = ["gen_expansion", "discount", "gen_boost", "momentum", "upgrade_boost"];
   
   // Filter pool based on active dimension
-  var crossDimOnly = ["boost_above","carry_weight","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
+  var crossDimOnly = ["carry_weight","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
   var pool = [];
   for (var pi = 0; pi < UPGRADE_DEFS.length; pi++) {
     var _def = UPGRADE_DEFS[pi];
@@ -2060,7 +2060,7 @@ function generateChallenge(challengeNum, dim) {
   // Generate 3 reward options, all at the challenge's defect level
   var rewardLevel = getChallengeBaseLevel(challengeNum, dim);
   var rewardOptions = [];
-  var _crossDimOnly2 = ["boost_above","carry_weight","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
+  var _crossDimOnly2 = ["carry_weight","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
   var pool = [];
   for (var _cpi = 0; _cpi < UPGRADE_DEFS.length; _cpi++) {
     var _cdef = UPGRADE_DEFS[_cpi];
@@ -4657,7 +4657,7 @@ function resetGame() {
     try { localStorage.removeItem("strata_discoveries"); } catch(e) {}
     currentTab = "generators";
     // Remove cross-dim upgrades if they were added
-    UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return ["boost_above","carry_weight","foundation","defect_resist","wide_reward","passive_prestige","inheritance"].indexOf(u.id) < 0; });
+    UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return ["carry_weight","foundation","defect_resist","wide_reward","passive_prestige","inheritance"].indexOf(u.id) < 0; });
     initUpgradeSlots(); initGenerators();
     updateTimeBankUI();
     switchTab("generators");
@@ -4787,7 +4787,7 @@ function startNew() {
   dimensions = [createFreshDimension()];
   activeDimIdx = 0; unlockedDims = 1; multiDimUnlocked = false;
   permBuffs = []; dimCompletionCount = 0; gameRetired = false;
-  UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return ["boost_above","carry_weight","foundation","defect_resist","wide_reward","passive_prestige","inheritance"].indexOf(u.id) < 0; });
+  UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return ["carry_weight","foundation","defect_resist","wide_reward","passive_prestige","inheritance"].indexOf(u.id) < 0; });
   initUpgradeSlots(); initGenerators();
   currentTab = "generators";
   switchTab("generators");
@@ -5194,7 +5194,7 @@ function showInheritanceOverlay(slotIdx) {
     html += '<div class="inherit-dim-panel" id="inheritPanel' + di + '" style="' + displayStyle + '">';
     
     var hasUpgrades = false;
-    var crossDimIds = ["boost_above","carry_weight","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
+    var crossDimIds = ["carry_weight","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
     
     for (var i = 0; i < dim.upgradeSlots.length; i++) {
       var slot = dim.upgradeSlots[i];
