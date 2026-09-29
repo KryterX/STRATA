@@ -5250,7 +5250,8 @@ function showInheritanceOverlay(slotIdx) {
   
   document.getElementById("inheritanceSlots").innerHTML = html;
   document.getElementById("inheritanceTitle").textContent = "Inheritance \u2014 Choose Target";
-  document.getElementById("inheritanceSub").textContent = "Pick an upgrade in a lower dimension to boost by +" + (d.upgradeSlots[pendingInheritanceSlotIdx] ? d.upgradeSlots[pendingInheritanceSlotIdx].level : 1) + " levels. That dimension will prestige.";
+  var _iSlot = D().upgradeSlots[pendingInheritanceSlotIdx];
+  document.getElementById("inheritanceSub").textContent = "Pick an upgrade in a lower dimension to boost by +" + (_iSlot ? _iSlot.level : 1) + " levels. That dimension will prestige.";
   document.getElementById("inheritanceOverlay").classList.remove("hidden");
 }
 
