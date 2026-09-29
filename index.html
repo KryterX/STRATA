@@ -1397,6 +1397,11 @@
 <div class="echo-overlay hidden" id="echoOverlay">
   <div class="echo-overlay-title" id="echoTitle">Echo - Choose Target</div>
   <div class="echo-overlay-sub" id="echoSub">Pick an upgrade to copy. Echo will become that upgrade at the rolled level.</div>
+  <div class="upgrade-sort-bar" style="max-width:420px;margin-bottom:6px;" id="echoSortBar">
+    <button class="sort-btn active-sort" onclick="setEchoSort('default')">Default</button>
+    <button class="sort-btn" onclick="setEchoSort('level')">Lv</button>
+    <button class="sort-btn" onclick="setEchoSort('type')">Type</button>
+  </div>
   <div class="echo-slots-container" id="echoSlots"></div>
   <button class="echo-cancel-btn" onclick="cancelEcho()">Cancel</button>
 </div>
@@ -1405,6 +1410,11 @@
   <div class="reward-overlay-title" id="rewardOverlayTitle">Challenge Complete!</div>
   <div class="reward-overlay-sub" id="rewardOverlaySub"></div>
   <div class="reward-preview" id="rewardPreview"></div>
+  <div class="upgrade-sort-bar" style="max-width:420px;margin-bottom:6px;" id="replaceSortBar">
+    <button class="sort-btn active-sort" onclick="setReplaceSort('default')">Default</button>
+    <button class="sort-btn" onclick="setReplaceSort('level')">Lv</button>
+    <button class="sort-btn" onclick="setReplaceSort('type')">Type</button>
+  </div>
   <div class="reward-slots-container" id="rewardSlots"></div>
   <button class="reward-discard-btn" id="discardRewardBtn" onclick="discardReward()">Discard Reward</button>
 </div>
@@ -1580,7 +1590,7 @@ var multiDimUnlocked = false; var permBuffs = []; var dimCompletionCount = 0;
 var permBuffs = []; // permanent Lv.3 upgrades earned by completing dimensions
 var dimCompletionCount = 0; // how many dimensions have awarded a perm buff
 var currentTab = "generators";
-var autoPrestigeEnabled = true;
+// autoPrestigeEnabled is now per-dimension (d.autoPrestigeOn)
 
 // Resolve upgrade by defIdx (legacy) or id (preferred)
 function resolveUpgradeDef(ref) {
@@ -1634,7 +1644,8 @@ function createFreshDimension() {
     pendingUpgrade: null,
     pendingRewardOptions: null,
     ppDripAccum: 0,
-    inheritanceTarget: null
+    inheritanceTarget: null,
+    autoPrestigeOn: true
   };
 }
 
@@ -1921,7 +1932,7 @@ function generateOptions(count) {
   var boosterIds = ["gen_expansion", "discount", "gen_boost", "momentum", "upgrade_boost"];
   
   // Filter pool based on active dimension
-  var crossDimOnly = ["carry_weight","depth_charge","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
+  var crossDimOnly = ["boost_above","carry_weight","depth_charge","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
   var pool = [];
   for (var pi = 0; pi < UPGRADE_DEFS.length; pi++) {
     var _def = UPGRADE_DEFS[pi];
@@ -2015,7 +2026,7 @@ function generateChallenge(challengeNum, dim) {
   // Generate 3 reward options, all at the challenge's defect level
   var rewardLevel = getChallengeBaseLevel(challengeNum, dim);
   var rewardOptions = [];
-  var _crossDimOnly2 = ["carry_weight","depth_charge","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
+  var _crossDimOnly2 = ["boost_above","carry_weight","depth_charge","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
   var pool = [];
   for (var _cpi = 0; _cpi < UPGRADE_DEFS.length; _cpi++) {
     var _cdef = UPGRADE_DEFS[_cpi];
@@ -2043,18 +2054,18 @@ for (var ri = 0; ri < 3 + Math.min(7, getWideRewardBonus(activeDimIdx) > 0 ? Mat
   pool[poolIdx] = pool[pool.length - 1];
   pool.pop();
 }
-  // Unique challenge modifiers: cap increase and time limit
-  // Higher challenges are more likely to get these
+  // Challenge modifiers:
+  // 1-3: standard (reach 1e308)
+  // 4: higher exponent goal
+  // 5: higher exponent goal + time limit
   var capExponent = null;
   var timeLimit = null;
-  var defLevel = getChallengeDefectLevel(challengeNum, dim);
-  // Cap increase: 30% chance per challenge after challenge 1, exponent = 308 * 1.1^defLevel
-  if (challengeNum >= 2 && Math.random() < 0.3 + challengeNum * 0.1) {
-    capExponent = Math.floor(308 * Math.pow(1.1, defLevel));
+  var defLevel = getChallengeBaseLevel(challengeNum, dim);
+  if (challengeNum >= 4) {
+    capExponent = Math.floor(308 * Math.pow(1.15, defLevel));
   }
-  // Time limit: 30% chance per challenge after challenge 2, time = 15min * 0.9^(defLevel-1)
-  if (challengeNum >= 3 && Math.random() < 0.2 + challengeNum * 0.1) {
-    timeLimit = Math.floor(15 * 60 * Math.pow(0.9, defLevel - 1));
+  if (challengeNum >= 5) {
+    timeLimit = Math.max(60, Math.floor(10 * 60 * Math.pow(0.85, defLevel - 1)));
   }
   return { defectIds: defectIds, reward: rewardOptions[0], rewardOptions: rewardOptions, completed: false, capExponent: capExponent, timeLimit: timeLimit };
 }
@@ -2605,7 +2616,11 @@ function setSelectionSort(mode) {
     selSortLevelAsc = !selSortLevelAsc;
   } else { selSortLevelAsc = false; }
   currentSelectionSort = mode;
-  renderSelectionOverlay();
+  if (_selShowingOwned) {
+    renderSelOwnedInPlace();
+  } else {
+    renderSelectionOverlay();
+  }
 }
 
 function getSortedSelectionIndices() {
@@ -2804,7 +2819,7 @@ function getNetEffect(id) {
     case "overclock": return getMaxBuy() + " buys";
     case "momentum": var _mSum = getUpgradeSum("momentum") - getDefectSum("momentum"); var _mTier = getMaxTier(); var _mMult = _mSum === 0 ? 1 : (_mSum > 0 ? Math.pow(Math.abs(_mSum)+1, Math.sqrt(_mTier)) : 1/Math.pow(Math.abs(_mSum)+1, Math.sqrt(_mTier))); return _mMult >= 1 ? "x" + compactNum(_mMult) + " mom" : "\u00f7" + compactNum(1/_mMult) + " mom";
     case "wide_selection": return getSelectionCount() + " picks";
-    case "auto_prestige": var _apSum = getUpgradeSum("auto_prestige"); return _apSum > 0 ? "≤" + _apSum + " PP " + (autoPrestigeEnabled ? "ON" : "OFF") : "";
+    case "auto_prestige": var _apSum = getUpgradeSum("auto_prestige"); return _apSum > 0 ? "≤" + _apSum + " PP " + (D().autoPrestigeOn !== false ? "ON" : "OFF") : "";
     case "echo": return "";
     case "boost_above": return "x" + (2 - 1/(1+sum*0.1)).toFixed(2) + " up";
     case "carry_weight": return "+" + sum + " keeps";
@@ -2871,15 +2886,48 @@ function getThresholdProgress(id, oldSum, newSum) {
 
 
 function toggleAutoPrestige() {
-  autoPrestigeEnabled = !autoPrestigeEnabled;
-  // Reset tracking for fresh optimization
   var d = D();
+  d.autoPrestigeOn = !d.autoPrestigeOn;
+  // Reset tracking for fresh optimization
   d._apRunStart = Date.now();
   d._apLastExp = 0;
   d._apLastCheckTime = null;
   d._apCheckCounter = 0;
   invalidateRenderKeys();
   updateUI();
+}
+
+
+// Echo and Replace overlay sorting
+var echoSortMode = "default";
+var replaceSortMode = "default";
+
+function setEchoSort(mode) {
+  echoSortMode = mode;
+  // Re-render echo overlay by calling showEchoOverlay again
+  if (typeof pendingEchoLevel !== 'undefined' && pendingEchoLevel > 0) {
+    showEchoOverlay(pendingEchoLevel, pendingEchoContext);
+  }
+}
+
+function setReplaceSort(mode) {
+  replaceSortMode = mode;
+  // Re-render the replace overlay
+  if (D().pendingUpgrade) showUpgradeReplaceOverlay();
+  else if (D().pendingReward) showRewardReplaceOverlay();
+}
+
+function sortSlotsByMode(slots, mode, dim) {
+  // slots = array of { index, slot } where slot = { id, level }
+  if (mode === "level") {
+    slots.sort(function(a, b) { return b.slot.level - a.slot.level; });
+  } else if (mode === "type") {
+    slots.sort(function(a, b) {
+      if (a.slot.id !== b.slot.id) return a.slot.id.localeCompare(b.slot.id);
+      return b.slot.level - a.slot.level;
+    });
+  }
+  return slots;
 }
 
 function renderChips() {
@@ -3068,11 +3116,27 @@ function renderSelOwnedInPlace() {
   var d = D();
   var el = document.getElementById("selectionOptions");
   if (!el) return;
-  var html = "";
+  // Build sortable list
+  var items = [];
   for (var i = 0; i < d.upgradeSlots.length; i++) {
     var s = d.upgradeSlots[i]; if (!s) continue;
     var def = UPGRADE_DEFS.find(function(u) { return u.id === s.id; });
     if (!def) continue;
+    items.push({ slot: s, def: def, idx: i });
+  }
+  // Sort by current mode
+  if (currentSelectionSort === "level") {
+    items.sort(function(a, b) { return selSortLevelAsc ? a.slot.level - b.slot.level : b.slot.level - a.slot.level; });
+  } else if (currentSelectionSort === "type") {
+    items.sort(function(a, b) {
+      if (a.slot.id !== b.slot.id) return a.slot.id.localeCompare(b.slot.id);
+      return b.slot.level - a.slot.level;
+    });
+  }
+  var html = "";
+  for (var fi = 0; fi < items.length; fi++) {
+    var s = items[fi].slot;
+    var def = items[fi].def;
     var desc = getUpgradePlainDesc(def.id);
     var ne = getNetEffect(def.id);
     if (ne) desc += " (" + ne + ")";
@@ -3391,10 +3455,15 @@ function renderPermPanel() {
     var uid = permBuffs[i];
     var def = UPGRADE_DEFS.find(function(u) { return u.id === uid; });
     if (!def) continue;
-    html += '<div class="perm-buff-card">';
+    var _isPermAP = uid === 'auto_prestige';
+    var _permApOn = D().autoPrestigeOn !== false;
+    var _permClick = _isPermAP ? ' onclick="toggleAutoPrestige()" style="cursor:pointer;"' : '';
+    var _permBadge = _isPermAP ? ' <span class="ap-toggle-badge ' + (_permApOn ? 'ap-badge-on' : 'ap-badge-off') + '">' + (_permApOn ? 'ON' : 'OFF') + '</span>' : '';
+    var _permClass = _isPermAP ? (_permApOn ? ' ap-on' : ' ap-off') : '';
+    html += '<div class="perm-buff-card' + _permClass + '"' + _permClick + '>';
     html += '<div class="upgrade-icon">' + def.icon + '</div>';
-    html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name" style="color:var(--green);">' + def.name + ' <span class="perm-badge">PERM</span></div>';
-    html += '<div class="upgrade-slot-desc" style="color:var(--green-dim);">' + def.descFn(1) + '</div></div></div>';
+    html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name" style="color:var(--green);">' + def.name + ' <span class="perm-badge">PERM</span>' + _permBadge + '</div>';
+    html += '<div class="upgrade-slot-desc" style="color:var(--green-dim);">' + def.descFn(3) + '</div></div></div>';
   }
   panel.innerHTML = html;
 }
@@ -3432,9 +3501,10 @@ function renderUpgrades() {
       desc = getUpgradePlainDesc(def ? def.id : ""); var _ne = getNetEffect(def ? def.id : ""); if (_ne) desc += " (" + _ne + ")";
       var isAP = def && def.id === "auto_prestige";
       var isInherit = def && def.id === "inheritance";
-      var apClass = isAP ? (autoPrestigeEnabled ? " ap-on" : " ap-off") : "";
+      var _apOn = D().autoPrestigeOn !== false;
+      var apClass = isAP ? (_apOn ? " ap-on" : " ap-off") : "";
       var apClick = isAP ? ' onclick="toggleAutoPrestige()"' : "";
-      var apBadge = isAP ? ' <span class="ap-toggle-badge ' + (autoPrestigeEnabled ? 'ap-badge-on' : 'ap-badge-off') + '">' + (autoPrestigeEnabled ? 'ON' : 'OFF') + '</span>' : "";
+      var apBadge = isAP ? ' <span class="ap-toggle-badge ' + (_apOn ? 'ap-badge-on' : 'ap-badge-off') + '">' + (_apOn ? 'ON' : 'OFF') + '</span>' : "";
       var inheritBadge = "";
       var inheritClick = "";
       if (isInherit) {
@@ -3928,12 +3998,16 @@ function renderChallenges() {
       var pct = Math.min(100, Math.max(0, (exp / goalExp) * 100));
       html += '<div class="challenge-progress"><div class="challenge-progress-fill" id="chProgressFill" style="width:' + pct.toFixed(1) + '%"></div></div>';
       var progText = exp.toFixed(1) + ' / ' + goalExp + ' exponent (' + pct.toFixed(1) + '%)';
+      html += '<div class="challenge-progress-text" id="chProgressText">' + progText + '</div>';
       var timeRem = getChallengeTimeRemaining();
       if (timeRem >= 0) {
+        var timeTotal = getChallengeTimeLimit();
+        var timePct = timeTotal > 0 ? Math.max(0, (timeRem / timeTotal) * 100) : 100;
         var mins = Math.floor(timeRem / 60); var secs = Math.floor(timeRem % 60);
-        progText += ' |  ' + mins + ':' + (secs < 10 ? '0' : '') + secs;
+        var timeColor = timePct > 50 ? 'var(--green)' : timePct > 20 ? 'var(--amber)' : 'var(--red)';
+        html += '<div class="challenge-progress" style="margin-top:4px;"><div class="challenge-progress-fill" id="chTimeFill" style="width:' + timePct.toFixed(1) + '%;background:' + timeColor + ';"></div></div>';
+        html += '<div class="challenge-progress-text" id="chTimeText" style="color:' + timeColor + ';">' + mins + ':' + (secs < 10 ? '0' : '') + secs + ' remaining</div>';
       }
-      html += '<div class="challenge-progress-text" id="chProgressText">' + progText + '</div>';
       html += '<button class="challenge-btn quit-btn" onclick="quitChallenge()">Quit Challenge</button>';
     } else if (isCurrent && !isInChallenge()) {
       html += '<button class="challenge-btn" onclick="startChallenge(' + i + ')">Start Challenge ' + challengeNum + '</button>';
@@ -4006,12 +4080,20 @@ function updateChallengesLive() {
     var txtEl = document.getElementById("chProgressText");
     if (txtEl) {
       var progText = exp.toFixed(1) + " / " + goalExp + " exponent (" + pct.toFixed(1) + "%)";
-      var timeRem = getChallengeTimeRemaining();
-      if (timeRem >= 0) {
-        var mins = Math.floor(timeRem / 60); var secs = Math.floor(timeRem % 60);
-        progText += " |  " + mins + ":" + (secs < 10 ? "0" : "") + secs;
-      }
       txtEl.textContent = progText;
+      var timeRem = getChallengeTimeRemaining();
+      var timeFill = document.getElementById("chTimeFill");
+      var timeText = document.getElementById("chTimeText");
+      if (timeRem >= 0 && timeFill && timeText) {
+        var timeTotal = getChallengeTimeLimit();
+        var timePct = timeTotal > 0 ? Math.max(0, (timeRem / timeTotal) * 100) : 100;
+        var mins = Math.floor(timeRem / 60); var secs = Math.floor(timeRem % 60);
+        var timeColor = timePct > 50 ? 'var(--green)' : timePct > 20 ? 'var(--amber)' : 'var(--red)';
+        timeFill.style.width = timePct.toFixed(1) + "%";
+        timeFill.style.background = timeColor;
+        timeText.textContent = mins + ":" + (secs < 10 ? "0" : "") + secs + " remaining";
+        timeText.style.color = timeColor;
+      }
     }
   }
   // Real-time restart progress update
@@ -4143,7 +4225,7 @@ function gameTick() {
     }
 
     // Auto Prestige — PP efficiency optimizer
-    var _apLevel = autoPrestigeEnabled ? getUpgradeSum("auto_prestige", d) : 0;
+    var _apLevel = (d.autoPrestigeOn !== false) ? getUpgradeSum("auto_prestige", d) : 0;
     if (_apLevel > 0 && d.activeChallengeIdx < 0 && canPrestige(d)) {
       var _basePP = getBasePP(d);
       if (_basePP > 0) {
@@ -4335,7 +4417,6 @@ function saveGame() {
       bankedTime: bankedTime,
       gameStats: gameStats,
       hardAchievements: hardAchievements,
-      autoPrestigeEnabled: autoPrestigeEnabled,
     activeDimIdx: activeDimIdx,
     unlockedDims: unlockedDims,
     multiDimUnlocked: multiDimUnlocked,
@@ -4357,7 +4438,8 @@ function saveGame() {
         pendingReward: d.pendingReward,
         pendingRewardOptions: d.pendingRewardOptions || null,
         autobuyTimer: d.autobuyTimer,
-        maxExponent: d.maxExponent || 0
+        maxExponent: d.maxExponent,
+        autoPrestigeOn: d.autoPrestigeOn || 0
       };
     }),
     timestamp: Date.now()
@@ -4408,6 +4490,7 @@ function loadGame() {
       d.pendingReward = sd.pendingReward || null;
         d.pendingRewardOptions = sd.pendingRewardOptions || null;
       d.autobuyTimer = sd.autobuyTimer || 0;
+      d.autoPrestigeOn = sd.autoPrestigeOn !== false;
       d.ppDripAccum = sd.ppDripAccum || 0;
       d.inheritanceTarget = sd.inheritanceTarget || null;
       d.maxExponent = sd.maxExponent || 0;
@@ -4469,7 +4552,6 @@ function loadGame() {
       for (var hk in data.hardAchievements) { if (hardAchievements.hasOwnProperty(hk)) hardAchievements[hk] = data.hardAchievements[hk]; }
     }
     gameStats.currentRunStart = Date.now();
-    autoPrestigeEnabled = data.autoPrestigeEnabled !== false;
     switchTab(currentTab);
     if (D().pendingReward) showRewardOverlay();
     invalidateRenderKeys();
@@ -5678,7 +5760,7 @@ var MILESTONES = [
   { id: "prestige100", name: "Prestige Master", desc: "Prestige 100 times", check: function() { return gameStats.totalPrestiges >= 100; } },
   { id: "e10000", name: "Exponential", desc: "Reach 1e10000 points", check: function() { return gameStats.highestExponent >= 10000; } },
   { id: "e100000", name: "Astronomical", desc: "Reach 1e100000 points", check: function() { return gameStats.highestExponent >= 100000; } },
-  { id: "automated", name: "Automated", desc: "Have auto-prestige and auto-buy active", check: function() { return autoPrestigeEnabled && getUpgradeSum('auto_prestige') > 0 && getUpgradeSum('auto_buy') > 0; } },
+  { id: "automated", name: "Automated", desc: "Have auto-prestige and auto-buy active", check: function() { return D().autoPrestigeOn !== false && getUpgradeSum('auto_prestige') > 0 && getUpgradeSum('auto_buy') > 0; } },
   { id: "time_lord", name: "Time Lord", desc: "Spend 1 hour of banked time", check: function() { return gameStats.gameTime - gameStats.realTime >= 3600; } },
   { id: "speed_demon2", name: "Lightning", desc: "Prestige in under 10 seconds", check: function() { return gameStats.fastestPrestige < 10; } },
   { id: "pp_million", name: "PP Millionaire", desc: "Earn 1,000,000 total PP", check: function() { return gameStats.totalPPEarned >= 1000000; } },
