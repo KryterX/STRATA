@@ -1972,11 +1972,9 @@ function generateOptions(count) {
     var _def = UPGRADE_DEFS[pi];
     // Cross-dim upgrades: only available in Dim 2+ (activeDimIdx > 0)
     if (crossDimOnly.indexOf(_def.id) >= 0 && activeDimIdx === 0) continue;
-    // Boost Above: only available after completing this dim's challenges
+    // Boost Above: available if a higher dimension exists (something to boost)
     if (_def.id === "boost_above") {
-      var _dd = D();
-      var _chDone = _dd.challenges.filter(function(c) { return c.completed; }).length;
-      if (_chDone < 5) continue;
+      if (activeDimIdx >= unlockedDims - 1) continue; // no higher dim to boost
     }
     pool.push({ defIdx: pi, def: _def });
   }
@@ -2066,9 +2064,7 @@ function generateChallenge(challengeNum, dim) {
     var _cdef = UPGRADE_DEFS[_cpi];
     if (_crossDimOnly2.indexOf(_cdef.id) >= 0 && activeDimIdx === 0) continue;
     if (_cdef.id === "boost_above") {
-      var _cdd = D();
-      var _cchDone = _cdd.challenges.filter(function(c) { return c.completed; }).length;
-      if (_cchDone < 5) continue;
+      if (activeDimIdx >= unlockedDims - 1) continue; // no higher dim to boost
     }
     pool.push({ defIdx: _cpi });
   }
