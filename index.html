@@ -1193,11 +1193,11 @@
   <div class="start-sub">an incremental experience</div>
   <div class="start-sub" style="font-size:0.55rem;margin-top:8px;max-width:280px;line-height:1.5;opacity:0.6;font-style:italic;">You found it. Most never do. One point of light — that's all you need to begin.</div>
   <div class="start-buttons" id="startButtons"></div>
-  <div class="start-version">v0.1</div>
+  <div class="start-version" id="startVersion">v1.1</div>
 </div>
 
 <div class="top-section">
-  <h1>Strata</h1>
+  <h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.0</span></h1>
 
   <div class="prestige-prompt hidden" id="prestigePrompt">
     <div>
@@ -1471,6 +1471,8 @@
 </div>
 
 <script>
+var STRATA_VERSION = "v1.3";
+
 // ============================================================
 // BigNum
 // ============================================================
@@ -2383,8 +2385,15 @@ function showRewardReplaceOverlay() {
     '<div class="reward-preview-desc">' + def.descFn(lvl) + '</div></div>' +
     '<div class="reward-preview-level ' + lvlClass + '">Lv.' + lvl + '</div>';
   var html = "";
+  var _rrSlots = [];
   for (var i = 0; i < d.upgradeSlots.length; i++) {
-    var slot = d.upgradeSlots[i]; if (!slot) continue;
+    if (!d.upgradeSlots[i]) continue;
+    _rrSlots.push({ index: i, slot: d.upgradeSlots[i] });
+  }
+  _rrSlots = sortSlotsByMode(_rrSlots, replaceSortMode);
+  for (var _rri = 0; _rri < _rrSlots.length; _rri++) {
+    var i = _rrSlots[_rri].index;
+    var slot = _rrSlots[_rri].slot;
     var sDef = UPGRADE_DEFS.find(function(u) { return u.id === slot.id; }); if (!sDef) continue;
     var rDef = UPGRADE_DEFS[d.pendingReward.defIdx];
     var rDiffs = calcReplaceDiff(i, rDef ? rDef.id : '', d.pendingReward.level);
@@ -2571,8 +2580,22 @@ function showUpgradeReplaceOverlay() {
     '<div class="reward-preview-desc">' + pu.desc + '</div></div>' +
     '<div class="reward-preview-level ' + lvlClass + '">Lv.' + pu.level + '</div>';
   var html = "";
+  // Build sortable slot list
+  var _rSlots = [];
   for (var i = 0; i < d.upgradeSlots.length; i++) {
-    var slot = d.upgradeSlots[i]; if (!slot) continue;
+    if (!d.upgradeSlots[i]) continue;
+    _rSlots.push({ index: i, slot: d.upgradeSlots[i] });
+  }
+  _rSlots = sortSlotsByMode(_rSlots, replaceSortMode);
+  // Update sort button states
+  var _rSortBtns = document.querySelectorAll('#replaceSortBar .sort-btn');
+  for (var _sb = 0; _sb < _rSortBtns.length; _sb++) {
+    var _sMode = _rSortBtns[_sb].getAttribute('onclick').match(/'(\w+)'/);
+    _rSortBtns[_sb].classList.toggle('active-sort', _sMode && _sMode[1] === replaceSortMode);
+  }
+  for (var _ri = 0; _ri < _rSlots.length; _ri++) {
+    var i = _rSlots[_ri].index;
+    var slot = _rSlots[_ri].slot;
     var sDef = UPGRADE_DEFS.find(function(u) { return u.id === slot.id; });
     if (!sDef) continue;
     var diffs = calcReplaceDiff(i, pu.id, pu.level);
@@ -3478,7 +3501,7 @@ function renderUpgrades() {
   var maxSlots = getMaxUpgradeSlots();
   
   // Update sort button active states
-  var sortBtns = document.querySelectorAll(".sort-btn");
+  var sortBtns = document.querySelectorAll("#upgradeSortBar .sort-btn");
   for (var sb = 0; sb < sortBtns.length; sb++) {
     sortBtns[sb].classList.remove("active-sort");
     var mode = sortBtns[sb].getAttribute("onclick").match(/'(\w+)'/);
@@ -4439,7 +4462,8 @@ function saveGame() {
         pendingRewardOptions: d.pendingRewardOptions || null,
         autobuyTimer: d.autobuyTimer,
         maxExponent: d.maxExponent,
-        autoPrestigeOn: d.autoPrestigeOn || 0
+        autoPrestigeOn: d.autoPrestigeOn,
+        challengeStartTime: d.challengeStartTime || 0 || 0
       };
     }),
     timestamp: Date.now()
@@ -4491,6 +4515,7 @@ function loadGame() {
         d.pendingRewardOptions = sd.pendingRewardOptions || null;
       d.autobuyTimer = sd.autobuyTimer || 0;
       d.autoPrestigeOn = sd.autoPrestigeOn !== false;
+      d.challengeStartTime = sd.challengeStartTime || 0;
       d.ppDripAccum = sd.ppDripAccum || 0;
       d.inheritanceTarget = sd.inheritanceTarget || null;
       d.maxExponent = sd.maxExponent || 0;
@@ -4567,10 +4592,18 @@ function resetGame() {
     safeRemoveItem("nestedIdleSave2");
     dimensions = [createFreshDimension()];
     activeDimIdx = 0; unlockedDims = 1; multiDimUnlocked = false;
+    permBuffs = []; dimCompletionCount = 0; gameRetired = false;
+    bankedTime = 0; gameSpeed = 1;
+    gameStats = { realTime: 0, gameTime: 0, totalPrestiges: 0, totalPPEarned: 0, highestExponent: 0, fastestPrestige: Infinity, totalGeneratorsBought: 0, totalUpgradesBought: 0, challengesCompleted: 0, dimensionsCompleted: 0, currentRunStart: Date.now() };
+    hardAchievements = { dimCompletionTime: Infinity, usedAutoBuyThisDim: false, usedAutoPrestigeThisDim: false, everDowngraded: false, maxPPHoarded: 0 };
+    unlockedMilestones = {};
+    try { localStorage.removeItem("strata_milestones"); } catch(e) {}
+    try { localStorage.removeItem("strata_discoveries"); } catch(e) {}
     currentTab = "generators";
     // Remove cross-dim upgrades if they were added
     UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return ["boost_above","carry_weight","depth_charge","foundation","defect_resist","wide_reward","passive_prestige","inheritance"].indexOf(u.id) < 0; });
     initUpgradeSlots(); initGenerators();
+    updateTimeBankUI();
     switchTab("generators");
     document.getElementById("tabBar").classList.add("hidden");
     invalidateRenderKeys(); updateUI();
@@ -5859,6 +5892,7 @@ document.addEventListener("keydown", function(e) {
 loadMilestones();
 loadSettings();
 loadTheme();
+var vl = document.getElementById("versionLabel"); if (vl) vl.textContent = STRATA_VERSION;
 showStartScreen();
 </script>
 
