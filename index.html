@@ -1184,6 +1184,43 @@
   .inherit-dim-tab:hover { border-color: var(--text-dim); color: var(--text); }
   .inherit-dim-tab.inherit-dim-active { border-color: var(--cyan); color: var(--cyan); background: #0a1418; }
   .inherit-dim-panel { width: 100%; max-width: 420px; max-height: 45vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+
+  /* Dimension complete epic sequence */
+  .dim-complete-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 2500; pointer-events: none;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; opacity: 0;
+  }
+  .dim-complete-overlay.active { pointer-events: auto; }
+  .dim-complete-text {
+    font-family: var(--font-mono); font-size: 1.8rem; font-weight: 700;
+    color: var(--cyan); letter-spacing: 0.2em; text-transform: uppercase;
+    opacity: 0; text-align: center;
+  }
+  .dim-complete-sub {
+    font-family: var(--font-mono); font-size: 0.7rem;
+    color: var(--text-dim); letter-spacing: 0.15em; text-transform: uppercase;
+    opacity: 0; margin-top: 12px;
+  }
+  @keyframes dimFadeToBlack {
+    0% { background: transparent; }
+    100% { background: #000; }
+  }
+  @keyframes dimFlashReveal {
+    0% { background: #000; }
+    15% { background: rgba(0,228,255,0.15); }
+    100% { background: transparent; }
+  }
+  @keyframes dimTextAppear {
+    0% { opacity: 0; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.05); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes dimTextFade {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+  }
 </style>
 </head>
 <body>
@@ -1389,7 +1426,7 @@
 
 <div class="inheritance-overlay hidden" id="inheritanceOverlay">
   <div class="echo-overlay-title" id="inheritanceTitle">Inheritance — Choose Target</div>
-  <div class="echo-overlay-sub" id="inheritanceSub">Pick an upgrade in a lower dimension to boost to Lv.20.</div>
+  <div class="echo-overlay-sub" id="inheritanceSub">Pick an upgrade in a lower dimension to boost.</div>
   <div class="echo-slots-container" id="inheritanceSlots"></div>
   <button class="echo-cancel-btn" onclick="cancelInheritance()">Cancel</button>
 </div>
@@ -1439,7 +1476,7 @@
 
 <div class="perm-overlay hidden" id="permOverlay">
   <div class="perm-overlay-title">DIMENSION COMPLETE</div>
-  <div class="perm-overlay-sub" id="permSub">Choose a permanent Lv.3 buff. This applies to ALL dimensions forever.</div>
+  <div class="perm-overlay-sub" id="permSub">Choose a permanent buff. This applies to ALL dimensions forever.</div>
   <div class="perm-options" id="permOptions"></div>
 </div>
 
@@ -1457,6 +1494,7 @@
   <button class="tab-btn tab-upgrades" id="btnTabUpg" onclick="switchTab('upgrades')">Upgrades</button>
   <button class="tab-btn tab-challenges hidden-tab" id="btnTabCh" onclick="switchTab('challenges')">Challenges</button>
   <button class="tab-btn" id="btnTabStats" onclick="switchTab('stats')">Stats</button>
+  <div class="dim-complete-overlay" id="dimCompleteOverlay"><div class="dim-complete-text" id="dimCompleteText"></div><div class="dim-complete-sub" id="dimCompleteSub"></div></div>
   <div class="particle-container" id="particleContainer"></div>
 <div id="discoveryContainer"></div>
 
@@ -1471,7 +1509,7 @@
 </div>
 
 <script>
-var STRATA_VERSION = "v1.3";
+var STRATA_VERSION = "v1.5";
 
 // ============================================================
 // BigNum
@@ -1523,7 +1561,7 @@ function bnLog10(a) { if (a.m <= 0) return 0; return a.e + Math.log10(a.m); }
 function bnIsZero(a) { return a.m === 0; }
 function bnFormat(a) {
   if (a.m === 0) return "0";
-  if (a.e < 3) { var n = bnToNum(a); if (n < 1000) return n.toFixed(n % 1 === 0 && n < 100 ? 0 : 1); }
+  if (a.e < 3) { var n = bnToNum(a); if (n < 1000) return n.toFixed(n % 1 === 0 ? 0 : 1); }
   var notation = (typeof gameSettings !== 'undefined') ? gameSettings.notation : "standard";
   if (notation === "scientific") {
     return a.m.toFixed(2) + "e" + a.e;
@@ -1589,8 +1627,7 @@ var dimensions = [];
 var activeDimIdx = 0;
 var unlockedDims = 1;
 var multiDimUnlocked = false; var permBuffs = []; var dimCompletionCount = 0;
-var permBuffs = []; // permanent Lv.3 upgrades earned by completing dimensions
-var dimCompletionCount = 0; // how many dimensions have awarded a perm buff
+// permBuffs = permanent upgrades earned by completing dimensions (levels in PERM_BUFF_LEVELS)
 var currentTab = "generators";
 // autoPrestigeEnabled is now per-dimension (d.autoPrestigeOn)
 
@@ -1660,12 +1697,7 @@ function getUpgradeSum(id, dim) {
   var d = dim || D();
   var t = getPermBuffSum(id);
   for (var i = 0; i < d.upgradeSlots.length; i++) { var s = d.upgradeSlots[i]; if (s && s.id === id) t += s.level; }
-  // Depth Charge: bonus levels from higher dims (only for non-cross-dim upgrades)
-  var crossDimIds = ["boost_above","carry_weight","depth_charge","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
-  if (crossDimIds.indexOf(id) < 0) {
-    var dimIdx = dimensions.indexOf(d);
-    if (dimIdx >= 0) { var _dcRaw = getDepthChargeBonus(dimIdx); t += Math.min(10, _dcRaw > 0 ? Math.floor(10 * _dcRaw / (_dcRaw + 8)) : 0); }
-  }
+
   return t;
 }
 function hasUpgrade(id, dim) { var d = dim || D(); return d.upgradeSlots.some(function(s) { return s && s.id === id; }) || permBuffs.indexOf(id) >= 0; }
@@ -1712,8 +1744,9 @@ function getFastStartPoints(dim) {
     var s = d.upgradeSlots[i];
     if (s && s.id === "fast_start") t = bnAdd(t, bn(1, 3 * s.level));
   }
-  // Include perm buff (Lv.1 = keep 1e0 = 1 point)
-  if (getPermBuffSum("fast_start") > 0) t = bnAdd(t, bn(1, 9));
+  // Include perm buff — scales with perm level: bn(1, 3*level)
+  var _fsPermLvl = getPermBuffSum("fast_start");
+  if (_fsPermLvl > 0) t = bnAdd(t, bn(1, 3 * _fsPermLvl));
   return t;
 }
 
@@ -1826,7 +1859,6 @@ function getCrossDimUpgradeSum(upgradeId, targetDimIdx) {
 }
 
 function getCarryWeightBonus(dimIdx) { return getCrossDimUpgradeSum("carry_weight", dimIdx); }
-function getDepthChargeBonus(dimIdx) { return getCrossDimUpgradeSum("depth_charge", dimIdx); }
 function getFoundationBonus(dimIdx) { return getCrossDimUpgradeSum("foundation", dimIdx); }
 function getDefectResistBonus(dimIdx) { return getCrossDimUpgradeSum("defect_resist", dimIdx); }
 function getWideRewardBonus(dimIdx) { return getCrossDimUpgradeSum("wide_reward", dimIdx); }
@@ -1934,7 +1966,7 @@ function generateOptions(count) {
   var boosterIds = ["gen_expansion", "discount", "gen_boost", "momentum", "upgrade_boost"];
   
   // Filter pool based on active dimension
-  var crossDimOnly = ["boost_above","carry_weight","depth_charge","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
+  var crossDimOnly = ["boost_above","carry_weight","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
   var pool = [];
   for (var pi = 0; pi < UPGRADE_DEFS.length; pi++) {
     var _def = UPGRADE_DEFS[pi];
@@ -1968,7 +2000,7 @@ function generateOptions(count) {
     
     var chosen = pool[poolIdx];
     var lv = rollLevel();
-    opts.push({ defIdx: chosen.defIdx, level: lv });
+    opts.push({ defIdx: chosen.defIdx, level: lv, id: chosen.def.id });
 
     pool[poolIdx] = pool[pool.length - 1];
     pool.pop();
@@ -2028,7 +2060,7 @@ function generateChallenge(challengeNum, dim) {
   // Generate 3 reward options, all at the challenge's defect level
   var rewardLevel = getChallengeBaseLevel(challengeNum, dim);
   var rewardOptions = [];
-  var _crossDimOnly2 = ["boost_above","carry_weight","depth_charge","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
+  var _crossDimOnly2 = ["boost_above","carry_weight","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
   var pool = [];
   for (var _cpi = 0; _cpi < UPGRADE_DEFS.length; _cpi++) {
     var _cdef = UPGRADE_DEFS[_cpi];
@@ -2108,7 +2140,7 @@ function startChallenge(idx) {
 }
 
 function completeChallenge() {
-  spawnConfetti(25);
+  spawnConfetti(40);
   var d = D();
   if (!isInChallenge()) return;
   var ch = d.challenges[d.activeChallengeIdx];
@@ -2139,7 +2171,30 @@ function completeChallenge() {
 // ============================================================
 // Permanent Buffs — earned by completing dimensions
 // ============================================================
-var PERM_BUFF_POOL = ["prestige_boost","discount","gen_expansion","auto_buy","break_infinity","fast_start","upgrade_count","luck","ascend","overclock","wide_selection","auto_prestige","carry_weight","depth_charge","foundation","defect_resist","wide_reward","passive_prestige","inheritance","boost_above"];
+// ── PERM BUFF CONFIG ──────────────────────────────────────
+// Tweak these levels to control how strong each permanent buff is.
+// Binary upgrades (break_infinity, foundation) only check > 0.
+var PERM_BUFF_LEVELS = {
+  prestige_boost: 5,    // x10 PP earned
+  discount: 5,          // 3.28x cost base (67% cheaper)
+  gen_expansion: 5,     // +22 tiers → 72 generators
+  auto_buy: 5,          // 5 auto-buys/sec
+  break_infinity: 1,    // binary: uncapped
+  fast_start: 15,       // keep 1e45 points after prestige
+  upgrade_count: 5,     // 10 total slots (+5)
+  luck: 5,              // 25% chance of max-level rolls
+  ascend: 7,            // max upgrade Lv.15 (+5)
+  overclock: 5,         // 136 max buys (+36)
+  wide_selection: 5,    // 8 picks per selection
+  auto_prestige: 5,     // fires at ≤5 PP
+  carry_weight: 5,      // +5 upgrades kept on dim restart
+  foundation: 1,        // binary: 1 of each gen pre-bought
+  defect_resist: 5,     // -5 challenge defect levels
+  wide_reward: 5,       // +4 extra reward picks
+  passive_prestige: 5,  // 2.5% of prestige PP per second
+  boost_above: 7        // x1.41 to higher dim production
+};
+var PERM_BUFF_POOL = ["prestige_boost","discount","gen_expansion","auto_buy","break_infinity","fast_start","upgrade_count","luck","ascend","overclock","wide_selection","auto_prestige","carry_weight","foundation","defect_resist","wide_reward","passive_prestige"];
 
 function showPermBuffOverlay(dimNum) {
   var html = "";
@@ -2152,8 +2207,9 @@ function showPermBuffOverlay(dimNum) {
     var takenBadge = taken ? ' <span class="perm-badge">OWNED</span>' : "";
     html += '<div class="' + cls + '" onclick="pickPermBuff(\'' + uid + '\')">';
     html += '<div class="upgrade-icon">' + def.icon + '</div>';
+    var _permLvl = (PERM_BUFF_LEVELS && PERM_BUFF_LEVELS[uid]) || 5;
     html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + def.name + takenBadge + '</div>';
-    html += '<div class="upgrade-slot-desc">' + def.descFn(1) + '</div></div></div>';
+    html += '<div class="upgrade-slot-desc">' + def.descFn(_permLvl) + '</div></div></div>';
   }
   var storyComplete = (dimNum <= 10 && STORY_COMPLETE[dimNum]) ? STORY_COMPLETE[dimNum] : "";
   document.getElementById("permSub").textContent = storyComplete ? (storyComplete + "\n\nchoose a permanent buff.") : "dimension " + dimNum + " complete. choose a permanent buff.";
@@ -2173,8 +2229,9 @@ function pickPermBuff(upgradeId) {
 }
 
 function getPermBuffSum(id) {
-  // Returns perm buff level (3) if this upgrade is a perm buff, 0 otherwise
-  return permBuffs.indexOf(id) >= 0 ? 3 : 0;
+  // Returns perm buff level from PERM_BUFF_LEVELS config, 0 if not owned
+  if (permBuffs.indexOf(id) < 0) return 0;
+  return (PERM_BUFF_LEVELS && PERM_BUFF_LEVELS[id]) || 5;
 }
 
 
@@ -2196,37 +2253,39 @@ function checkDimensionUnlock() {
     if (_dimTime < hardAchievements.dimCompletionTime) hardAchievements.dimCompletionTime = _dimTime;
     gameStats.dimensionsCompleted++;
     unlockedDims++;
-    screenShimmer(getThemeColor("--cyan"));
-    showDiscovery('first_dimension');
     var newDim = createFreshDimension();
     dimensions.push(newDim);
     initUpgradeSlots(newDim);
     initGenerators(newDim);
-    // Dim 10 completion — show ending screen
-    if (completedDimNum === 10 && !gameRetired) {
-      showEndingScreen();
-      return; // skip normal perm buff for dim 10
-    }
-    // Award permanent buff for completing this dimension
-    if (dimCompletionCount < unlockedDims - 1) {
-      showPermBuffOverlay(completedDimNum);
-    }
+    // Epic dimension complete sequence → then rewards
+    var _completedNum = completedDimNum;
+    playDimCompleteSequence(_completedNum, function() {
+      showDiscovery('first_dimension');
+      // Dim 10 completion — show ending screen
+      if (_completedNum === 10 && !gameRetired) {
+        showEndingScreen();
+        return;
+      }
+      // Award permanent buff for completing this dimension
+      if (dimCompletionCount < unlockedDims - 1) {
+        showPermBuffOverlay(_completedNum);
+      }
+      showDimUnlock(unlockedDims);
+    });
     // Unlock cross-dim upgrades on first dimension 2 unlock
     if (!multiDimUnlocked) {
       multiDimUnlocked = true;
       UPGRADE_DEFS.push(
         { id: "boost_above", name: "Boost Above", icon: "\u2191", descFn: function(l) { return "x" + (2 - 1/(1+l*0.1)).toFixed(2) + " higher dims (max x2)"; } },
         { id: "carry_weight", name: "Carry Weight", icon: "\u2295", descFn: function(l) { return "lower dims keep +" + l + " upgrades on restart"; } },
-        { id: "depth_charge", name: "Depth Charge", icon: "\u2297", descFn: function(l) { return "lower dims upgrades +" + Math.min(10, Math.floor(10 * l / (l + 8))) + " effective levels (max +10)"; } },
         { id: "foundation", name: "Foundation", icon: "\u22a5", descFn: function(l) { return "lower dims start with 1 of each gen pre-bought"; } },
         { id: "defect_resist", name: "Defect Resist", icon: "\u2298", descFn: function(l) { return "lower dim defects -" + l + " levels"; } },
         { id: "wide_reward", name: "Wide Reward", icon: "\u229e", descFn: function(l) { return "lower dim challenge rewards +" + Math.min(7, Math.ceil(l * 0.7)) + " choices (max +7)"; } },
         { id: "passive_prestige", name: "Passive Prestige", icon: "\u2248", descFn: function(l) { return "lower dims earn " + (0.5 * l).toFixed(1) + "% of prestige PP/sec"; } },
-        { id: "inheritance", name: "Inheritance", icon: "\u2283", descFn: function(l) { return "boost a lower dim upgrade to Lv.20"; } }
+        { id: "inheritance", name: "Inheritance", icon: "\u2283", descFn: function(l) { return "boost a lower dim upgrade by +" + l + " levels"; } }
       );
     }
-    // Show unlock banner
-    showDimUnlock(unlockedDims);
+    // showDimUnlock moved into playDimCompleteSequence callback
   }
 }
 
@@ -2449,7 +2508,8 @@ function startUpgradeSelection() {
   updateUI();
 }
 function pickOption(index) {
-  var d = D(); var opt = d.selectionOptions[index]; var def = UPGRADE_DEFS[opt.defIdx];
+  var d = D(); var opt = d.selectionOptions[index];
+  var def = (opt.defIdx < UPGRADE_DEFS.length ? UPGRADE_DEFS[opt.defIdx] : null) || UPGRADE_DEFS.find(function(u) { return u.id === opt.id; });
   // Echo: if the picked upgrade is Echo, show the target selection overlay
   if (def.id === "echo") {
     d.selectionActive = false; d.selectionOptions = [];
@@ -2501,7 +2561,7 @@ function calcReplaceDiff(slotIndex, newId, newLevel) {
   // Add perm buffs
   for (var p = 0; p < permBuffs.length; p++) {
     if (!currentSums[permBuffs[p]]) currentSums[permBuffs[p]] = 0;
-    currentSums[permBuffs[p]] += 3;
+    currentSums[permBuffs[p]] += (PERM_BUFF_LEVELS && PERM_BUFF_LEVELS[permBuffs[p]]) || 5;
   }
   
   // Build new sums (remove old slot, add new upgrade)
@@ -2696,12 +2756,11 @@ function getUpgradePlainDesc(id) {
     case "echo": return "Copies one of your existing upgrades";
     case "boost_above": return "Boosts higher dimensions";
     case "carry_weight": return "Lower dims keep more upgrades on restart";
-    case "depth_charge": return "Boosts lower dims upgrade levels";
     case "foundation": return "Lower dims start with generators pre-bought";
     case "defect_resist": return "Weakens challenge defects in lower dims";
     case "wide_reward": return "More challenge reward choices in lower dims";
     case "passive_prestige": return "Lower dims passively earn PP over time";
-    case "inheritance": return "Boost a specific lower dim upgrade to Lv.20";
+    case "inheritance": return "Boost a lower dim upgrade by +level";
     default: return "";
   }
 }
@@ -2778,10 +2837,6 @@ function getUpgradeBeforeAfter(id, newLevel) {
       return "x" + curBA + " \u2192 x" + afterBA + " higher dims";
     case "carry_weight":
       return "+" + curSum + " \u2192 +" + afterSum + " extra keeps for lower dims";
-    case "depth_charge":
-      var _dcCur = curSum > 0 ? Math.min(10, Math.floor(10 * curSum / (curSum + 8))) : 0;
-      var _dcAft = afterSum > 0 ? Math.min(10, Math.floor(10 * afterSum / (afterSum + 8))) : 0;
-      return "+" + _dcCur + " \u2192 +" + _dcAft + " effective levels for lower dims";
     case "foundation":
       return (curSum > 0 ? "active" : "off") + " \u2192 " + (afterSum > 0 ? "active" : "off") + " (1 of each gen pre-bought)";
     case "defect_resist":
@@ -2793,7 +2848,7 @@ function getUpgradeBeforeAfter(id, newLevel) {
     case "passive_prestige":
       return (0.5 * curSum).toFixed(1) + "% \u2192 " + (0.5 * afterSum).toFixed(1) + "% PP earned/sec in lower dims";
     case "inheritance":
-      return (curSum > 0 ? "active" : "none") + " \u2192 " + (afterSum > 0 ? "Lv.20 boost" : "none") + " on a lower dim upgrade";
+      return (curSum > 0 ? "+" + curSum + " levels" : "none") + " \u2192 +" + afterSum + " levels on a lower dim upgrade";
     default: return "";
   }
 }
@@ -2846,12 +2901,11 @@ function getNetEffect(id) {
     case "echo": return "";
     case "boost_above": return "x" + (2 - 1/(1+sum*0.1)).toFixed(2) + " up";
     case "carry_weight": return "+" + sum + " keeps";
-    case "depth_charge": var _dcVal = sum > 0 ? Math.min(10, Math.floor(10 * sum / (sum + 8))) : 0; return "+" + _dcVal + " lvls";
     case "foundation": return sum > 0 ? "1 each" : "none";
     case "defect_resist": return "-" + sum + " defect";
     case "wide_reward": var _wrVal = sum > 0 ? Math.min(7, Math.ceil(sum * 0.7)) : 0; return "+" + _wrVal + " picks";
     case "passive_prestige": return sum > 0 ? (0.5 * sum).toFixed(1) + "%/sec" : "";
-    case "inheritance": return sum > 0 ? "Lv.20 boost" : "";
+    case "inheritance": return sum > 0 ? "+" + sum + " lvls" : "";
     default: return "";
   }
 }
@@ -3194,7 +3248,9 @@ function renderSelectionOverlay() {
   var sorted = getSortedSelectionIndices();
   for (var si = 0; si < sorted.length; si++) {
     var i = sorted[si];
-    var opt = d.selectionOptions[i]; var def = UPGRADE_DEFS[opt.defIdx];
+    var opt = d.selectionOptions[i];
+    var def = opt.defIdx < UPGRADE_DEFS.length ? UPGRADE_DEFS[opt.defIdx] : null;
+    if (!def) { def = UPGRADE_DEFS.find(function(u) { return u.id === opt.id; }) || UPGRADE_DEFS[0]; opt.defIdx = UPGRADE_DEFS.indexOf(def); }
     var lvlClass = "lvl-" + Math.min(opt.level, 10);
     var plainDesc = getUpgradePlainDesc(def.id);
     var effectDesc = getUpgradeBeforeAfter(def.id, opt.level);
@@ -3485,8 +3541,9 @@ function renderPermPanel() {
     var _permClass = _isPermAP ? (_permApOn ? ' ap-on' : ' ap-off') : '';
     html += '<div class="perm-buff-card' + _permClass + '"' + _permClick + '>';
     html += '<div class="upgrade-icon">' + def.icon + '</div>';
+    var _plvl = (PERM_BUFF_LEVELS && PERM_BUFF_LEVELS[uid]) || 5;
     html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name" style="color:var(--green);">' + def.name + ' <span class="perm-badge">PERM</span>' + _permBadge + '</div>';
-    html += '<div class="upgrade-slot-desc" style="color:var(--green-dim);">' + def.descFn(3) + '</div></div></div>';
+    html += '<div class="upgrade-slot-desc" style="color:var(--green-dim);">' + def.descFn(_plvl) + '</div></div></div>';
   }
   panel.innerHTML = html;
 }
@@ -3652,7 +3709,7 @@ function renderRestartChips() {
   for (var p = 0; p < permBuffs.length; p++) {
     var pid = permBuffs[p];
     if (!owned[pid]) owned[pid] = { sum: 0 };
-    owned[pid].sum += 3; // perm buff = Lv.3
+    owned[pid].sum += (PERM_BUFF_LEVELS && PERM_BUFF_LEVELS[pid]) || 5;
   }
   var keys = Object.keys(owned);
   if (keys.length === 0) { el.innerHTML = '<div style="color:var(--text-dim);font-size:0.6rem;font-family:var(--font-mono);text-align:center;width:100%;">select upgrades to preview</div>'; return; }
@@ -4491,12 +4548,11 @@ function loadGame() {
       UPGRADE_DEFS.push(
         { id: "boost_above", name: "Boost Above", icon: "\u2191", descFn: function(l) { return "x" + (2 - 1/(1+l*0.1)).toFixed(2) + " higher dims (max x2)"; } },
         { id: "carry_weight", name: "Carry Weight", icon: "\u2295", descFn: function(l) { return "lower dims keep +" + l + " upgrades on restart"; } },
-        { id: "depth_charge", name: "Depth Charge", icon: "\u2297", descFn: function(l) { return "lower dims upgrades +" + Math.min(10, Math.floor(10 * l / (l + 8))) + " effective levels (max +10)"; } },
         { id: "foundation", name: "Foundation", icon: "\u22a5", descFn: function(l) { return "lower dims start with 1 of each gen pre-bought"; } },
         { id: "defect_resist", name: "Defect Resist", icon: "\u2298", descFn: function(l) { return "lower dim defects -" + l + " levels"; } },
         { id: "wide_reward", name: "Wide Reward", icon: "\u229e", descFn: function(l) { return "lower dim challenge rewards +" + Math.min(7, Math.ceil(l * 0.7)) + " choices (max +7)"; } },
         { id: "passive_prestige", name: "Passive Prestige", icon: "\u2248", descFn: function(l) { return "lower dims earn " + (0.5 * l).toFixed(1) + "% of prestige PP/sec"; } },
-        { id: "inheritance", name: "Inheritance", icon: "\u2283", descFn: function(l) { return "boost a lower dim upgrade to Lv.20"; } }
+        { id: "inheritance", name: "Inheritance", icon: "\u2283", descFn: function(l) { return "boost a lower dim upgrade by +" + l + " levels"; } }
       );
     }
 
@@ -4601,7 +4657,7 @@ function resetGame() {
     try { localStorage.removeItem("strata_discoveries"); } catch(e) {}
     currentTab = "generators";
     // Remove cross-dim upgrades if they were added
-    UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return ["boost_above","carry_weight","depth_charge","foundation","defect_resist","wide_reward","passive_prestige","inheritance"].indexOf(u.id) < 0; });
+    UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return ["boost_above","carry_weight","foundation","defect_resist","wide_reward","passive_prestige","inheritance"].indexOf(u.id) < 0; });
     initUpgradeSlots(); initGenerators();
     updateTimeBankUI();
     switchTab("generators");
@@ -4731,7 +4787,7 @@ function startNew() {
   dimensions = [createFreshDimension()];
   activeDimIdx = 0; unlockedDims = 1; multiDimUnlocked = false;
   permBuffs = []; dimCompletionCount = 0; gameRetired = false;
-  UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return ["boost_above","carry_weight","depth_charge","foundation","defect_resist","wide_reward","passive_prestige","inheritance"].indexOf(u.id) < 0; });
+  UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return ["boost_above","carry_weight","foundation","defect_resist","wide_reward","passive_prestige","inheritance"].indexOf(u.id) < 0; });
   initUpgradeSlots(); initGenerators();
   currentTab = "generators";
   switchTab("generators");
@@ -5109,7 +5165,7 @@ function renderStatsTab() {
 
 
 // ============================================================
-// Inheritance — boost a lower dim upgrade to Lv.20
+// Inheritance — boost a lower dim upgrade by +level
 // ============================================================
 var pendingInheritanceSlotIdx = -1; // which slot in current dim holds the Inheritance upgrade
 
@@ -5138,7 +5194,7 @@ function showInheritanceOverlay(slotIdx) {
     html += '<div class="inherit-dim-panel" id="inheritPanel' + di + '" style="' + displayStyle + '">';
     
     var hasUpgrades = false;
-    var crossDimIds = ["boost_above","carry_weight","depth_charge","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
+    var crossDimIds = ["boost_above","carry_weight","foundation","defect_resist","wide_reward","passive_prestige","inheritance"];
     
     for (var i = 0; i < dim.upgradeSlots.length; i++) {
       var slot = dim.upgradeSlots[i];
@@ -5150,7 +5206,7 @@ function showInheritanceOverlay(slotIdx) {
       hasUpgrades = true;
       // Check if this upgrade is already targeted by an Inheritance
       var isTargeted = isInheritanceTarget(di, slot.id);
-      var targetBadge = isTargeted ? ' <span style="color:var(--green);font-size:0.55rem;">[Lv.20]</span>' : '';
+      var targetBadge = isTargeted ? ' <span style="color:var(--green);font-size:0.55rem;">[boosted]</span>' : '';
       var cardStyle = isTargeted ? "border-color:var(--green-dim);opacity:0.6;" : "";
       
       html += '<div class="echo-slot-option" style="' + cardStyle + '" onclick="pickInheritanceTarget(' + di + ',\'' + slot.id + '\')">';
@@ -5167,7 +5223,7 @@ function showInheritanceOverlay(slotIdx) {
   
   document.getElementById("inheritanceSlots").innerHTML = html;
   document.getElementById("inheritanceTitle").textContent = "Inheritance \u2014 Choose Target";
-  document.getElementById("inheritanceSub").textContent = "Pick an upgrade in a lower dimension to boost to Lv.20. That dimension will prestige.";
+  document.getElementById("inheritanceSub").textContent = "Pick an upgrade in a lower dimension to boost by +" + (d.upgradeSlots[pendingInheritanceSlotIdx] ? d.upgradeSlots[pendingInheritanceSlotIdx].level : 1) + " levels. That dimension will prestige.";
   document.getElementById("inheritanceOverlay").classList.remove("hidden");
 }
 
@@ -5218,7 +5274,7 @@ function pickInheritanceTarget(dimIdx, upgradeId) {
       // Revert old target's level (only if it was boosted by us)
       var oldDim = dimensions[oldTarget.dim];
       for (var oi = 0; oi < oldDim.upgradeSlots.length; oi++) {
-        if (oldDim.upgradeSlots[oi] && oldDim.upgradeSlots[oi].id === oldTarget.upgradeId && oldDim.upgradeSlots[oi].level === 20) {
+        if (oldDim.upgradeSlots[oi] && oldDim.upgradeSlots[oi].id === oldTarget.upgradeId) {
           oldDim.upgradeSlots[oi].level = oldTarget.originalLevel || 1;
         }
       }
@@ -5227,8 +5283,10 @@ function pickInheritanceTarget(dimIdx, upgradeId) {
     d.upgradeSlots[pendingInheritanceSlotIdx]._inheritTarget = { dim: dimIdx, upgradeId: upgradeId, originalLevel: targetSlot.level };
   }
   
-  // Boost target to Lv.20
-  targetSlot.level = 20;
+  // Boost target by inheritance level (additive)
+  var _inheritSlot = d.upgradeSlots[pendingInheritanceSlotIdx];
+  var _inheritLvl = _inheritSlot ? _inheritSlot.level : 1;
+  targetSlot.level += _inheritLvl;
   
   // Force prestige on that dimension (reset points + generators)
   var _fs = getFastStartPoints(targetDim); var _ms = bn(10, 0);
@@ -5240,7 +5298,7 @@ function pickInheritanceTarget(dimIdx, upgradeId) {
   updateUI();
   
   var defName = (UPGRADE_DEFS.find(function(u) { return u.id === upgradeId; }) || {}).name || upgradeId;
-  showSaveMsg("Boosted " + defName + " to Lv.20 in Dim " + (dimIdx + 1) + " (prestiged)");
+  showSaveMsg("Boosted " + defName + " by +" + _inheritLvl + " in Dim " + (dimIdx + 1) + " (prestiged)");
 }
 
 function cancelInheritance() {
@@ -5355,12 +5413,11 @@ var CHIP_TOOLTIPS = {
   wide_selection: "More choices when buying upgrades (more options per roll)",
   boost_above: "Multiplies production in higher-numbered dimensions",
   carry_weight: "Lower dims keep extra upgrades when restarting. Stacks.",
-  depth_charge: "All upgrades in lower dims gain bonus levels. Stacks.",
   foundation: "Lower dims start with generators pre-bought on restart.",
   defect_resist: "Challenge defects in lower dims are weakened by this many levels.",
   wide_reward: "Challenge rewards in lower dims offer extra choices.",
   passive_prestige: "Lower dims passively earn a fraction of their prestige-able PP every second. No prestige needed. The passive_prestige grows stronger with each level.",
-  inheritance: "Pick one upgrade in a lower dim to boost to Lv.20. The boost persists until this upgrade is removed.",
+  inheritance: "Pick one upgrade in a lower dim to boost by +level. The boost persists until this upgrade is removed.",
   auto_prestige: "Auto-prestiges when base PP earned is at or below this level. Prestige mult still applies. Stacks across copies."
 };
 
@@ -5712,9 +5769,9 @@ function spawnConfetti(count) {
     c.style.cssText = 'left:' + x + 'px;top:-10px;width:' + size + 'px;height:' + (isSquare ? size : size * 2) + 'px;background:' + color + ';border-radius:' + (isSquare ? '1px' : '50%') + ';';
     container.appendChild(c);
     (function(el) {
-      var speed = 200 + Math.random() * 300;
+      var speed = 120 + Math.random() * 180;
       var wobble = 50 + Math.random() * 80;
-      var dur = 2000 + Math.random() * 1500;
+      var dur = 4000 + Math.random() * 3000;
       var start = performance.now();
       function animate(now) {
         var t = (now - start) / dur;
@@ -5733,6 +5790,55 @@ function spawnConfetti(count) {
 
 function spawnStarBurst(x, y) {
   spawnParticleBurst(x, y, getThemeColor('--amber'), 8, 80);
+}
+
+
+function playDimCompleteSequence(dimNum, callback) {
+  var overlay = document.getElementById('dimCompleteOverlay');
+  var textEl = document.getElementById('dimCompleteText');
+  var subEl = document.getElementById('dimCompleteSub');
+  if (!overlay) { if (callback) callback(); return; }
+  
+  textEl.textContent = 'dimension ' + dimNum;
+  subEl.textContent = 'complete';
+  textEl.style.opacity = '0'; textEl.style.transform = '';
+  subEl.style.opacity = '0';
+  overlay.style.opacity = '1';
+  overlay.classList.add('active');
+  
+  // Phase 1: Fade to black (0.8s)
+  overlay.style.animation = 'dimFadeToBlack 0.8s ease-in forwards';
+  
+  setTimeout(function() {
+    // Phase 2: Show text (at full black)
+    textEl.style.animation = 'dimTextAppear 0.6s ease-out forwards';
+    setTimeout(function() {
+      subEl.style.animation = 'dimTextAppear 0.4s ease-out forwards';
+    }, 300);
+    
+    // Phase 3: Hold text for 1.5s, then flash reveal
+    setTimeout(function() {
+      // Fade text
+      textEl.style.animation = 'dimTextFade 0.3s ease-out forwards';
+      subEl.style.animation = 'dimTextFade 0.3s ease-out forwards';
+      
+      setTimeout(function() {
+        // Flash reveal back to game
+        overlay.style.animation = 'dimFlashReveal 1.2s ease-out forwards';
+        spawnConfetti(60);
+        spawnParticleBurst(window.innerWidth/2, window.innerHeight/2, getThemeColor('--cyan'), 4, 50);
+        
+        setTimeout(function() {
+          overlay.classList.remove('active');
+          overlay.style.opacity = '0';
+          overlay.style.animation = '';
+          textEl.style.animation = '';
+          subEl.style.animation = '';
+          if (callback) callback();
+        }, 1300);
+      }, 350);
+    }, 1800);
+  }, 850);
 }
 
 function screenShimmer(color) {
