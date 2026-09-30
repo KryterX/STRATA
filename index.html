@@ -3340,7 +3340,8 @@ function updateTopBars() {
     var _dnGlobal = getGlobalBoostTotal();
     var _dnNet = _dnPenalty * _dnGlobal;
     var _dnPerDim = getGlobalBoostPerDim(activeDimIdx);
-    if (activeDimIdx > 0) {
+    var _showBoostStats = multiDimUnlocked && _dnGlobal > 1.001;
+    if (activeDimIdx > 0 || _showBoostStats) {
       var _t = Math.min(1, _dnNet);
       var _r = Math.floor(170 * (1-_t));
       var _g = Math.floor(255 * _t * 0.53 + 50 * _t);
@@ -3353,7 +3354,12 @@ function updateTopBars() {
       var _boostColor = "rgb(" + _cr + "," + _cg + "," + _cb2 + ")";
       var _netStr = _dnNet < 0.01 ? _dnNet.toFixed(4) : _dnNet < 1 ? _dnNet.toFixed(3) : _dnNet.toFixed(1);
       var _boostStr = _dnPerDim > 1.001 ? ' <span style="color:' + _boostColor + ';font-size:0.55rem">(x' + _dnPerDim.toFixed(2) + ')</span>' : "";
-      document.getElementById("dimNavSub").innerHTML = 'production <span style="color:' + _netColor + '">x' + _netStr + '</span>' + _boostStr;
+      if (activeDimIdx === 0) {
+        // Dim 1: no penalty, just show global boost
+        document.getElementById("dimNavSub").innerHTML = 'global boost <span style="color:' + _netColor + '">x' + _dnGlobal.toFixed(2) + '</span>' + _boostStr;
+      } else {
+        document.getElementById("dimNavSub").innerHTML = 'production <span style="color:' + _netColor + '">x' + _netStr + '</span>' + _boostStr;
+      }
     } else {
       document.getElementById("dimNavSub").textContent = "";
     }
@@ -3362,14 +3368,18 @@ function updateTopBars() {
   } else { dimNav.classList.add("hidden"); }
 
   // Dim penalty in points bar
-  if (activeDimIdx > 0) {
+  if (activeDimIdx > 0 || _showBoostStats) {
     var _eff = getDimPenalty(activeDimIdx) * getGlobalBoostTotal();
     var _effStr = _eff < 0.01 ? _eff.toFixed(4) : _eff < 1 ? _eff.toFixed(3) : _eff.toFixed(1);
     var _effT = Math.min(1, _eff);
     var _effR = Math.floor(170 * (1-_effT));
     var _effG = Math.floor(255 * _effT * 0.53 + 50 * _effT);
     var _effB = Math.floor(34 * (1-_effT) + 136 * _effT);
-    dimPenaltyEl.innerHTML = 'dim ' + (activeDimIdx+1) + ' \u2014 <span style="color:rgb(' + _effR + ',' + _effG + ',' + _effB + ')">x' + _effStr + '</span>';
+    if (activeDimIdx === 0) {
+      dimPenaltyEl.innerHTML = 'dim 1 \u2014 boost <span style="color:rgb(' + _effR + ',' + _effG + ',' + _effB + ')">x' + getGlobalBoostTotal().toFixed(2) + '</span>';
+    } else {
+      dimPenaltyEl.innerHTML = 'dim ' + (activeDimIdx+1) + ' \u2014 <span style="color:rgb(' + _effR + ',' + _effG + ',' + _effB + ')">x' + _effStr + '</span>';
+    }
     dimPenaltyEl.style.display = "";
   } else { dimPenaltyEl.style.display = "none"; }
 
@@ -4405,7 +4415,7 @@ function gameTick() {
       var _gb = getGenBoostMult(d);
       var _mm = getMomentumMult(d);
       var _dp = getDimPenalty(di);
-      var _cb = _globalBoostCache;
+      var _cb = multiDimUnlocked ? _globalBoostCache : 1;
       var sharedMult = bnFromNum(_gb * _mm * _dp * _cb * bgDt);
       for (var i = d.generators.length - 1; i >= 0; i--) {
         var gen = d.generators[i];
