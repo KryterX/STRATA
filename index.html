@@ -3434,6 +3434,10 @@ function doPrestige() {
   d.hasPrestigedOnce = true;
   d._apRunStart = Date.now(); d._apLastExp = 0; d._apLastCheckTime = null; d._apCheckCounter = 0;
   showDiscovery('first_prestige');
+  // Update max exponent record and global boost before resetting
+  var _curExp = bnLog10(d.points);
+  if (_curExp > (d.maxExponentRecord || 0)) d.maxExponentRecord = _curExp;
+  recalcGlobalBoost();
   var fs = getFastStartPoints(); var ms = bn(10, 0);
   d.points = bnGte(fs, ms) ? fs : ms;
   initGenerators();
@@ -4525,6 +4529,8 @@ function saveGame() {
         challengeStartTime: d.challengeStartTime || 0 || 0
       };
     }),
+    unlockedMilestones: unlockedMilestones,
+    discoveryState: getDiscoveryState(),
     timestamp: Date.now()
   };
   safeSetItem("nestedIdleSave2", JSON.stringify(data));
@@ -4632,6 +4638,16 @@ function loadGame() {
     if (data.hardAchievements) {
       for (var hk in data.hardAchievements) { if (hardAchievements.hasOwnProperty(hk)) hardAchievements[hk] = data.hardAchievements[hk]; }
     }
+    // Restore milestones (prefer save blob, fallback to global localStorage)
+    if (data.unlockedMilestones) {
+      unlockedMilestones = data.unlockedMilestones;
+    } else {
+      loadMilestones(); // migration: old save without milestones in blob
+    }
+    // Restore discoveries (prefer save blob, fallback to global localStorage)
+    if (data.discoveryState) {
+      saveDiscoveryState(data.discoveryState); // write to localStorage so getDiscoveryState() works
+    }
     gameStats.currentRunStart = Date.now();
     switchTab(currentTab);
     if (D().pendingReward) showRewardOverlay();
@@ -4660,6 +4676,7 @@ function resetGame() {
     UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return ["carry_weight","foundation","defect_resist","wide_reward","passive_prestige"].indexOf(u.id) < 0; });
     initUpgradeSlots(); initGenerators();
     updateTimeBankUI();
+    recalcGlobalBoost();
     switchTab("generators");
     document.getElementById("tabBar").classList.add("hidden");
     invalidateRenderKeys(); updateUI();
