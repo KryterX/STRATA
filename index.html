@@ -2119,10 +2119,9 @@ function startChallenge(idx) {
   if (isInChallenge()) return;
   d.activeChallengeIdx = idx;
   d.challengeStartTime = Date.now();
-  // Update max exponent record and global boost before resetting
+  // Update max exponent record before challenge reset (global boost recalcs on dim reset only)
   var _curExp = bnLog10(d.points);
   if (_curExp > (d.maxExponentRecord || 0)) d.maxExponentRecord = _curExp;
-  recalcGlobalBoost();
   var fs = getFastStartPoints(); var ms = bn(10, 0);
   d.points = bnGte(fs, ms) ? fs : ms;
   initGenerators();
@@ -2966,10 +2965,17 @@ function setEchoSort(mode) {
 }
 
 function setReplaceSort(mode) {
+  console.log("[sort] setReplaceSort:", mode, "pendingUpgrade:", !!D().pendingUpgrade, "pendingReward:", !!D().pendingReward, "overlay visible:", !document.getElementById("rewardOverlay").classList.contains("hidden"));
   replaceSortMode = mode;
   // Re-render the replace overlay
-  if (D().pendingUpgrade) showUpgradeReplaceOverlay();
-  else if (D().pendingReward) showRewardReplaceOverlay();
+  if (D().pendingUpgrade) { showUpgradeReplaceOverlay(); return; }
+  if (D().pendingReward) { showRewardReplaceOverlay(); return; }
+  // Fallback: overlay is visible but neither pending flag is set — update sort buttons only
+  var _sortBtns = document.querySelectorAll('#replaceSortBar .sort-btn');
+  for (var _si = 0; _si < _sortBtns.length; _si++) {
+    var _sm = _sortBtns[_si].getAttribute('onclick').match(/'(\w+)'/);
+    _sortBtns[_si].classList.toggle('active-sort', _sm && _sm[1] === mode);
+  }
 }
 
 function sortSlotsByMode(slots, mode, dim) {
@@ -2995,7 +3001,7 @@ function renderChips() {
     if (s.id === "echo") continue;
     if (!owned[s.id]) owned[s.id] = true;
   }
-  for (var p = 0; p < permBuffs.length; p++) { owned[permBuffs[p].id] = true; }
+  for (var p = 0; p < permBuffs.length; p++) { owned[permBuffs[p]] = true; }
   var keys = Object.keys(owned);
   if (keys.length === 0) { el.classList.add("hidden"); return; }
   el.classList.remove("hidden");
@@ -3444,10 +3450,9 @@ function doPrestige() {
   d.hasPrestigedOnce = true;
   d._apRunStart = Date.now(); d._apLastExp = 0; d._apLastCheckTime = null; d._apCheckCounter = 0;
   showDiscovery('first_prestige');
-  // Update max exponent record and global boost before resetting
+  // Update max exponent record before resetting (global boost recalcs on dim reset only)
   var _curExp = bnLog10(d.points);
   if (_curExp > (d.maxExponentRecord || 0)) d.maxExponentRecord = _curExp;
-  recalcGlobalBoost();
   var fs = getFastStartPoints(); var ms = bn(10, 0);
   d.points = bnGte(fs, ms) ? fs : ms;
   initGenerators();
@@ -3930,13 +3935,28 @@ function showEchoOverlay(echoLevel, context) {
   var d = D();
   var html = "";
   var hasOptions = false;
-  for (var i = 0; i < d.upgradeSlots.length; i++) {
-    var slot = d.upgradeSlots[i];
+  // Collect non-echo slots and sort
+  var _echoSlots = [];
+  for (var _ei = 0; _ei < d.upgradeSlots.length; _ei++) {
+    var slot = d.upgradeSlots[_ei];
     if (!slot) continue;
     if (slot.id === "echo") continue;
     var def = UPGRADE_DEFS.find(function(u) { return u.id === slot.id; });
     if (!def) continue;
     hasOptions = true;
+    _echoSlots.push({ index: _ei, slot: slot });
+  }
+  _echoSlots = sortSlotsByMode(_echoSlots, echoSortMode);
+  // Update sort button active states
+  var _eSortBtns = document.querySelectorAll('#echoSortBar .sort-btn');
+  for (var _esb = 0; _esb < _eSortBtns.length; _esb++) {
+    var _esm = _eSortBtns[_esb].getAttribute('onclick').match(/'(\w+)'/);
+    _eSortBtns[_esb].classList.toggle('active-sort', _esm && _esm[1] === echoSortMode);
+  }
+  for (var _esi = 0; _esi < _echoSlots.length; _esi++) {
+    var slot = _echoSlots[_esi].slot;
+    var def = UPGRADE_DEFS.find(function(u) { return u.id === slot.id; });
+    if (!def) continue;
     var desc = def.descFn(echoLevel);
     html += '<div class="echo-slot-option" onclick="pickEchoTarget(\'' + slot.id + '\')">';
     html += '<div class="upgrade-icon">' + def.icon + '</div>';
