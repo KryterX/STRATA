@@ -3088,7 +3088,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.7";
+var STRATA_VERSION = "v1.2";
 
 // ============================================================
 
@@ -3564,7 +3564,7 @@ var slotSum = 0; var _d = dim || D(); for (var i = 0; i < _d.upgradeSlots.length
 
 var gain = slotSum > 0 ? Math.max(1, 20 * (1 - 1 / (1 + slotSum / 20))) : 0;
 
-var permBonus = (getPermBuffSum("transcendence") > 0 || getPermBuffSum("ascend") > 0) ? 5 : 0;
+var permBonus = (getPermBuffSum("transcendence") > 0 || getPermBuffSum("ascend") > 0) ? 5 : 0; return Math.max(1, Math.floor(5 + gain)) + permBonus;
 
 }
 
@@ -3981,7 +3981,7 @@ var _def = UPGRADE_DEFS[pi];
 
 // Cross-dim upgrades: only available in Dim 2+ (activeDimIdx > 0)
 
-if (crossDimOnly.indexOf(_def.id) >= 0 && activeDimIdx === 0) continue;
+if (crossDimOnly.indexOf(_def.id) >= 0 && activeDimIdx === 0) continue; if (_def.id === "transcendence") continue;
 
 pool.push({ defIdx: pi, def: _def });
 
@@ -4135,7 +4135,7 @@ for (var _cpi = 0; _cpi < UPGRADE_DEFS.length; _cpi++) {
 
 var _cdef = UPGRADE_DEFS[_cpi];
 
-if (_crossDimOnly2.indexOf(_cdef.id) >= 0 && activeDimIdx === 0) continue;
+if (_crossDimOnly2.indexOf(_cdef.id) >= 0 && activeDimIdx === 0) continue; if (_cdef.id === "transcendence") continue;
 
 pool.push({ defIdx: _cpi });
 
@@ -4417,23 +4417,10 @@ document.getElementById("permOverlay").classList.remove("hidden");
 }
 
 function pickPermBuff(upgradeId) {
-
-if (permBuffs.indexOf(upgradeId) >= 0) return; // already taken
-
-permBuffs.push(upgradeId);
-
-showDiscovery('first_perm_buff');
-
-dimCompletionCount++;
-
-document.getElementById("permOverlay").classList.add("hidden");
-
-invalidateRenderKeys();
-
-updateUI();
-
-showSaveMsg("Permanent buff: " + (UPGRADE_DEFS.find(function(u) { return u.id === upgradeId; }) || {name:"?"}).name + "!");
-
+// Legacy redirect — use multi-pick system
+if (permBuffs.indexOf(upgradeId) >= 0) return;
+togglePermPick(upgradeId);
+if (_permSelected.length === _permPickCount) confirmPermPicks();
 }
 
 function getPermBuffSum(id) {
@@ -5438,6 +5425,7 @@ case "wide_reward": return "More challenge reward choices in lower dims";
 
 case "passive_prestige": return "Lower dims passively earn PP over time";
 
+case "transcendence": return "Max level +5, challenge defects -5 (all dims)";
 default: return "";
 
 }
