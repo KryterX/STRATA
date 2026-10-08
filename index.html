@@ -3192,7 +3192,7 @@ function bnFormat(a) {
 
 if (a.m === 0) return "0";
 
-if (a.e < 3) { var n = bnToNum(a); if (n < 1000) return n.toFixed(n % 1 === 0 ? 0 : 1); }
+if (a.e < 0) return a.m.toFixed(2) + "e" + a.e; if (a.e < 3) { var n = bnToNum(a); if (n < 1000) return n < 0.01 ? a.m.toFixed(2) + "e" + a.e : n.toFixed(n % 1 === 0 ? 0 : 1); }
 
 var notation = (typeof gameSettings !== 'undefined') ? gameSettings.notation : "standard";
 
@@ -3815,7 +3815,7 @@ _globalBoostCache *= b;
   checkGlobalBoostIncrease();
 }
 
-var DIM_PENALTY_BASE = 0.25; // ← TUNE THIS: 0.5 = halve each dim, 0.3 = much harder, 0.7 = gentler
+var DIM_PENALTY_BASE = 0.5; // ← TUNE THIS: 0.5 = halve each dim, 0.3 = much harder, 0.7 = gentler
 function getDimPenalty(dimIdx) { return Math.pow(DIM_PENALTY_BASE, dimIdx); }
 
 // ============================================================
@@ -4262,6 +4262,7 @@ initGenerators();
 
 invalidateRenderKeys();
 
+switchTab("generators");
 updateUI();
 challengeStartTint();
 
@@ -5433,6 +5434,12 @@ default: return "";
 
 }
 
+function getSlotOnlySum(id) {
+var d = D(); var t = 0;
+for (var i = 0; i < d.upgradeSlots.length; i++) { var s = d.upgradeSlots[i]; if (s && s.id === id) t += s.level; }
+return t;
+}
+
 function getUpgradeBeforeAfter(id, newLevel) {
 
 var d = D();
@@ -5440,6 +5447,11 @@ var d = D();
 var curSum = getUpgradeSum(id);
 
 var afterSum = curSum + newLevel;
+
+// For perm-changed upgrades, use slot-only sums so before/after is accurate
+var _changedPerms = ["prestige_boost","upgrade_count","luck","ascend","wide_selection","gen_boost","upgrade_boost"];
+if (_changedPerms.indexOf(id) >= 0) { curSum = getSlotOnlySum(id); afterSum = curSum + newLevel; }
+
 
 switch(id) {
 
@@ -5651,9 +5663,9 @@ if (sum === 0) return "";
 
 switch(id) {
 
-case "upgrade_boost": return (2 + sum * 0.2).toFixed(1) + "x buy";
+case "upgrade_boost": return (2 + getUpgradeBoostBonus()).toFixed(1) + "x buy";
 
-case "prestige_boost": return "x" + Math.max(1, sum * 2) + " PP";
+case "prestige_boost": return "x" + getPrestigeBoostMult() + " PP";
 
 case "discount": return Math.pow(0.8, sum).toFixed(2) + "x cost";
 
@@ -5669,7 +5681,7 @@ case "fast_start": return "1e" + (3 * sum) + " kept";
 
 case "upgrade_count": return getMaxUpgradeSlots() + " slots";
 
-case "luck": return (1 + 1/(1+sum)).toFixed(2) + " luck";
+case "luck": return getLuckBase().toFixed(2) + " luck";
 
 case "ascend": return "Lv." + getMaxLevel() + " max";
 
@@ -10302,21 +10314,15 @@ t.classList.remove("visible");
 
 // Mobile: tap to toggle
 
+// Mobile/Desktop: tap to toggle
 c.addEventListener("click", function(e) {
-
+e.stopPropagation();
 var isVis = t.classList.contains("visible");
-
-// Hide all tooltips
-
 document.querySelectorAll(".tooltip.visible").forEach(function(tt) { tt.classList.remove("visible"); });
-
 if (!isVis) {
-
 t.classList.add("visible");
-
-// Auto-hide after 4 seconds
-
-setTimeout(function() { t.classList.remove("visible"); }, 4000);
+if (t._autoHide) clearTimeout(t._autoHide);
+t._autoHide = setTimeout(function() { t.classList.remove("visible"); }, 4000);
 
 }
 
