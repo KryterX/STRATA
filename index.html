@@ -3815,7 +3815,8 @@ _globalBoostCache *= b;
   checkGlobalBoostIncrease();
 }
 
-function getDimPenalty(dimIdx) { return Math.pow(0.5, dimIdx); }
+var DIM_PENALTY_BASE = 0.25; // ← TUNE THIS: 0.5 = halve each dim, 0.3 = much harder, 0.7 = gentler
+function getDimPenalty(dimIdx) { return Math.pow(DIM_PENALTY_BASE, dimIdx); }
 
 // ============================================================
 
@@ -4484,25 +4485,23 @@ playDimCompleteSequence(_completedNum, function() {
 showDiscovery('first_dimension');
 
 // Dim 10 completion — show ending screen
-
 if (_completedNum === 10 && !gameRetired) {
-
 showEndingScreen();
-
 return;
-
 }
 
-// Award permanent buff for completing this dimension
-
-if (getPermBuffsPerDim(_completedNum) > 0 && permBuffs.length < PERM_BUFF_POOL.length) {
-
-setTimeout(function() { showPermBuffOverlayMulti(_completedNum, getPermBuffsPerDim(_completedNum)); }, 200);
-
-}
- else { dimCompletionCount++; }
-
+// Step 1: Show dim unlock banner
 showDimUnlock(unlockedDims);
+
+// Step 2: After banner finishes, show perm buff selection (if any)
+var _bannerDelay = (unlockedDims <= 10 && typeof STORY_UNLOCK !== 'undefined' && STORY_UNLOCK[unlockedDims]) ? 5500 : 3500;
+setTimeout(function() {
+if (getPermBuffsPerDim(_completedNum) > 0 && permBuffs.length < PERM_BUFF_POOL.length) {
+showPermBuffOverlayMulti(_completedNum, getPermBuffsPerDim(_completedNum));
+} else {
+dimCompletionCount++;
+}
+}, _bannerDelay);
 
 });
 
@@ -5820,6 +5819,7 @@ d._apCheckCounter = 0;
 invalidateRenderKeys();
 
 updateUI();
+if (typeof renderPermPanel === "function") renderPermPanel();
 
 }
 
