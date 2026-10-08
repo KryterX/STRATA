@@ -2331,6 +2331,11 @@ display: flex; flex-direction: column; align-items: center; text-align: center;
 .diff-card.diff-normal:hover, .diff-card.diff-normal.selected { border-color: var(--cyan); box-shadow: 0 0 20px rgba(0,228,255,0.12); }
 .diff-card.diff-hard { }
 .diff-card.diff-hard:hover, .diff-card.diff-hard.selected { border-color: var(--red); box-shadow: 0 0 20px rgba(255,51,68,0.12); }
+.diff-card.diff-insane { }
+.diff-card.diff-insane:hover, .diff-card.diff-insane.selected { border-color: #ff0066; box-shadow: 0 0 20px rgba(255,0,102,0.15); }
+.diff-insane .diff-card-title { color: #ff0066; }
+.diff-insane.selected .diff-check { background: #ff0066; color: var(--bg-deep); }
+.diff-badge-insane { background: #1a0010; color: #ff0066; border: 1px solid #880033; }
 .diff-card-title {
 font-family: var(--font-mono); font-size: 0.9rem; font-weight: 700;
 text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;
@@ -2592,6 +2597,11 @@ display: flex !important; /* override display:none so transition works */
 <div class="diff-card-desc">all perma buffs by dim 9<br>normal bank gain<br>speed allowed in challenges</div>
 </div>
 <div class="diff-card diff-hard" onclick="selectDifficulty('hard')">
+<div class="diff-card diff-insane" onclick="selectDifficulty('insane')">
+<div class="diff-check" id="diffCheckInsane"></div>
+<div class="diff-card-title">insane</div>
+<div class="diff-card-desc">1 perma buff per dim<br>no speed during challenges<br>challenges scale to your power</div>
+</div>
 <div class="diff-check" id="diffCheckHard"></div>
 <div class="diff-card-title">hard</div>
 <div class="diff-card-desc">1 perma buff per dim<br>normal bank gain<br>no speed during challenges</div>
@@ -4047,6 +4057,13 @@ function getChallengeBaseLevel(challengeNum, dim) {
 // Base level — used for reward levels (unaffected by Defect Resist)
 
 var maxLvl = getMaxLevel(dim);
+if (typeof gameDifficulty !== 'undefined' && gameDifficulty === 'insane') {
+var _d = dim || D(); var _highestOwned = 0;
+for (var _i = 0; _i < _d.upgradeSlots.length; _i++) {
+if (_d.upgradeSlots[_i] && _d.upgradeSlots[_i].level > _highestOwned) _highestOwned = _d.upgradeSlots[_i].level;
+}
+maxLvl = Math.max(1, _highestOwned);
+}
 
 switch (challengeNum) {
 
@@ -11346,6 +11363,7 @@ if (card) card.classList.add('selected');
 document.getElementById('diffCheckEasy').textContent = diff === 'easy' ? '✓' : '';
 document.getElementById('diffCheckNormal').textContent = diff === 'normal' ? '✓' : '';
 document.getElementById('diffCheckHard').textContent = diff === 'hard' ? '✓' : '';
+document.getElementById('diffCheckInsane').textContent = diff === 'insane' ? '\u2713' : '';
 // Enable begin button
 var btn = document.getElementById('diffBeginBtn');
 if (btn) btn.classList.add('ready');
@@ -11385,6 +11403,7 @@ for (var i = 0; i < cards.length; i++) cards[i].classList.remove('selected');
 document.getElementById('diffCheckEasy').textContent = '';
 document.getElementById('diffCheckNormal').textContent = '';
 document.getElementById('diffCheckHard').textContent = '';
+document.getElementById('diffCheckInsane').textContent = '';
 document.getElementById('diffSpeedrun').classList.remove('active');
 document.getElementById('diffSpeedrunCheck').textContent = '';
 document.getElementById('diffBeginBtn').classList.remove('ready');
@@ -11397,7 +11416,7 @@ if (gameDifficulty === 'easy') {
 var easy = [0, 1, 2, 3, 4, 4, 0, 0, 0, 0, 0];
 return dimNum <= 10 ? easy[dimNum] || 0 : 0;
 }
-if (gameDifficulty === 'hard') {
+if (gameDifficulty === 'hard' || gameDifficulty === 'insane') {
 return dimNum <= 10 ? 1 : 0;
 }
 var normal = [0, 1, 1, 1, 2, 2, 2, 2, 2, 1, 0];
@@ -11411,7 +11430,7 @@ var _origSetGameSpeed = typeof setGameSpeed === 'function' ? setGameSpeed : null
 (function() {
 var _realSetGameSpeed = setGameSpeed;
 setGameSpeed = function(speed) {
-if (gameDifficulty === 'hard' && isInChallenge()) {
+if ((gameDifficulty === 'hard' || gameDifficulty === 'insane') && isInChallenge()) {
 showSaveMsg('Speed blocked during challenges (Hard mode)');
 return;
 }
