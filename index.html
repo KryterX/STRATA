@@ -3815,7 +3815,7 @@ _globalBoostCache *= b;
   checkGlobalBoostIncrease();
 }
 
-var DIM_PENALTY_BASE = 0.1; // ← TUNE THIS: 0.5 = halve each dim, 0.3 = much harder, 0.7 = gentler
+var DIM_PENALTY_BASE = 0.25; // ← TUNE THIS: 0.5 = halve each dim, 0.3 = much harder, 0.7 = gentler
 function getDimPenalty(dimIdx) { return Math.pow(DIM_PENALTY_BASE, dimIdx); }
 
 // ============================================================
