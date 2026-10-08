@@ -4062,7 +4062,7 @@ var _d = dim || D(); var _highestOwned = 0;
 for (var _i = 0; _i < _d.upgradeSlots.length; _i++) {
 if (_d.upgradeSlots[_i] && _d.upgradeSlots[_i].level > _highestOwned) _highestOwned = _d.upgradeSlots[_i].level;
 }
-maxLvl = Math.max(1, _highestOwned);
+return Math.max(challengeNum, _highestOwned);
 }
 
 switch (challengeNum) {
