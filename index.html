@@ -2597,14 +2597,16 @@ display: flex !important; /* override display:none so transition works */
 <div class="diff-card-desc">all perma buffs by dim 9<br>normal bank gain<br>speed allowed in challenges</div>
 </div>
 <div class="diff-card diff-hard" onclick="selectDifficulty('hard')">
-<div class="diff-card diff-insane" onclick="selectDifficulty('insane')">
-<div class="diff-check" id="diffCheckInsane"></div>
-<div class="diff-card-title">insane</div>
-<div class="diff-card-desc">1 perma buff per dim<br>no speed during challenges<br>challenges scale to your power</div>
-</div>
 <div class="diff-check" id="diffCheckHard"></div>
 <div class="diff-card-title">hard</div>
 <div class="diff-card-desc">1 perma buff per dim<br>normal bank gain<br>no speed during challenges</div>
+</div>
+</div>
+<div class="diff-insane-row" style="margin-top:16px;width:100%;max-width:560px;display:flex;flex-direction:column;align-items:center;">
+<div class="diff-card diff-insane" onclick="selectDifficulty('insane')" style="width:100%;max-width:280px;">
+<div class="diff-check" id="diffCheckInsane"></div>
+<div class="diff-card-title">insane</div>
+<div class="diff-card-desc">1 perma buff per dim<br>no speed during challenges<br>challenges scale to your power</div>
 </div>
 </div>
 <div class="diff-speedrun" id="diffSpeedrun" onclick="toggleSpeedrunSelect()">
