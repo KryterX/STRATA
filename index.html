@@ -2577,6 +2577,11 @@ display: flex !important; /* override display:none so transition works */
   color: var(--red);
   background: rgba(255,51,68,0.05);
 }
+  .effect-chip.negative-chip {
+    border-color: var(--red-dim);
+    color: var(--red);
+    background: rgba(255,51,68,0.05);
+  }
 
 /* Difficulty back button */
 .diff-back-btn {
@@ -4371,9 +4376,8 @@ initGenerators();
 
 invalidateRenderKeys();
 
-// Check dimension unlock
-
-checkDimensionUnlock();
+// Defer dimension unlock check until reward is resolved
+d._pendingDimCheck = true;
 
 showRewardOverlay();
 
@@ -4852,6 +4856,8 @@ ensureGeneratorCount(); invalidateRenderKeys(); switchTab("challenges"); updateU
 
 triggerUpgradeAnimation(def.id, opt.level, null, 0);
 
+var _d = D(); if (_d._pendingDimCheck) { _d._pendingDimCheck = false; checkDimensionUnlock(); }
+
 } else {
 
 // Slots full — switch to replace/discard mode
@@ -4988,6 +4994,8 @@ ensureGeneratorCount(); switchTab("challenges"); updateUI();
 
 triggerUpgradeAnimation(def.id, gainLvl, drainId, drainLvl);
 
+var _d2 = D(); if (_d2._pendingDimCheck) { _d2._pendingDimCheck = false; checkDimensionUnlock(); }
+
 }
 
 function discardReward() {
@@ -4998,6 +5006,8 @@ D().pendingRewardOptions = null;
 document.getElementById("rewardOverlay").classList.add("hidden");
 
 switchTab("challenges"); updateUI();
+
+var _d3 = D(); if (_d3._pendingDimCheck) { _d3._pendingDimCheck = false; checkDimensionUnlock(); }
 
 }
 
@@ -5071,6 +5081,19 @@ for (var i = 0; i < d.upgradeSlots.length; i++) {
 
 if (d.upgradeSlots[i] === null) { d.upgradeSlots[i] = { id: def.id, level: opt.level }; placed = true; break; }
 
+}
+
+// Warn if skipping upgrade_count when slots are full
+if (!placed) {
+  var _hasUCOption = d.selectionOptions.some(function(opt) {
+    var _ucDef = UPGRADE_DEFS[opt.defIdx];
+    return _ucDef && _ucDef.id === "upgrade_count";
+  });
+  if (_hasUCOption && def.id !== "upgrade_count" && getMaxUpgradeSlots() < 20) {
+    if (!confirm("Your upgrade slots are full and Upgrade Count is available. Taking it could give you more slots. Are you sure you want " + def.name + " instead?")) {
+      return;
+    }
+  }
 }
 
 d.selectionActive = false; d.selectionOptions = [];
@@ -5625,7 +5648,8 @@ var curSlots = getMaxUpgradeSlots();
 
 var afterLvlSum = curSum + newLevel;
 
-var afterSlots = Math.min(20, BASE_UPGRADE_SLOTS + Math.floor(2 * Math.pow(afterLvlSum, 0.6)));
+var _ucPermBonus = getPermBuffSum("upgrade_count") > 0 ? 5 : 0;
+var afterSlots = Math.min(20, BASE_UPGRADE_SLOTS + Math.floor(2 * Math.pow(afterLvlSum, 0.6)) + _ucPermBonus);
 
 return curSlots + " \u2192 " + afterSlots + " slots";
 
@@ -5643,7 +5667,8 @@ var curMax = getMaxLevel();
 
 var afterGainA = afterSum > 0 ? Math.max(1, 20 * (1 - 1 / (1 + afterSum / 20))) : 0;
 
-var afterMax = Math.floor(BASE_MAX_LEVEL + afterGainA);
+var _ascPermBonus = (getPermBuffSum("transcendence") > 0 || getPermBuffSum("ascend") > 0) ? 5 : 0;
+var afterMax = Math.floor(BASE_MAX_LEVEL + afterGainA) + _ascPermBonus;
 
 return "Lv." + curMax + " \u2192 Lv." + afterMax + " max";
 
@@ -6063,7 +6088,24 @@ var effect = getNetEffect(id);
 
 if (!effect) continue;
 
-html += '<div class="effect-chip" id="chip-' + id + '">';
+var isNegative = false;
+if (isInChallenge()) {
+  var _defSumChk = getDefectSum(id);
+  if (_defSumChk > 0) {
+    switch(id) {
+      case "upgrade_boost": isNegative = getUpgradeBoostBonus() < 0; break;
+      case "gen_boost": isNegative = getGenBoostMult() < 1; break;
+      case "momentum":
+        var _mNetChk = getUpgradeSum("momentum") - getDefectSum("momentum");
+        isNegative = _mNetChk < 0; break;
+      case "gen_expansion": isNegative = getMaxTier() < 50; break;
+      case "overclock": isNegative = getMaxBuy() < BASE_MAX_BUY; break;
+    }
+  }
+}
+var _chipCls = "effect-chip" + (isNegative ? " negative-chip" : "");
+
+html += '<div class="' + _chipCls + '" id="chip-' + id + '">';
 
 html += '<span class="chip-icon">' + def.icon + '</span>';
 
@@ -6716,7 +6758,7 @@ var _dnGlobal = getGlobalBoostTotal();
 
 var _dnNet = _dnPenalty * _dnGlobal;
 
-var _dnPerDim = getGlobalBoostPerDim(activeDimIdx);
+var _dnPerDim = (_perDimBoostCache.length > activeDimIdx) ? _perDimBoostCache[activeDimIdx] : getGlobalBoostPerDim(activeDimIdx);
 
 var _showBoostStats = multiDimUnlocked && _dnGlobal > 1.001;
 
@@ -6920,8 +6962,11 @@ showDiscovery('first_prestige');
 // Update max exponent record before resetting (global boost recalcs on dim reset only)
 
 var _curExp = bnLog10(d.points);
+var _wasNewRecord = _curExp > (d.maxExponentRecord || 0);
 
 if (_curExp > (d.maxExponentRecord || 0)) d.maxExponentRecord = _curExp;
+
+if (_wasNewRecord) playNewRecordAnimation();
 
 var fs = getFastStartPoints(); var ms = bn(10, 0);
 
@@ -7939,6 +7984,8 @@ d.pendingReward = null; d.pendingRewardOptions = null;
 ensureGeneratorCount(); invalidateRenderKeys(); switchTab("challenges"); updateUI();
 
 triggerUpgradeAnimation(upgradeId, pendingEchoLevel, null, 0);
+
+var _d4 = D(); if (_d4._pendingDimCheck) { _d4._pendingDimCheck = false; checkDimensionUnlock(); }
 
 }
 
@@ -10473,19 +10520,18 @@ chip.appendChild(tipEl);
 
 (function(c, t) {
 
+// Desktop: mouseenter/mouseleave (suppressed on touch)
+var _lastTouchTime = 0;
+c.addEventListener("touchstart", function() { _lastTouchTime = Date.now(); }, {passive: true});
 c.addEventListener("mouseenter", function() {
-
-t.classList.add("visible");
-
+  if (Date.now() - _lastTouchTime < 500) return;
+  t.classList.add("visible");
 });
-
 c.addEventListener("mouseleave", function() {
-
-t.classList.remove("visible");
-
+  if (Date.now() - _lastTouchTime < 500) return;
+  t.classList.remove("visible");
 });
-
-// Click to toggle (mobile + desktop)
+// Click to toggle (works for both mobile and desktop)
 c.addEventListener("click", function(e) {
   e.stopPropagation();
   var isVis = t.classList.contains("visible");
@@ -11766,6 +11812,18 @@ setTimeout(function() { sub.classList.remove('boost-glow'); }, 900);
 }
 }
 _lastGlobalBoostCache = newBoost;
+}
+
+// ─── D1c-prestige: New Record Animation on Prestige ───
+function playNewRecordAnimation() {
+  screenShimmer(getThemeColor('--amber'));
+  var top = document.querySelector('.top-section');
+  if (top) {
+    top.classList.remove('record-flash');
+    void top.offsetWidth;
+    top.classList.add('record-flash');
+    setTimeout(function() { top.classList.remove('record-flash'); }, 700);
+  }
 }
 
 // ─── D1c: New Record Exponent Flash ───
