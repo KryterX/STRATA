@@ -4416,7 +4416,7 @@ discount: 5,          // 3.28x cost base (67% cheaper)
 
 gen_expansion: 5,     // +22 tiers → 72 generators
 
-auto_buy: 5,          // 5 auto-buys/sec
+auto_buy: 10,          // 5 auto-buys/sec
 
 break_infinity: 1,    // binary: uncapped
 
@@ -4424,7 +4424,7 @@ fast_start: 15,       // keep 1e45 points after prestige
 
 upgrade_count: 5,     // 10 total slots (+5)
 
-luck: 5,              // 25% chance of max-level rolls
+luck: 15,              // 25% chance of max-level rolls
 
 ascend: 7,            // max upgrade Lv.15 (+5)
 
@@ -4440,9 +4440,9 @@ foundation: 1,        // binary: 1 of each gen pre-bought
 
 defect_resist: 5,     // -5 challenge defect levels
 
-wide_reward: 5,       // +4 extra reward picks
+wide_reward: 3,       // +4 extra reward picks
 
-passive_prestige: 5,  // 2.5% of prestige PP per second
+passive_prestige: 10,  // 2.5% of prestige PP per second
 
 transcendence: 1,     // combined: +5 max level AND -5 defect levels
 momentum: 2,          // additive: (sum+1)^sqrt(tier)
@@ -4450,7 +4450,7 @@ gen_boost: 5,         // x50 multiplier on slot result
 upgrade_boost: 5,     // +1 flat to buy base (2→3)
 };
 
-var PERM_BUFF_POOL = ["prestige_boost","discount","auto_buy","break_infinity","fast_start","upgrade_count","luck","wide_selection","auto_prestige","carry_weight","foundation","transcendence","wide_reward","passive_prestige"];
+var PERM_BUFF_POOL = ["prestige_boost","discount","auto_buy","break_infinity","fast_start","upgrade_count","luck","wide_selection","carry_weight","foundation","transcendence","wide_reward","passive_prestige"];
 
 function showPermBuffOverlay(dimNum) {
 
@@ -11429,8 +11429,6 @@ var MILESTONES = [
 { id: "e10000", name: "Exponential", desc: "Reach 1e10000 points", check: function() { return gameStats.highestExponent >= 10000; } },
 
 { id: "e100000", name: "Astronomical", desc: "Reach 1e100000 points", check: function() { return gameStats.highestExponent >= 100000; } },
-
-{ id: "automated", name: "Automated", desc: "Have auto-prestige and auto-buy active", check: function() { return D().autoPrestigeOn !== false && getUpgradeSum('auto_prestige') > 0 && getUpgradeSum('auto_buy') > 0; } },
 
 { id: "time_lord", name: "Time Lord", desc: "Spend 1 hour of banked time", check: function() { return gameStats.gameTime - gameStats.realTime >= 3600; } },
 
