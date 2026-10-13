@@ -3353,6 +3353,7 @@ var UPGRADE_DEFS = [
 
 ,{ id: "echo",             name: "Echo",              icon: "∂", descFn: function(l) { return "copy owned upgrade at lv." + l; } }
 
+,{ id: "passive_prestige", name: "Passive Prestige", icon: "\u2248", descFn: function(l) { return "earn " + l + "% of prestige PP per second"; } }
 ,{ id: "transcendence", name: "Transcendence", icon: "\u039E\u2298", descFn: function(l) { return "max upgrade level +5, challenge defects -5 (all dims)"; } }
 ];
 
@@ -3521,7 +3522,7 @@ var permBonus = getPermBuffSum("upgrade_boost") > 0 ? 1.0 : 0; return val + perm
 
 }
 
-function getPrestigeBoostMult(dim) { var d = dim || D(); var slotSum = 0; for (var i = 0; i < d.upgradeSlots.length; i++) { var s = d.upgradeSlots[i]; if (s && s.id === "prestige_boost") slotSum += s.level; } var slotMult = Math.max(1, slotSum * 2); var permMult = getPermBuffSum("prestige_boost") > 0 ? 10 : 1; return slotMult * permMult; }
+function getPrestigeBoostMult(dim) { var d = dim || D(); var slotSum = 0; for (var i = 0; i < d.upgradeSlots.length; i++) { var s = d.upgradeSlots[i]; if (s && s.id === "prestige_boost") slotSum += s.level; } var slotMult = Math.max(1, slotSum * 2); var _pbLvl = getPermBuffSum("prestige_boost"); var permMult = _pbLvl > 0 ? Math.max(1, _pbLvl * 2) : 1; return slotMult * permMult; }
 
 function getDiscountMult(dim) {
 
@@ -3571,7 +3572,7 @@ var defLvl = getDefectSum("gen_boost", dim);
 
 var effective = slotLvl - defLvl;
 
-var permMult = getPermBuffSum("gen_boost") > 0 ? 50 : 1; if (effective === 0) return 1 * permMult;
+var _gbLvl = getPermBuffSum("gen_boost"); var permMult = _gbLvl > 0 ? Math.max(1, 10 * _gbLvl) : 1; if (effective === 0) return 1 * permMult;
 
 if (effective > 0) return Math.max(0.01, 10 * effective) * permMult;
 
@@ -3611,7 +3612,7 @@ var d = dim || D();
 
 var slotSum = 0; for (var i = 0; i < d.upgradeSlots.length; i++) { var s = d.upgradeSlots[i]; if (s && s.id === "upgrade_count") slotSum += s.level; }
 
-var permBonus = getPermBuffSum("upgrade_count") > 0 ? 5 : 0; return Math.min(20, BASE_UPGRADE_SLOTS + Math.floor(2 * Math.pow(slotSum, 0.6)) + permBonus);
+var _ucLvl = getPermBuffSum("upgrade_count"); var permBonus = _ucLvl > 0 ? Math.min(15, Math.max(1, Math.floor(2 * Math.pow(_ucLvl, 0.6)))) : 0; return Math.min(20, BASE_UPGRADE_SLOTS + Math.floor(2 * Math.pow(slotSum, 0.6)) + permBonus);
 
 }
 
@@ -3623,11 +3624,11 @@ var slotSum = 0; var _d = dim || D(); for (var i = 0; i < _d.upgradeSlots.length
 
 var gain = slotSum > 0 ? Math.max(1, 20 * (1 - 1 / (1 + slotSum / 20))) : 0;
 
-var permBonus = (getPermBuffSum("transcendence") > 0 || getPermBuffSum("ascend") > 0) ? 5 : 0; return Math.max(1, Math.floor(5 + gain)) + permBonus;
+var _trLvl = getPermBuffSum("transcendence"); var _asLvl = getPermBuffSum("ascend"); var _ascPermTotal = _trLvl + _asLvl; var permBonus = _ascPermTotal > 0 ? Math.min(20, Math.max(1, Math.floor(20 * (1 - 1 / (1 + _ascPermTotal / 20))))) : 0; return Math.max(1, Math.floor(5 + gain)) + permBonus;
 
 }
 
-function getLuckBase(dim) { var d = dim || D(); var slotSum = 0; for (var i = 0; i < d.upgradeSlots.length; i++) { var s = d.upgradeSlots[i]; if (s && s.id === "luck") slotSum += s.level; } var base = 1 + 1 / (1 + slotSum); if (getPermBuffSum("luck") > 0) base = Math.max(1.01, base - 0.3); return base; }
+function getLuckBase(dim) { var d = dim || D(); var slotSum = 0; for (var i = 0; i < d.upgradeSlots.length; i++) { var s = d.upgradeSlots[i]; if (s && s.id === "luck") slotSum += s.level; } var base = 1 + 1 / (1 + slotSum); if (getPermBuffSum("luck") > 0) { var _luckPerm = getPermBuffSum("luck"); base = Math.max(1.01, base - _luckPerm * 0.05); } return base; }
 
 function getMaxBuy(dim) {
 
@@ -4011,7 +4012,7 @@ var _d = D(); var slotSum = 0; for (var i = 0; i < _d.upgradeSlots.length; i++) 
 
 var gain = slotSum > 0 ? Math.max(1, 10 * (1 - 1 / (1 + slotSum / 10))) : 0;
 
-var permBonus = getPermBuffSum("wide_selection") > 0 ? 5 : 0; return Math.floor(5 + gain) + permBonus;
+var _wsLvl = getPermBuffSum("wide_selection"); var permBonus = _wsLvl > 0 ? Math.min(10, Math.max(1, Math.floor(10 * (1 - 1 / (1 + _wsLvl / 10))))) : 0; return Math.floor(5 + gain) + permBonus;
 
 }
 
@@ -4031,7 +4032,7 @@ var boosterIds = ["gen_expansion", "discount", "gen_boost", "momentum", "upgrade
 
 // Filter pool based on active dimension
 
-var crossDimOnly = ["carry_weight","foundation","defect_resist","wide_reward","passive_prestige"];
+var crossDimOnly = ["carry_weight","foundation","defect_resist","wide_reward"];
 
 var pool = [];
 
@@ -4194,7 +4195,7 @@ var rewardLevel = getChallengeBaseLevel(challengeNum, dim);
 
 var rewardOptions = [];
 
-var _crossDimOnly2 = ["carry_weight","foundation","defect_resist","wide_reward","passive_prestige"];
+var _crossDimOnly2 = ["carry_weight","foundation","defect_resist","wide_reward"];
 
 var pool = [];
 
@@ -4602,9 +4603,7 @@ UPGRADE_DEFS.push(
 
 { id: "defect_resist", name: "Defect Resist", icon: "\u2298", descFn: function(l) { return "lower dim defects -" + l + " levels"; } },
 
-{ id: "wide_reward", name: "Wide Reward", icon: "\u229e", descFn: function(l) { return "lower dim challenge rewards +" + Math.min(7, Math.ceil(l * 0.7)) + " choices (max +7)"; } },
-
-{ id: "passive_prestige", name: "Passive Prestige", icon: "\u2248", descFn: function(l) { return "lower dims earn " + (0.5 * l).toFixed(1) + "% of prestige PP/sec"; } }
+{ id: "wide_reward", name: "Wide Reward", icon: "\u229e", descFn: function(l) { return "lower dim challenge rewards +" + Math.min(7, Math.ceil(l * 0.7)) + " choices (max +7)"; } }
 
 );
 
@@ -5579,7 +5578,7 @@ case "defect_resist": return "Weakens challenge defects in lower dims";
 
 case "wide_reward": return "More challenge reward choices in lower dims";
 
-case "passive_prestige": return "Lower dims passively earn PP over time";
+case "passive_prestige": return "Passively earn PP over time";
 
 case "transcendence": return "Max level +5, challenge defects -5 (all dims)";
 default: return "";
@@ -5603,7 +5602,7 @@ var curSum = getUpgradeSum(id);
 var afterSum = curSum + newLevel;
 
 // For perm-changed upgrades, use slot-only sums so before/after is accurate
-var _changedPerms = ["prestige_boost","upgrade_count","luck","ascend","wide_selection","gen_boost","upgrade_boost"];
+var _changedPerms = ["prestige_boost","upgrade_count","luck","ascend","wide_selection","gen_boost","upgrade_boost","passive_prestige"];
 if (_changedPerms.indexOf(id) >= 0) { curSum = getSlotOnlySum(id); afterSum = curSum + newLevel; }
 
 
@@ -5669,14 +5668,14 @@ var curSlots = getMaxUpgradeSlots();
 
 var afterLvlSum = curSum + newLevel;
 
-var _ucPermBonus = getPermBuffSum("upgrade_count") > 0 ? 5 : 0;
+var _ucPLvl = getPermBuffSum("upgrade_count"); var _ucPermBonus = _ucPLvl > 0 ? Math.min(15, Math.floor(2 * Math.pow(_ucPLvl, 0.6))) : 0;
 var afterSlots = Math.min(20, BASE_UPGRADE_SLOTS + Math.floor(2 * Math.pow(afterLvlSum, 0.6)) + _ucPermBonus);
 
 return curSlots + " \u2192 " + afterSlots + " slots";
 
 case "luck":
 
-var _luckPermBonus = getPermBuffSum("luck") > 0 ? 0.3 : 0;
+var _lkPerm = getPermBuffSum("luck"); var _luckPermBonus = _lkPerm > 0 ? _lkPerm * 0.05 : 0;
 
 var curBase = Math.max(1.01, (1 + 1 / (1 + curSum)) - _luckPermBonus).toFixed(2);
 
@@ -5690,7 +5689,7 @@ var curMax = getMaxLevel();
 
 var afterGainA = afterSum > 0 ? Math.max(1, 20 * (1 - 1 / (1 + afterSum / 20))) : 0;
 
-var _ascPermBonus = (getPermBuffSum("transcendence") > 0 || getPermBuffSum("ascend") > 0) ? 5 : 0;
+var _trPLvl = getPermBuffSum("transcendence"); var _asPLvl = getPermBuffSum("ascend"); var _ascPTotal = _trPLvl + _asPLvl; var _ascPermBonus = _ascPTotal > 0 ? Math.min(20, Math.floor(20 * (1 - 1 / (1 + _ascPTotal / 20)))) : 0;
 var afterMax = Math.floor(BASE_MAX_LEVEL + afterGainA) + _ascPermBonus;
 
 return "Lv." + curMax + " \u2192 Lv." + afterMax + " max";
@@ -5757,7 +5756,7 @@ return "+" + _wrCur + " \u2192 +" + _wrAft + " reward choices in lower dims";
 
 case "passive_prestige":
 
-return (0.5 * curSum).toFixed(1) + "% \u2192 " + (0.5 * afterSum).toFixed(1) + "% PP earned/sec in lower dims";
+return curSum + "%/sec \u2192 " + afterSum + "%/sec PP earned";
 
 default: return "";
 
@@ -5861,7 +5860,7 @@ case "defect_resist": var _drPerm = getPermBuffSum("defect_resist"); var _drSlot
 
 case "wide_reward": var _wrPerm = getPermBuffSum("wide_reward"); var _wrSlot = sum - _wrPerm; var _wrParts = []; if (_wrPerm > 0) { var _wrPV = Math.min(7, Math.ceil(_wrPerm * 0.7)); _wrParts.push("+" + _wrPV + " all"); } if (_wrSlot > 0) { var _wrSV = Math.min(7, Math.ceil(_wrSlot * 0.7)); _wrParts.push("+" + _wrSV + " \u2193"); } return _wrParts.join(", ") || "none";
 
-case "passive_prestige": var _ppPerm = getPermBuffSum("passive_prestige"); var _ppSlot = sum - _ppPerm; var _ppParts = []; if (_ppPerm > 0) _ppParts.push((0.5 * _ppPerm).toFixed(1) + "% all"); if (_ppSlot > 0) _ppParts.push((0.5 * _ppSlot).toFixed(1) + "% \u2193"); return _ppParts.join(", ") || "";
+case "passive_prestige": return sum > 0 ? sum + "%/sec" : "";
 
 default: return "";
 
@@ -5929,7 +5928,7 @@ case "carry_weight": return "+" + sum + " keeps";
 case "foundation": return sum > 0 ? "pre-bought" : "";
 case "defect_resist": return "-" + sum + " defect";
 case "wide_reward": return "+" + Math.min(7, Math.ceil(sum * 0.7)) + " choices";
-case "passive_prestige": return (0.5 * sum).toFixed(1) + "%/sec";
+case "passive_prestige": return sum + "%/sec";
 case "transcendence": return "+5 max lv, -5 defect";
 default: return "";
 
@@ -8821,13 +8820,13 @@ d._apLastCheckTime = Date.now();
 
 }
 
-// Passive Prestige — lower dims passively earn PP from higher dims
+// Passive Prestige — passively earn PP in this dimension
 
-var _ppDripLvl = getCrossDimUpgradeSum("passive_prestige", di) + getPermBuffSum("passive_prestige");
+var _ppDripLvl = getUpgradeSum("passive_prestige", d);
 
 if (_ppDripLvl > 0 && d.activeChallengeIdx < 0) {
 
-var _dripRate = _ppDripLvl * 0.005; // 0.5% per level
+var _dripRate = _ppDripLvl * 0.01; // 1% per level
 
 var _dripBasePP = getBasePP(d);
 
@@ -9169,9 +9168,7 @@ UPGRADE_DEFS.push(
 
 { id: "defect_resist", name: "Defect Resist", icon: "\u2298", descFn: function(l) { return "lower dim defects -" + l + " levels"; } },
 
-{ id: "wide_reward", name: "Wide Reward", icon: "\u229e", descFn: function(l) { return "lower dim challenge rewards +" + Math.min(7, Math.ceil(l * 0.7)) + " choices (max +7)"; } },
-
-{ id: "passive_prestige", name: "Passive Prestige", icon: "\u2248", descFn: function(l) { return "lower dims earn " + (0.5 * l).toFixed(1) + "% of prestige PP/sec"; } }
+{ id: "wide_reward", name: "Wide Reward", icon: "\u229e", descFn: function(l) { return "lower dim challenge rewards +" + Math.min(7, Math.ceil(l * 0.7)) + " choices (max +7)"; } }
 
 );
 
@@ -9403,7 +9400,7 @@ currentTab = "generators";
 
 // Remove cross-dim upgrades if they were added
 
-UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return ["carry_weight","foundation","defect_resist","wide_reward","passive_prestige"].indexOf(u.id) < 0; });
+UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return ["carry_weight","foundation","defect_resist","wide_reward"].indexOf(u.id) < 0; });
 
 initUpgradeSlots(); initGenerators();
 
@@ -9668,7 +9665,7 @@ hardAchievements = {
   maxPPHoarded: 0
 };
 bankedTime = speedrunMode ? 259200 : 0; gameSpeed = 1;
-UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return ["carry_weight","foundation","defect_resist","wide_reward","passive_prestige"].indexOf(u.id) < 0; });
+UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return ["carry_weight","foundation","defect_resist","wide_reward"].indexOf(u.id) < 0; });
 initUpgradeSlots(); initGenerators();
 updateTimeBankUI();
 updateDifficultyBadge();
@@ -10536,7 +10533,7 @@ defect_resist: "Challenge defects in lower dims are weakened by this many levels
 
 wide_reward: "Challenge rewards in lower dims offer extra choices.",
 
-passive_prestige: "Lower dims passively earn a fraction of their prestige-able PP every second. No prestige needed. The passive_prestige grows stronger with each level.",
+passive_prestige: "Passively earns a percentage of your prestige-able PP every second. 1% per level. No manual prestige needed.",
 
 auto_prestige: "Auto-prestiges when base PP earned is at or below this level. Prestige mult still applies. Stacks across copies."
 
