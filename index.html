@@ -512,6 +512,8 @@ display: flex; align-items: center; gap: 12px;
 
 cursor: pointer; transition: all var(--transition);
 
+touch-action: manipulation;
+
 }
 
 .selection-card:hover {
@@ -814,7 +816,7 @@ background: var(--bg-card); border: 1px solid var(--border);
 
 border-radius: var(--radius); padding: 12px 10px;
 
-display: flex; align-items: center; gap: 10px;
+display: flex; touch-action: manipulation; align-items: center; gap: 10px;
 
 cursor: pointer; transition: all var(--transition);
 
@@ -1110,7 +1112,7 @@ background: var(--bg-card); border: 1px solid var(--border);
 
 border-radius: var(--radius); padding: 12px 10px;
 
-display: flex; align-items: center; gap: 10px;
+display: flex; touch-action: manipulation; align-items: center; gap: 10px;
 
 cursor: pointer; transition: all var(--transition);
 
@@ -2592,6 +2594,15 @@ display: flex !important; /* override display:none so transition works */
 }
 .diff-back-btn:hover { border-color: var(--text-dim); color: var(--text-bright); }
 
+
+/* Disable hover transforms on touch devices (prevents tap-miss from card shift) */
+@media (hover: none) {
+  .selection-card:hover { transform: none; box-shadow: none; }
+  .reward-slot-option:hover { transform: none; box-shadow: none; }
+  .perm-option:hover { transform: none; box-shadow: none; }
+  .gen-buy:hover:not(:disabled) { transform: none; }
+  .prestige-btn:hover:not(:disabled) { transform: none; }
+}
 </style>
 
 </head>
@@ -4030,7 +4041,7 @@ var _def = UPGRADE_DEFS[pi];
 
 // Cross-dim upgrades: only available in Dim 2+ (activeDimIdx > 0)
 
-if (crossDimOnly.indexOf(_def.id) >= 0 && activeDimIdx === 0) continue; if (_def.id === "transcendence") continue;
+if (crossDimOnly.indexOf(_def.id) >= 0) continue; if (_def.id === "transcendence") continue;
 
 pool.push({ defIdx: pi, def: _def });
 
@@ -4191,7 +4202,7 @@ for (var _cpi = 0; _cpi < UPGRADE_DEFS.length; _cpi++) {
 
 var _cdef = UPGRADE_DEFS[_cpi];
 
-if (_crossDimOnly2.indexOf(_cdef.id) >= 0 && activeDimIdx === 0) continue; if (_cdef.id === "transcendence") continue;
+if (_crossDimOnly2.indexOf(_cdef.id) >= 0) continue; if (_cdef.id === "transcendence") continue;
 
 pool.push({ defIdx: _cpi });
 
@@ -4537,6 +4548,16 @@ dimensions.push(newDim);
 initUpgradeSlots(newDim);
 
 initGenerators(newDim);
+
+// Apply perm fast_start to new dimension
+var _fsPoints = getFastStartPoints(newDim);
+if (bnGte(_fsPoints, newDim.points)) newDim.points = _fsPoints;
+
+// Apply perm passive_prestige to new dimension
+if (getPermBuffSum("passive_prestige") > 0) {
+  newDim.hasPrestigedOnce = true;
+  newDim.prestigeCount = 1;
+}
 
 // Epic dimension complete sequence → then rewards
 
@@ -5655,9 +5676,11 @@ return curSlots + " \u2192 " + afterSlots + " slots";
 
 case "luck":
 
-var curBase = (1 + 1 / (1 + curSum)).toFixed(2);
+var _luckPermBonus = getPermBuffSum("luck") > 0 ? 0.3 : 0;
 
-var afterBase = (1 + 1 / (1 + afterSum)).toFixed(2);
+var curBase = Math.max(1.01, (1 + 1 / (1 + curSum)) - _luckPermBonus).toFixed(2);
+
+var afterBase = Math.max(1.01, (1 + 1 / (1 + afterSum)) - _luckPermBonus).toFixed(2);
 
 return curBase + " \u2192 " + afterBase + " luck base";
 
@@ -6962,11 +6985,8 @@ showDiscovery('first_prestige');
 // Update max exponent record before resetting (global boost recalcs on dim reset only)
 
 var _curExp = bnLog10(d.points);
-var _wasNewRecord = _curExp > (d.maxExponentRecord || 0);
 
 if (_curExp > (d.maxExponentRecord || 0)) d.maxExponentRecord = _curExp;
-
-if (_wasNewRecord) playNewRecordAnimation();
 
 var fs = getFastStartPoints(); var ms = bn(10, 0);
 
@@ -7746,10 +7766,13 @@ var d = D();
 // Update max exponent record before restart
 
 var _curExp = bnLog10(d.points);
+var _wasNewRecord = _curExp > (d.maxExponentRecord || 0);
 
 if (_curExp > (d.maxExponentRecord || 0)) d.maxExponentRecord = _curExp;
 
 recalcGlobalBoost();
+
+if (_wasNewRecord) playNewRecordAnimation();
 
 var keptUpgrades = [];
 
@@ -7773,6 +7796,15 @@ var _keptCount = _keptCount;
 fresh.upgradeSlots = keptUpgrades;
 
 if (keptUpgrades.length > 0) fresh.hasPrestigedOnce = true;
+
+// Apply perm passive_prestige to restarted dimension
+if (getPermBuffSum("passive_prestige") > 0) {
+  fresh.hasPrestigedOnce = true;
+  if (fresh.prestigeCount < 1) fresh.prestigeCount = 1;
+}
+// Apply perm fast_start to restarted dimension
+var _restartFs = getFastStartPoints(fresh);
+if (bnGte(_restartFs, fresh.points)) fresh.points = _restartFs;
 
 initUpgradeSlots(); initGenerators();
 
@@ -7803,10 +7835,13 @@ var d = D();
 // Update max exponent record before restart
 
 var _curExp = bnLog10(d.points);
+var _wasNewRecord = _curExp > (d.maxExponentRecord || 0);
 
 if (_curExp > (d.maxExponentRecord || 0)) d.maxExponentRecord = _curExp;
 
 recalcGlobalBoost();
+
+if (_wasNewRecord) playNewRecordAnimation();
 
 var keptUpgrades = [];
 
@@ -7834,6 +7869,15 @@ var _keptCount = _keptCount;
 fresh.upgradeSlots = keptUpgrades;
 
 if (keptUpgrades.length > 0) fresh.hasPrestigedOnce = true;
+
+// Apply perm passive_prestige to restarted dimension
+if (getPermBuffSum("passive_prestige") > 0) {
+  fresh.hasPrestigedOnce = true;
+  if (fresh.prestigeCount < 1) fresh.prestigeCount = 1;
+}
+// Apply perm fast_start to restarted dimension
+var _restartFs = getFastStartPoints(fresh);
+if (bnGte(_restartFs, fresh.points)) fresh.points = _restartFs;
 
 initUpgradeSlots(); initGenerators();
 
@@ -9298,7 +9342,12 @@ loadMilestones(); // migration: old save without milestones in blob
 
 if (data.discoveryState) {
 
-saveDiscoveryState(data.discoveryState); // write to localStorage so getDiscoveryState() works
+window._discoveryState = data.discoveryState;
+
+} else {
+
+// Migration: old save without discoveries in blob - try global localStorage
+try { var _dRaw = localStorage.getItem("strata_discoveries"); window._discoveryState = _dRaw ? JSON.parse(_dRaw) : {}; } catch(e) { window._discoveryState = {}; }
 
 }
 
@@ -9309,6 +9358,8 @@ switchTab(currentTab);
 if (D().pendingReward) showRewardOverlay();
 
 invalidateRenderKeys();
+
+recalcGlobalBoost();
 
 updateUI();
 updateDifficultyBadge();
@@ -9607,6 +9658,15 @@ setActiveSlot(getNextFreeSlot());
 dimensions = [createFreshDimension()];
 activeDimIdx = 0; unlockedDims = 1; multiDimUnlocked = false;
 permBuffs = []; dimCompletionCount = 0; gameRetired = false;
+unlockedMilestones = {};
+window._discoveryState = {};
+hardAchievements = {
+  dimCompletionTime: Infinity,
+  usedAutoBuyThisDim: false,
+  usedAutoPrestigeThisDim: false,
+  everDowngraded: false,
+  maxPPHoarded: 0
+};
 bankedTime = speedrunMode ? 259200 : 0; gameSpeed = 1;
 UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return ["carry_weight","foundation","defect_resist","wide_reward","passive_prestige"].indexOf(u.id) < 0; });
 initUpgradeSlots(); initGenerators();
@@ -10372,19 +10432,15 @@ text: "Time you weren't here, saved for when you are. Use the speed controls to 
 
 function getDiscoveryState() {
 
-try {
-
-var raw = localStorage.getItem("strata_discoveries");
-
-return raw ? JSON.parse(raw) : {};
-
-} catch(e) { return {}; }
+// Return in-memory state (loaded from save data or initialized fresh)
+return window._discoveryState || {};
 
 }
 
 function saveDiscoveryState(state) {
 
-try { localStorage.setItem("strata_discoveries", JSON.stringify(state)); } catch(e) {}
+// Update in-memory state (persisted via saveGame blob)
+window._discoveryState = state;
 
 }
 
@@ -11433,15 +11489,13 @@ var MILESTONES = [
 var unlockedMilestones = {};
 
 function loadMilestones() {
-
-try {
-
-var raw = localStorage.getItem("strata_milestones");
-
-if (raw) unlockedMilestones = JSON.parse(raw);
-
-} catch(e) {}
-
+  // Milestones are now loaded from save data in loadGame().
+  // This is kept as a legacy fallback only.
+  if (Object.keys(unlockedMilestones).length > 0) return;
+  try {
+    var raw = localStorage.getItem("strata_milestones");
+    if (raw) unlockedMilestones = JSON.parse(raw);
+  } catch(e) {}
 }
 
 function saveMilestones() {
@@ -11750,6 +11804,25 @@ permBuffs.push(_permSelected[i]);
 }
 }
 dimCompletionCount++;
+
+// If fast_start was just picked, update all dimensions that have fewer points
+if (_permSelected.indexOf("fast_start") >= 0) {
+  for (var _fsi = 0; _fsi < dimensions.length; _fsi++) {
+    var _fsDim = dimensions[_fsi];
+    var _fsP = getFastStartPoints(_fsDim);
+    if (bnGte(_fsP, _fsDim.points)) _fsDim.points = _fsP;
+  }
+}
+
+// If passive_prestige was just picked, ensure all dims have prestigeCount >= 1
+if (_permSelected.indexOf("passive_prestige") >= 0) {
+  for (var _ppi = 0; _ppi < dimensions.length; _ppi++) {
+    var _ppDim = dimensions[_ppi];
+    if (_ppDim.prestigeCount < 1) _ppDim.prestigeCount = 1;
+    _ppDim.hasPrestigedOnce = true;
+  }
+}
+
 showDiscovery('first_perm_buff');
 document.getElementById('permOverlay').classList.add('hidden');
 var _savedNames = permBuffs.slice(-_permPickCount).map(function(id) {
@@ -11816,14 +11889,53 @@ _lastGlobalBoostCache = newBoost;
 
 // ─── D1c-prestige: New Record Animation on Prestige ───
 function playNewRecordAnimation() {
-  screenShimmer(getThemeColor('--amber'));
-  var top = document.querySelector('.top-section');
-  if (top) {
-    top.classList.remove('record-flash');
-    void top.offsetWidth;
-    top.classList.add('record-flash');
-    setTimeout(function() { top.classList.remove('record-flash'); }, 700);
-  }
+  var overlay = document.getElementById('dimCompleteOverlay');
+  var textEl = document.getElementById('dimCompleteText');
+  var subEl = document.getElementById('dimCompleteSub');
+  if (!overlay) return;
+  // Don't interrupt an active dim complete sequence
+  if (overlay.classList.contains('active')) return;
+
+  // Set text and amber color
+  textEl.textContent = '★ new record ★';
+  textEl.style.color = 'var(--amber)';
+  subEl.textContent = 'exponent milestone';
+  subEl.style.color = 'var(--amber-dim)';
+  textEl.style.opacity = '0'; textEl.style.transform = '';
+  subEl.style.opacity = '0';
+  overlay.style.opacity = '1';
+  overlay.classList.add('active');
+
+  // Phase 1: Fade to black (0.6s)
+  overlay.style.animation = 'dimFadeToBlack 0.6s ease-in forwards';
+
+  setTimeout(function() {
+    // Phase 2: Show text
+    textEl.style.animation = 'dimTextAppear 0.5s ease-out forwards';
+    setTimeout(function() {
+      subEl.style.animation = 'dimTextAppear 0.3s ease-out forwards';
+    }, 200);
+
+    // Phase 3: Hold text for 1.2s, then flash reveal
+    setTimeout(function() {
+      textEl.style.animation = 'dimTextFade 0.3s ease-out forwards';
+      subEl.style.animation = 'dimTextFade 0.3s ease-out forwards';
+      setTimeout(function() {
+        overlay.style.animation = 'dimFlashReveal 1.0s ease-out forwards';
+        spawnConfetti(30);
+        setTimeout(function() {
+          overlay.classList.remove('active');
+          overlay.style.opacity = '0';
+          overlay.style.animation = '';
+          textEl.style.animation = '';
+          subEl.style.animation = '';
+          // Reset colors back to default for dim complete
+          textEl.style.color = '';
+          subEl.style.color = '';
+        }, 1100);
+      }, 350);
+    }, 1400);
+  }, 650);
 }
 
 // ─── D1c: New Record Exponent Flash ───
