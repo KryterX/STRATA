@@ -619,6 +619,7 @@ border-top: 2px solid transparent; font-family: var(--font-mono);
 .challenge-status {
 
 width: 100%; text-align: center; padding: 10px; font-size: 0.8rem;
+position: sticky; top: 0; z-index: 10; background: var(--bg-deep);
 
 font-weight: 700; color: var(--amber); text-transform: uppercase;
 
@@ -2603,6 +2604,69 @@ display: flex !important; /* override display:none so transition works */
   .gen-buy:hover:not(:disabled) { transform: none; }
   .prestige-btn:hover:not(:disabled) { transform: none; }
 }
+
+  /* Record Cinematic Overlay */
+  
+  
+  @keyframes rcFadeInOut {
+    0% { opacity: 0; }
+    12% { opacity: 1; }
+    75% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .rc-content {
+    text-align: center; font-family: var(--font-mono);
+  }
+  .rc-dim {
+    font-size: 0.65rem; letter-spacing: 0.3em; color: var(--text-dim);
+    margin-bottom: 12px; text-transform: uppercase;
+  }
+  .rc-row {
+    margin-bottom: 10px;
+    animation: rcSlideUp 0.5s ease 0.2s both;
+  }
+  .rc-row-boost {
+    animation-delay: 0.6s;
+  }
+  @keyframes rcSlideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .rc-label {
+    display: block; font-size: 0.5rem; letter-spacing: 0.2em;
+    color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase;
+  }
+  .rc-values {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    font-size: 1.1rem; font-weight: 700;
+  }
+  .rc-old {
+    color: var(--text-dim); opacity: 0.6;
+  }
+  .rc-arrow {
+    color: var(--cyan); font-size: 0.9rem;
+    animation: rcArrowPulse 0.8s ease 0.4s both;
+  }
+  @keyframes rcArrowPulse {
+    0% { opacity: 0; transform: scaleX(0.5); }
+    50% { opacity: 1; transform: scaleX(1.2); }
+    100% { opacity: 1; transform: scaleX(1); }
+  }
+  .rc-new {
+    color: var(--cyan); text-shadow: 0 0 12px var(--cyan);
+    animation: rcNewGlow 0.6s ease 0.5s both;
+  }
+  .rc-row-boost .rc-new {
+    color: var(--green); text-shadow: 0 0 12px var(--green);
+    animation-delay: 0.9s;
+  }
+  .rc-row-boost .rc-arrow {
+    animation-delay: 0.8s;
+  }
+  @keyframes rcNewGlow {
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
+  }
 </style>
 
 </head>
@@ -3147,7 +3211,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.2";
+var STRATA_VERSION = "v1.8";
 
 // ============================================================
 
@@ -4032,7 +4096,7 @@ var boosterIds = ["gen_expansion", "discount", "gen_boost", "momentum", "upgrade
 
 // Filter pool based on active dimension
 
-var crossDimOnly = ["carry_weight","foundation","defect_resist","wide_reward"];
+var crossDimOnly = [];
 
 var pool = [];
 
@@ -4131,6 +4195,20 @@ default: return 1;
 
 }
 
+function getChallengeRewardLevel(challengeNum, dim) {
+  // Reward level — always uses the normal formula, even on insane
+  // (insane scales defects to highest owned, but rewards stay normal)
+  var maxLvl = getMaxLevel(dim);
+  switch (challengeNum) {
+    case 1: return 1;
+    case 2: return Math.max(1, Math.floor(maxLvl * 0.4));
+    case 3: return Math.max(1, Math.floor(maxLvl * 0.6));
+    case 4: return Math.max(1, Math.floor(maxLvl * 0.8));
+    case 5: return Math.max(1, maxLvl);
+    default: return 1;
+  }
+}
+
 function getChallengeDefectLevel(challengeNum, dim) {
 
 // Actual defect level — reduced by Defect Resist from higher dims
@@ -4191,11 +4269,11 @@ defectIds.push(pool[idx]); pool.splice(idx, 1);
 
 // Generate 3 reward options, all at the challenge's defect level
 
-var rewardLevel = getChallengeBaseLevel(challengeNum, dim);
+var rewardLevel = getChallengeRewardLevel(challengeNum, dim);
 
 var rewardOptions = [];
 
-var _crossDimOnly2 = ["carry_weight","foundation","defect_resist","wide_reward"];
+var _crossDimOnly2 = [];
 
 var pool = [];
 
@@ -4322,6 +4400,11 @@ d.activeChallengeIdx = idx;
 
 d.challengeStartTime = Date.now();
 
+// Hard/insane: force speed to 1x on challenge entry
+if (gameDifficulty === 'hard' || gameDifficulty === 'insane') {
+  gameSpeed = 1; bankedTime = 0; updateTimeBankUI();
+}
+
 // Update max exponent record before challenge reset (global boost recalcs on dim reset only)
 
 var _curExp = bnLog10(d.points);
@@ -4443,7 +4526,7 @@ defect_resist: 5,     // -5 challenge defect levels
 
 wide_reward: 3,       // +4 extra reward picks
 
-passive_prestige: 10,  // 2.5% of prestige PP per second
+passive_prestige: 5,   // 5% of prestige PP per second (1%/lvl)
 
 transcendence: 1,     // combined: +5 max level AND -5 defect levels
 momentum: 2,          // additive: (sum+1)^sqrt(tier)
@@ -4595,17 +4678,7 @@ if (!multiDimUnlocked) {
 
 multiDimUnlocked = true;
 
-UPGRADE_DEFS.push(
 
-{ id: "carry_weight", name: "Carry Weight", icon: "\u2295", descFn: function(l) { return "lower dims keep +" + l + " upgrades on restart"; } },
-
-{ id: "foundation", name: "Foundation", icon: "\u22a5", descFn: function(l) { return "lower dims start with 1 of each gen pre-bought"; } },
-
-{ id: "defect_resist", name: "Defect Resist", icon: "\u2298", descFn: function(l) { return "lower dim defects -" + l + " levels"; } },
-
-{ id: "wide_reward", name: "Wide Reward", icon: "\u229e", descFn: function(l) { return "lower dim challenge rewards +" + Math.min(7, Math.ceil(l * 0.7)) + " choices (max +7)"; } }
-
-);
 
 }
 
@@ -6147,7 +6220,7 @@ if (isInChallenge()) {
     if (owned[defect.id]) continue;
     var dDef = UPGRADE_DEFS.find(function(u) { return u.id === defect.id; });
     if (!dDef) continue;
-    var dDesc = getDefectDescription(defect.id, defect.level);
+    var dDesc = getDefectChipValue(defect.id, defect.level);
     html += '<div class="effect-chip defect-chip" id="chip-defect-' + defect.id + '">';
     html += '<span class="chip-icon">' + getDefectIcon(defect.id) + '</span>';
     html += '<span class="chip-value">' + dDesc + '</span>';
@@ -6610,6 +6683,39 @@ updateUI();
 
 // ============================================================
 
+
+function getDefectChipValue(id, level) {
+  // Returns a compact chip-format string for defect-only effects
+  switch(id) {
+    case "upgrade_boost": return (2 - 0.2 * level).toFixed(1) + "x buy";
+    case "prestige_boost": return "x" + Math.max(1, -level * 2) + " PP";
+    case "discount": return Math.pow(1/0.8, level).toFixed(2) + "x cost";
+    case "gen_expansion":
+      var loss = level > 0 ? Math.max(1, 250 * (1 - 1 / (1 + level / 50))) : 0;
+      return (50 - Math.floor(loss)) + " gens";
+    case "gen_boost": return "\u00f7" + compactNum(10 * level) + " out";
+    case "overclock":
+      var oLoss = level > 0 ? Math.max(1, 400 * (1 - 1 / (1 + level / 50))) : 0;
+      return (BASE_MAX_BUY - Math.floor(oLoss)) + " buys";
+    case "momentum":
+      var _mt = getMaxTier();
+      var _mp = Math.pow(level + 1, Math.sqrt(_mt));
+      return "\u00f7" + compactNum(_mp) + " mom";
+    case "luck": return (1 + 1/(1 - level)).toFixed(2) + " luck";
+    case "wide_selection": return Math.max(1, 3 - level) + " picks";
+    case "fast_start": return level > 0 ? "1e" + (3 * level) + " less" : "";
+    case "break_infinity": return "capped";
+    case "auto_buy": return "-" + level + "/sec";
+    case "upgrade_count":
+      var uLoss = level > 0 ? Math.floor(2 * Math.pow(level, 0.6)) : 0;
+      return (BASE_UPGRADE_SLOTS - uLoss) + " slots";
+    case "ascend":
+      var aLoss = level > 0 ? Math.max(1, 20 * (1 - 1 / (1 + level / 20))) : 0;
+      return "Lv." + Math.floor(BASE_MAX_LEVEL - aLoss) + " max";
+    default: return "-Lv." + level;
+  }
+}
+
 function getDefectDescription(defId, level) {
 
 switch (defId) {
@@ -6990,7 +7096,7 @@ if (_curExp > (d.maxExponentRecord || 0)) d.maxExponentRecord = _curExp;
 var fs = getFastStartPoints(); var ms = bn(10, 0);
 
 d.points = bnGte(fs, ms) ? fs : ms;
-d._runBestExp = 0; // reset color gradient
+d._runBestExp = 0; d._lastRunIntExp = 0; d._prevMaxExpRecord = d.maxExponentRecord || 0; // reset per-run tracking
 
 initGenerators();
 
@@ -7765,13 +7871,16 @@ var d = D();
 // Update max exponent record before restart
 
 var _curExp = bnLog10(d.points);
-var _wasNewRecord = _curExp > (d.maxExponentRecord || 0);
+var _oldRecord = d.maxExponentRecord || 0;
+var _oldBoost = getGlobalBoostTotal();
+var _wasNewRecord = Math.floor(_curExp) > Math.floor(_oldRecord);
 
-if (_curExp > (d.maxExponentRecord || 0)) d.maxExponentRecord = _curExp;
+if (_curExp > _oldRecord) d.maxExponentRecord = _curExp;
 
 recalcGlobalBoost();
+var _newBoost = getGlobalBoostTotal();
 
-if (_wasNewRecord) playNewRecordAnimation();
+if (_wasNewRecord) playNewRecordAnimation(_oldRecord, _curExp, _oldBoost, _newBoost);
 
 var keptUpgrades = [];
 
@@ -7834,13 +7943,16 @@ var d = D();
 // Update max exponent record before restart
 
 var _curExp = bnLog10(d.points);
-var _wasNewRecord = _curExp > (d.maxExponentRecord || 0);
+var _oldRecord = d.maxExponentRecord || 0;
+var _oldBoost = getGlobalBoostTotal();
+var _wasNewRecord = Math.floor(_curExp) > Math.floor(_oldRecord);
 
-if (_curExp > (d.maxExponentRecord || 0)) d.maxExponentRecord = _curExp;
+if (_curExp > _oldRecord) d.maxExponentRecord = _curExp;
 
 recalcGlobalBoost();
+var _newBoost = getGlobalBoostTotal();
 
-if (_wasNewRecord) playNewRecordAnimation();
+if (_wasNewRecord) playNewRecordAnimation(_oldRecord, _curExp, _oldBoost, _newBoost);
 
 var keptUpgrades = [];
 
@@ -8616,6 +8728,12 @@ function gameTick() {
 
 try {
 
+// One-shot: ensure global boost is active after load
+if (!window._globalBoostInitialized && multiDimUnlocked) {
+  recalcGlobalBoost();
+  window._globalBoostInitialized = true;
+}
+
 var now = performance.now(); var dt = (now - lastTime) / 1000; var realDt = dt; lastTime = now;
 
 // Detect mobile suspend: if real dt > 2s, bank the excess as offline time
@@ -8985,7 +9103,6 @@ var d = D();
 
 document.getElementById("points").textContent = bnFormat(d.points);
 var _fCurExp = bnLog10(d.points); checkExponentMilestone(_fCurExp);
-checkRecordExponentFlash(d);
 updatePointsColorShift();
 
 if (!isCapped()) { document.getElementById("rate").textContent = "+" + bnFormat(getPointsPerSec()) + " / sec"; }
@@ -9107,8 +9224,8 @@ ppDripAccum: d.ppDripAccum || 0
 }),
 
 unlockedMilestones: unlockedMilestones,
-
 discoveryState: getDiscoveryState(),
+
 
 timestamp: Date.now()
 
@@ -9158,19 +9275,9 @@ if (data.currentTab) currentTab = data.currentTab;
 
 // Restore cross-dim upgrades if needed
 
-if (multiDimUnlocked && !UPGRADE_DEFS.find(function(u) { return u.id === "carry_weight"; })) {
+if (multiDimUnlocked && !UPGRADE_DEFS.find(function(u) { return u.id === "passive_prestige"; })) {
 
-UPGRADE_DEFS.push(
 
-{ id: "carry_weight", name: "Carry Weight", icon: "\u2295", descFn: function(l) { return "lower dims keep +" + l + " upgrades on restart"; } },
-
-{ id: "foundation", name: "Foundation", icon: "\u22a5", descFn: function(l) { return "lower dims start with 1 of each gen pre-bought"; } },
-
-{ id: "defect_resist", name: "Defect Resist", icon: "\u2298", descFn: function(l) { return "lower dim defects -" + l + " levels"; } },
-
-{ id: "wide_reward", name: "Wide Reward", icon: "\u229e", descFn: function(l) { return "lower dim challenge rewards +" + Math.min(7, Math.ceil(l * 0.7)) + " choices (max +7)"; } }
-
-);
 
 }
 
@@ -9395,12 +9502,13 @@ unlockedMilestones = {};
 try { localStorage.removeItem("strata_milestones"); } catch(e) {}
 
 try { localStorage.removeItem("strata_discoveries"); } catch(e) {}
+window._discoveryState = {};
 
 currentTab = "generators";
 
 // Remove cross-dim upgrades if they were added
 
-UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return ["carry_weight","foundation","defect_resist","wide_reward"].indexOf(u.id) < 0; });
+// Cross-dim upgrades are perm-only now; passive_prestige is in base UPGRADE_DEFS
 
 initUpgradeSlots(); initGenerators();
 
@@ -9665,7 +9773,7 @@ hardAchievements = {
   maxPPHoarded: 0
 };
 bankedTime = speedrunMode ? 259200 : 0; gameSpeed = 1;
-UPGRADE_DEFS = UPGRADE_DEFS.filter(function(u) { return ["carry_weight","foundation","defect_resist","wide_reward"].indexOf(u.id) < 0; });
+// Cross-dim upgrades are perm-only now; passive_prestige is in base UPGRADE_DEFS
 initUpgradeSlots(); initGenerators();
 updateTimeBankUI();
 updateDifficultyBadge();
@@ -10428,17 +10536,13 @@ text: "Time you weren't here, saved for when you are. Use the speed controls to 
 };
 
 function getDiscoveryState() {
-
-// Return in-memory state (loaded from save data or initialized fresh)
+// Per-save — stored in memory, persisted via save blob
 return window._discoveryState || {};
-
 }
 
 function saveDiscoveryState(state) {
-
-// Update in-memory state (persisted via saveGame blob)
+// Per-save — stored in memory, persisted via save blob
 window._discoveryState = state;
-
 }
 
 function showDiscovery(key) {
@@ -11883,70 +11987,215 @@ _lastGlobalBoostCache = newBoost;
 }
 
 // ─── D1c-prestige: New Record Animation on Prestige ───
-function playNewRecordAnimation() {
+function playNewRecordAnimation(oldExp, newExp, oldBoost, newBoost) {
   var overlay = document.getElementById('dimCompleteOverlay');
   var textEl = document.getElementById('dimCompleteText');
   var subEl = document.getElementById('dimCompleteSub');
-  if (!overlay) return;
-  // Don't interrupt an active dim complete sequence
-  if (overlay.classList.contains('active')) return;
+  if (!overlay || overlay.classList.contains('active')) return;
 
-  // Set text and amber color
-  textEl.textContent = '★ new record ★';
-  textEl.style.color = 'var(--amber)';
-  subEl.textContent = 'exponent milestone';
-  subEl.style.color = 'var(--amber-dim)';
-  textEl.style.opacity = '0'; textEl.style.transform = '';
-  subEl.style.opacity = '0';
+  var dimLabel = 'DIMENSION ' + (activeDimIdx + 1);
+  var oldInt = Math.floor(oldExp);
+  var newInt = Math.floor(newExp);
+  var showBoost = multiDimUnlocked && newBoost > 1.001;
+
+  // Build custom HTML for the cinematic
+  overlay.innerHTML = '';
   overlay.style.opacity = '1';
   overlay.classList.add('active');
+  overlay.style.animation = 'dimFadeToBlack 0.5s ease-in forwards';
 
-  // Phase 1: Fade to black (0.6s)
-  overlay.style.animation = 'dimFadeToBlack 0.6s ease-in forwards';
+  var container = document.createElement('div');
+  container.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;font-family:var(--font-mono);';
 
+  var dimEl = document.createElement('div');
+  dimEl.textContent = dimLabel;
+  dimEl.style.cssText = 'font-size:0.55rem;letter-spacing:0.3em;color:var(--text-dim);margin-bottom:16px;text-transform:uppercase;opacity:0;';
+  container.appendChild(dimEl);
+
+  var labelEl = document.createElement('div');
+  labelEl.textContent = 'EXPONENT RECORD';
+  labelEl.style.cssText = 'font-size:0.45rem;letter-spacing:0.2em;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;opacity:0;';
+  container.appendChild(labelEl);
+
+  var counterEl = document.createElement('div');
+  counterEl.textContent = 'e' + oldInt.toLocaleString();
+  counterEl.style.cssText = 'font-size:1.8rem;font-weight:800;color:var(--cyan);text-shadow:0 0 20px var(--cyan);opacity:0;transition:transform 0.08s ease;';
+  container.appendChild(counterEl);
+
+  var boostLabelEl = null, boostCounterEl = null;
+  if (showBoost) {
+    boostLabelEl = document.createElement('div');
+    boostLabelEl.textContent = 'GLOBAL BOOST';
+    boostLabelEl.style.cssText = 'font-size:0.45rem;letter-spacing:0.2em;color:var(--text-dim);margin-top:18px;margin-bottom:6px;text-transform:uppercase;opacity:0;';
+    container.appendChild(boostLabelEl);
+
+    boostCounterEl = document.createElement('div');
+    boostCounterEl.textContent = 'x' + oldBoost.toFixed(3);
+    boostCounterEl.style.cssText = 'font-size:1.4rem;font-weight:800;color:var(--green);text-shadow:0 0 16px var(--green);opacity:0;transition:transform 0.08s ease;';
+    container.appendChild(boostCounterEl);
+  }
+
+  overlay.appendChild(container);
+
+  // Pulse helper — scale up then back
+  function pulse(el, scale) {
+    el.style.transform = 'scale(' + (scale || 1.15) + ')';
+    setTimeout(function() { el.style.transform = 'scale(1)'; }, 80);
+  }
+
+  // Rolling counter — ticks from start to end with accelerating speed
+  function rollCounter(el, prefix, startVal, endVal, decimals, duration, onDone) {
+    var range = endVal - startVal;
+    if (range <= 0) { if (onDone) onDone(); return; }
+    var startTime = performance.now();
+    var lastDisplayed = startVal;
+    var stepSize = decimals > 0 ? 0.001 : 1;
+
+    function tick() {
+      var elapsed = performance.now() - startTime;
+      var t = Math.min(1, elapsed / duration);
+      // Ease-out cubic for satisfying deceleration at the end
+      var eased = 1 - Math.pow(1 - t, 3);
+      var current = startVal + range * eased;
+
+      if (decimals > 0) {
+        var displayVal = current.toFixed(decimals);
+        el.textContent = prefix + displayVal;
+        // Pulse on each 0.01 increment
+        if (Math.floor(current * 100) > Math.floor(lastDisplayed * 100)) {
+          pulse(el, 1.08);
+          lastDisplayed = current;
+        }
+      } else {
+        var intVal = Math.floor(current);
+        el.textContent = prefix + intVal.toLocaleString();
+        // Pulse on milestone crossings
+        var threshold = range > 5000 ? 500 : range > 500 ? 100 : range > 50 ? 10 : 1;
+        if (Math.floor(intVal / threshold) > Math.floor(Math.floor(lastDisplayed) / threshold)) {
+          pulse(el, 1.12);
+          // Particle burst on big milestones
+          if (threshold >= 100) {
+            var rect = el.getBoundingClientRect();
+            spawnParticleBurst(rect.left + rect.width/2, rect.top + rect.height/2, getThemeColor('--cyan'), 3, 30);
+          }
+          lastDisplayed = current;
+        }
+      }
+
+      if (t < 1) { requestAnimationFrame(tick); }
+      else {
+        // Final slam
+        el.textContent = prefix + (decimals > 0 ? endVal.toFixed(decimals) : endVal.toLocaleString());
+        pulse(el, 1.25);
+        // Screen shake on landing
+        overlay.style.transform = 'translate(' + (Math.random()*6-3) + 'px,' + (Math.random()*6-3) + 'px)';
+        setTimeout(function() { overlay.style.transform = ''; }, 60);
+        if (onDone) setTimeout(onDone, 200);
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // Sequence the cinematic
   setTimeout(function() {
-    // Phase 2: Show text
-    textEl.style.animation = 'dimTextAppear 0.5s ease-out forwards';
-    setTimeout(function() {
-      subEl.style.animation = 'dimTextAppear 0.3s ease-out forwards';
-    }, 200);
+    // Phase 1: Show dim label
+    dimEl.style.opacity = '1';
+    dimEl.style.animation = 'dimTextAppear 0.3s ease-out forwards';
 
-    // Phase 3: Hold text for 1.2s, then flash reveal
     setTimeout(function() {
-      textEl.style.animation = 'dimTextFade 0.3s ease-out forwards';
-      subEl.style.animation = 'dimTextFade 0.3s ease-out forwards';
+      // Phase 2: Show exponent label + counter at old value
+      labelEl.style.opacity = '1';
+      labelEl.style.animation = 'dimTextAppear 0.2s ease-out forwards';
+      counterEl.style.opacity = '1';
+      counterEl.style.animation = 'dimTextAppear 0.3s ease-out forwards';
+      pulse(counterEl, 1.2);
+
       setTimeout(function() {
-        overlay.style.animation = 'dimFlashReveal 1.0s ease-out forwards';
-        spawnConfetti(30);
-        setTimeout(function() {
-          overlay.classList.remove('active');
-          overlay.style.opacity = '0';
-          overlay.style.animation = '';
-          textEl.style.animation = '';
-          subEl.style.animation = '';
-          // Reset colors back to default for dim complete
-          textEl.style.color = '';
-          subEl.style.color = '';
-        }, 1100);
-      }, 350);
-    }, 1400);
-  }, 650);
+        // Phase 3: Roll the exponent counter
+        var expDuration = Math.min(2500, Math.max(800, (newInt - oldInt) * 2));
+        rollCounter(counterEl, 'e', oldInt, newInt, 0, expDuration, function() {
+          // Big burst on final landing
+          var rect = counterEl.getBoundingClientRect();
+          spawnParticleBurst(rect.left + rect.width/2, rect.top, getThemeColor('--cyan'), 8, 50);
+
+          if (showBoost) {
+            setTimeout(function() {
+              // Phase 4: Show boost label + counter
+              boostLabelEl.style.opacity = '1';
+              boostLabelEl.style.animation = 'dimTextAppear 0.2s ease-out forwards';
+              boostCounterEl.style.opacity = '1';
+              boostCounterEl.style.animation = 'dimTextAppear 0.3s ease-out forwards';
+              pulse(boostCounterEl, 1.2);
+
+              setTimeout(function() {
+                // Phase 5: Roll the boost counter
+                var boostDuration = Math.min(1500, Math.max(600, Math.abs(newBoost - oldBoost) * 2000));
+                rollCounter(boostCounterEl, 'x', oldBoost, newBoost, 3, boostDuration, function() {
+                  var rect2 = boostCounterEl.getBoundingClientRect();
+                  spawnParticleBurst(rect2.left + rect2.width/2, rect2.top, getThemeColor('--green'), 6, 40);
+                  // Hold then fade out
+                  setTimeout(function() { fadeOutCinematic(); }, 800);
+                });
+              }, 400);
+            }, 300);
+          } else {
+            // No boost — hold then fade
+            setTimeout(function() { fadeOutCinematic(); }, 1000);
+          }
+        });
+      }, 500);
+    }, 300);
+  }, 600);
+
+  function fadeOutCinematic() {
+    overlay.style.animation = 'dimFlashReveal 1.0s ease-out forwards';
+    spawnConfetti(25);
+    setTimeout(function() {
+      overlay.classList.remove('active');
+      overlay.style.opacity = '0';
+      overlay.style.animation = '';
+      overlay.innerHTML = '<div class="dim-complete-text" id="dimCompleteText"></div><div class="dim-complete-sub" id="dimCompleteSub"></div>';
+    }, 1200);
+  }
 }
 
 // ─── D1c: New Record Exponent Flash ───
 var _lastRecordExp = 0;
-function checkRecordExponentFlash(d) {
-var record = d.maxExponentRecord || 0;
-if (record > _lastRecordExp && _lastRecordExp > 0) {
-var top = document.querySelector('.top-section');
-if (top) {
-top.classList.remove('record-flash');
-void top.offsetWidth;
-top.classList.add('record-flash');
-setTimeout(function() { top.classList.remove('record-flash'); }, 700);
-}
-}
-_lastRecordExp = record;
+
+
+function playRecordCinematic(dimIdx, oldExp, newExp) {
+    if (!overlay) return;
+  if (overlay.classList.contains("active")) return; // already playing
+  var oldBoost = getGlobalBoostTotal();
+  // Recalc what boost WILL be (it already updated via gameTick maxExponentRecord tracking)
+  var newBoost = getGlobalBoostTotal();
+  var dimLabel = "DIMENSION " + (dimIdx + 1);
+  overlay.innerHTML =
+    '<div class="rc-content">' +
+    '<div class="rc-dim">' + dimLabel + '</div>' +
+    '<div class="rc-row">' +
+      '<span class="rc-label">EXPONENT RECORD</span>' +
+      '<div class="rc-values">' +
+        '<span class="rc-old">e' + oldExp.toLocaleString() + '</span>' +
+        '<span class="rc-arrow">\u2192</span>' +
+        '<span class="rc-new">e' + newExp.toLocaleString() + '</span>' +
+      '</div>' +
+    '</div>' +
+    (multiDimUnlocked && newBoost > 1.001 ? 
+    '<div class="rc-row rc-row-boost">' +
+      '<span class="rc-label">GLOBAL BOOST</span>' +
+      '<div class="rc-values">' +
+        '<span class="rc-old">x' + oldBoost.toFixed(3) + '</span>' +
+        '<span class="rc-arrow">\u2192</span>' +
+        '<span class="rc-new">x' + newBoost.toFixed(3) + '</span>' +
+      '</div>' +
+    '</div>' : '') +
+    '</div>';
+  overlay.classList.add("active");
+  // Auto-dismiss after 2.5s
+  setTimeout(function() {
+    overlay.classList.remove("active");
+  }, 2500);
 }
 
 // ─── D3a: Generator Buy Flash ───
