@@ -11344,99 +11344,98 @@ spawnParticleBurst(x, y, getThemeColor('--amber'), 8, 80);
 }
 
 function playDimCompleteSequence(dimNum, callback) {
+  var overlay = document.getElementById('dimCompleteOverlay');
+  if (!overlay || overlay.classList.contains('active')) { if (callback) callback(); return; }
 
-var overlay = document.getElementById('dimCompleteOverlay');
+  overlay.innerHTML = '';
+  overlay.style.opacity = '1';
+  overlay.classList.add('active');
+  overlay.style.animation = 'dimFadeToBlack 0.6s ease-in forwards';
 
-var textEl = document.getElementById('dimCompleteText');
+  var container = document.createElement('div');
+  container.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;font-family:var(--font-mono);';
 
-var subEl = document.getElementById('dimCompleteSub');
+  var dimEl = document.createElement('div');
+  dimEl.style.cssText = 'font-size:2rem;font-weight:900;color:var(--cyan);text-shadow:0 0 30px var(--cyan);opacity:0;transform:scale(0.3);transition:none;';
+  dimEl.textContent = 'DIMENSION ' + dimNum;
+  container.appendChild(dimEl);
 
-if (!overlay) { if (callback) callback(); return; }
+  var compEl = document.createElement('div');
+  compEl.style.cssText = 'font-size:0.9rem;font-weight:700;letter-spacing:0.4em;color:var(--green);text-shadow:0 0 20px var(--green);margin-top:8px;opacity:0;';
+  container.appendChild(compEl);
 
-textEl.textContent = 'dimension ' + dimNum;
+  overlay.appendChild(container);
 
-subEl.textContent = 'complete';
+  function shake(intensity) {
+    overlay.style.transform = 'translate(' + (Math.random()*intensity-intensity/2) + 'px,' + (Math.random()*intensity-intensity/2) + 'px)';
+    setTimeout(function() { overlay.style.transform = ''; }, 70);
+  }
 
-textEl.style.opacity = '0'; textEl.style.transform = '';
+  setTimeout(function() {
+    // SLAM: dimension number appears with impact
+    dimEl.style.transition = 'opacity 0.15s, transform 0.15s cubic-bezier(0.2, 1.5, 0.4, 1)';
+    dimEl.style.opacity = '1';
+    dimEl.style.transform = 'scale(1)';
+    shake(8);
+    spawnParticleBurst(window.innerWidth/2, window.innerHeight/2, getThemeColor('--cyan'), 12, 60);
 
-subEl.style.opacity = '0';
+    // COMPLETE rolls in letter by letter
+    setTimeout(function() {
+      var word = 'COMPLETE';
+      var chars = word.split('');
+      compEl.style.opacity = '1';
+      compEl.textContent = '';
+      var letterDelay = 60;
+      for (var ci = 0; ci < chars.length; ci++) {
+        (function(i, ch) {
+          setTimeout(function() {
+            compEl.textContent += ch;
+            // Mini pulse each letter
+            compEl.style.transform = 'scale(1.06)';
+            setTimeout(function() { compEl.style.transition = 'transform 0.06s'; compEl.style.transform = 'scale(1)'; }, 40);
+            if (i === chars.length - 1) {
+              // Final letter — big shake
+              shake(10);
+              spawnParticleBurst(window.innerWidth/2, window.innerHeight/2 + 20, getThemeColor('--green'), 8, 50);
+            }
+          }, i * letterDelay);
+        })(ci, chars[ci]);
+      }
+    }, 400);
 
-overlay.style.opacity = '1';
-
-overlay.classList.add('active');
-
-// Phase 1: Fade to black (0.8s)
-
-overlay.style.animation = 'dimFadeToBlack 0.8s ease-in forwards';
-
-setTimeout(function() {
-
-// Phase 2: Show text (at full black)
-
-textEl.style.animation = 'dimTextAppear 0.6s ease-out forwards';
-
-setTimeout(function() {
-
-subEl.style.animation = 'dimTextAppear 0.4s ease-out forwards';
-
-}, 300);
-
-// Phase 3: Hold text for 1.5s, then flash reveal
-
-setTimeout(function() {
-
-// Fade text
-
-textEl.style.animation = 'dimTextFade 0.3s ease-out forwards';
-
-subEl.style.animation = 'dimTextFade 0.3s ease-out forwards';
-
-setTimeout(function() {
-
-// Flash reveal back to game
-
-overlay.style.animation = 'dimFlashReveal 1.2s ease-out forwards';
-
-spawnConfetti(60);
-
-spawnParticleBurst(window.innerWidth/2, window.innerHeight/2, getThemeColor('--cyan'), 4, 50);
-
-setTimeout(function() {
-
-overlay.classList.remove('active');
-
-overlay.style.opacity = '0';
-
-overlay.style.animation = '';
-
-textEl.style.animation = '';
-
-subEl.style.animation = '';
-
-if (callback) callback();
-
-}, 1300);
-
-}, 350);
-
-}, 1800);
-
-}, 850);
-
+    // Hold, then confetti cascade and fade out
+    setTimeout(function() {
+      spawnConfetti(60);
+      // Flash reveal
+      setTimeout(function() {
+        overlay.style.animation = 'dimFlashReveal 1.0s ease-out forwards';
+        setTimeout(function() {
+          overlay.classList.remove('active');
+          overlay.style.opacity = '0';
+          overlay.style.animation = '';
+          // Restore dimCompleteOverlay inner elements for other animations
+          overlay.innerHTML = '<div class="dim-complete-text" id="dimCompleteText"></div><div class="dim-complete-sub" id="dimCompleteSub"></div>';
+          if (callback) callback();
+        }, 1200);
+      }, 400);
+    }, 1600);
+  }, 700);
 }
 
 function screenShimmer(color) {
-
-var shimmer = document.createElement('div');
-
-shimmer.className = 'shimmer-overlay';
-
-if (color) shimmer.style.background = 'linear-gradient(135deg, transparent 40%, ' + color + ' 50%, transparent 60%)';
-
-document.body.appendChild(shimmer);
-
-setTimeout(function() { shimmer.remove(); }, 1500);
-
+  var shimmer = document.getElementById('shimmerOverlay');
+  if (!shimmer) return;
+  shimmer.style.background = 'radial-gradient(circle at 50% 50%, ' + (color || 'var(--cyan)') + ' 0%, transparent 70%)';
+  shimmer.style.opacity = '0.3';
+  shimmer.style.transition = 'none';
+  // Quick flash
+  requestAnimationFrame(function() {
+    shimmer.style.transition = 'opacity 0.8s ease-out';
+    shimmer.style.opacity = '0';
+  });
+  // Screen shake
+  document.body.style.transform = 'translate(' + (Math.random()*5-2.5) + 'px,' + (Math.random()*5-2.5) + 'px)';
+  setTimeout(function() { document.body.style.transform = ''; }, 80);
 }
 
 function initAmbientParticles() {
@@ -11972,18 +11971,29 @@ _lastMilestoneExp = curMilestone;
 // ─── D1b: Global Boost Increase Celebration ───
 var _lastGlobalBoostCache = 1;
 function checkGlobalBoostIncrease() {
-var newBoost = getGlobalBoostTotal();
-if (newBoost > _lastGlobalBoostCache + 0.01 && _lastGlobalBoostCache > 1) {
-screenShimmer(getThemeColor('--cyan'));
-var sub = document.getElementById('dimNavSub');
-if (sub) {
-sub.classList.remove('boost-glow');
-void sub.offsetWidth;
-sub.classList.add('boost-glow');
-setTimeout(function() { sub.classList.remove('boost-glow'); }, 900);
-}
-}
-_lastGlobalBoostCache = newBoost;
+  var newBoost = getGlobalBoostTotal();
+  if (newBoost > _lastGlobalBoostCache + 0.01 && _lastGlobalBoostCache > 1) {
+    screenShimmer(getThemeColor('--cyan'));
+    // Pulse the dim nav sub text
+    var sub = document.getElementById('dimNavSub');
+    if (sub) {
+      sub.style.transition = 'none';
+      sub.style.transform = 'scale(1.2)';
+      sub.style.textShadow = '0 0 12px var(--cyan)';
+      setTimeout(function() {
+        sub.style.transition = 'transform 0.3s ease-out, text-shadow 0.5s ease-out';
+        sub.style.transform = 'scale(1)';
+        sub.style.textShadow = 'none';
+      }, 100);
+    }
+    // Particle burst from nav area
+    var nav = document.getElementById('dimNav');
+    if (nav) {
+      var r = nav.getBoundingClientRect();
+      spawnParticleBurst(r.left + r.width/2, r.top + r.height/2, getThemeColor('--cyan'), 6, 40);
+    }
+  }
+  _lastGlobalBoostCache = newBoost;
 }
 
 // ─── D1c-prestige: New Record Animation on Prestige ───
@@ -12217,21 +12227,37 @@ spawnParticleBurst(r.left + r.width/2, r.top, getThemeColor('--cyan'), 3, 30);
 
 // ─── D3b: Prestige Screen Flash ───
 function prestigeScreenFlash() {
-var flash = document.createElement('div');
-flash.className = 'prestige-flash-overlay active';
-document.body.appendChild(flash);
-setTimeout(function() { flash.remove(); }, 250);
+  var flash = document.createElement('div');
+  flash.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--magenta);opacity:0.25;z-index:9990;pointer-events:none;';
+  document.body.appendChild(flash);
+  // Quick white slam then magenta fade
+  setTimeout(function() { flash.style.transition = 'opacity 0.4s ease-out'; flash.style.opacity = '0'; }, 50);
+  setTimeout(function() { flash.remove(); }, 500);
+  // Screen shake
+  document.body.style.transform = 'translate(' + (Math.random()*4-2) + 'px,' + (Math.random()*4-2) + 'px)';
+  setTimeout(function() { document.body.style.transform = ''; }, 60);
 }
 
-function prestigePointsCascade() {
-var el = document.getElementById('points');
-if (!el) return;
-el.classList.add('reset-out');
-setTimeout(function() {
-el.classList.remove('reset-out');
-el.classList.add('reset-in');
-setTimeout(function() { el.classList.remove('reset-in'); }, 250);
-}, 170);
+function prestigePointsCascade(ppEarned) {
+  // Slam "+N PP" text that scales up and floats away
+  var el = document.createElement('div');
+  var ppText = '+' + (typeof bnFormat !== 'undefined' && ppEarned && ppEarned.m ? bnFormat(ppEarned) : ppEarned) + ' PP';
+  el.textContent = ppText;
+  el.style.cssText = 'position:fixed;top:40%;left:50%;transform:translate(-50%,-50%) scale(0.5);font-family:var(--font-mono);font-size:1.6rem;font-weight:900;color:var(--magenta);text-shadow:0 0 20px var(--magenta);z-index:9991;pointer-events:none;opacity:0;transition:none;';
+  document.body.appendChild(el);
+  // Slam in
+  requestAnimationFrame(function() {
+    el.style.transition = 'transform 0.15s cubic-bezier(0.2, 1.5, 0.4, 1), opacity 0.1s';
+    el.style.opacity = '1';
+    el.style.transform = 'translate(-50%,-50%) scale(1)';
+    // Float up and fade
+    setTimeout(function() {
+      el.style.transition = 'transform 0.8s ease-out, opacity 0.8s ease-out';
+      el.style.transform = 'translate(-50%,-80%) scale(0.7)';
+      el.style.opacity = '0';
+      setTimeout(function() { el.remove(); }, 900);
+    }, 400);
+  });
 }
 
 // ─── D3d: Challenge Start Tint ───
@@ -12244,11 +12270,27 @@ setTimeout(function() { tint.remove(); }, 350);
 
 // ─── D3e: Challenge Complete Banner ───
 function showChallengeCompleteBanner() {
-var banner = document.createElement('div');
-banner.className = 'challenge-complete-banner';
-banner.textContent = 'challenge complete';
-document.body.appendChild(banner);
-setTimeout(function() { banner.remove(); }, 2100);
+  var banner = document.createElement('div');
+  banner.className = 'challenge-complete-banner';
+  banner.textContent = 'CHALLENGE COMPLETE';
+  banner.style.cssText += ';transform:scale(0.4);opacity:0;';
+  document.body.appendChild(banner);
+  // Slam in
+  requestAnimationFrame(function() {
+    banner.style.transition = 'transform 0.2s cubic-bezier(0.2, 1.6, 0.4, 1), opacity 0.15s';
+    banner.style.opacity = '1';
+    banner.style.transform = 'scale(1)';
+    // Screen shake on impact
+    document.body.style.transform = 'translate(' + (Math.random()*6-3) + 'px,' + (Math.random()*6-3) + 'px)';
+    setTimeout(function() { document.body.style.transform = ''; }, 70);
+    // Hold then slam out
+    setTimeout(function() {
+      banner.style.transition = 'transform 0.3s ease-in, opacity 0.3s ease-in';
+      banner.style.transform = 'scale(1.3)';
+      banner.style.opacity = '0';
+      setTimeout(function() { banner.remove(); }, 350);
+    }, 1500);
+  });
 }
 
 // ─── D3f: Points Counter Color Shift ───
