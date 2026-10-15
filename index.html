@@ -2341,10 +2341,10 @@ display: flex; flex-direction: column; align-items: center; text-align: center;
 .diff-card.diff-hard { }
 .diff-card.diff-hard:hover, .diff-card.diff-hard.selected { border-color: var(--red); box-shadow: 0 0 20px rgba(255,51,68,0.12); }
 .diff-card.diff-insane { }
-.diff-card.diff-insane:hover, .diff-card.diff-insane.selected { border-color: #ff0066; box-shadow: 0 0 20px rgba(255,0,102,0.15); }
-.diff-insane .diff-card-title { color: #ff0066; }
+.diff-card.diff-insane:hover, .diff-card.diff-insane.selected { border-color: #ff6600; box-shadow: 0 0 20px rgba(255,102,0,0.15); }
+.diff-insane .diff-card-title { color: #ff6600; }
 .diff-insane.selected .diff-check { background: #ff0066; color: var(--bg-deep); }
-.diff-badge-insane { background: #1a0010; color: #ff0066; border: 1px solid #880033; }
+.diff-badge-insane { background: #1a0f00; color: #ff6600; border: 1px solid #aa4400; }
 .diff-card-title {
 font-family: var(--font-mono); font-size: 0.9rem; font-weight: 700;
 text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;
@@ -2685,7 +2685,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-sub">an incremental descent</div>
 
-<div class="start-sub" style="font-size:0.55rem;margin-top:8px;max-width:280px;line-height:1.5;opacity:0.6;font-style:italic;">build. prestige. go deeper.</div>
+<div class="start-sub" style="font-size:0.55rem;margin-top:8px;max-width:280px;line-height:1.5;opacity:0.6;font-style:italic;">build. prestige. ascend.</div>
 
 <div class="start-buttons" id="startButtons"></div>
 
@@ -10107,7 +10107,9 @@ html += '<button class="start-slot-btn start-slot-active" onclick="startContinue
 
 html += '<span class="start-slot-letter">' + slotLetter + '</span>';
 
-html += '<span class="start-slot-info">' + slotLabel + ' \u2014 Dim ' + aDimIdx + '/' + aDims + '</span>';
+var _aDiff = activeData.gameDifficulty || 'normal';
+var _aSpd = activeData.speedrunMode || false;
+html += '<span class="start-slot-info">' + slotLabel + ' \u2014 Dim ' + aDimIdx + '/' + aDims + getDiffBadgeHtml(_aDiff, _aSpd) + '</span>';
 
 html += '<span class="start-slot-date">' + aDateStr + '</span>';
 
@@ -10163,7 +10165,7 @@ html += '<button class="start-slot-btn" onclick="loadFromSlotAndStart(' + si + '
 
 html += '<span class="start-slot-letter">' + sn.letter + '</span>';
 
-html += '<span class="start-slot-info">' + sn.name + ' \u2014 Dim ' + info.dimIdx + '/' + info.dims + '</span>';
+html += '<span class="start-slot-info">' + sn.name + ' \u2014 Dim ' + info.dimIdx + '/' + info.dims + getDiffBadgeHtml(info.difficulty, info.speedrun) + '</span>';
 
 html += '<span class="start-slot-date">' + dateStr + '</span>';
 
@@ -10504,7 +10506,11 @@ dims: data.dimensions ? data.dimensions.length : 0,
 
 dimIdx: (data.activeDimIdx || 0) + 1,
 
-maxExp: 0
+maxExp: 0,
+
+difficulty: data.gameDifficulty || "normal",
+
+speedrun: data.speedrunMode || false
 
 };
 
@@ -10538,15 +10544,29 @@ var raw = localStorage.getItem(getSaveSlotKey(slot));
 
 if (!raw) { showSaveMsg(getSlotName(slot).name + " is empty!"); return; }
 
+// Save current game to its slot first
+saveGame();
+
+// Load the new save
 safeSetItem("nestedIdleSave2", raw);
 
 setActiveSlot(slot);
 
 loadGame();
 
-showSaveMsg("Loaded " + getSlotName(slot).name + "!");
+if (gameRetired) {
+  closeSettings();
+  showRetiredScreen();
+  return;
+}
 
-renderSaveSlots();
+// Return to game
+closeSettings();
+invalidateRenderKeys();
+updateDifficultyBadge();
+updateUI();
+
+showSaveMsg("Loaded " + getSlotName(slot).name + "!");
 
 } catch(e) { showSaveMsg("Slot load failed!"); }
 
@@ -10562,6 +10582,22 @@ showSaveMsg(getSlotName(slot).name + " deleted.");
 
 renderSaveSlots();
 
+}
+
+function getDiffBadgeHtml(diff, speedrun) {
+var colors = { easy: 'var(--green)', normal: 'var(--cyan)', hard: 'var(--red)', insane: '#ff6600' };
+var letters = { easy: 'E', normal: 'N', hard: 'H', insane: 'I' };
+var bgs = { easy: '#0a1a0a', normal: '#0a1218', hard: '#1a0a0a', insane: '#1a0f00' };
+var borders = { easy: 'var(--green-dim)', normal: 'var(--cyan-dim)', hard: 'var(--red-dim)', insane: '#aa4400' };
+var c = colors[diff] || 'var(--text-dim)';
+var l = letters[diff] || '?';
+var bg = bgs[diff] || 'var(--bg-card)';
+var bd = borders[diff] || 'var(--border)';
+var html = '<span style="font-size:0.5rem;font-weight:700;padding:0 4px;border-radius:3px;font-family:var(--font-mono);background:' + bg + ';color:' + c + ';border:1px solid ' + bd + ';margin-left:4px;">' + l + '</span>';
+if (speedrun) {
+html += '<span style="font-size:0.5rem;font-weight:700;padding:0 4px;border-radius:3px;font-family:var(--font-mono);background:#1a1408;color:var(--amber);border:1px solid var(--amber-dim);margin-left:2px;">S</span>';
+}
+return html;
 }
 
 function renderSaveSlots() {
@@ -10592,7 +10628,7 @@ html += '<div class="save-slot-icon">' + sn.letter + '</div>';
 
 html += '<div class="save-slot-info"><div class="save-slot-name">' + sn.name + '</div>';
 
-html += '<div class="save-slot-detail">' + dateStr + ' \u2014 Dim ' + info.dimIdx + '/' + info.dims + '</div></div>';
+html += '<div class="save-slot-detail">' + dateStr + ' \u2014 Dim ' + info.dimIdx + '/' + info.dims + getDiffBadgeHtml(info.difficulty, info.speedrun) + '</div></div>';
 
 html += '<div class="save-slot-actions">';
 
@@ -12323,10 +12359,8 @@ function updateDifficultyBadge() {
 var sub = document.getElementById('difficultySubtitle');
 if (!sub) return;
 var html = '';
-if (gameDifficulty && gameDifficulty !== 'normal') {
+if (gameDifficulty) {
 html += '<span class="diff-badge diff-badge-' + gameDifficulty + '">' + gameDifficulty.toUpperCase() + '</span>';
-} else if (gameDifficulty === 'normal') {
-html += '<span style="color:var(--text-dim);font-size:0.5rem;letter-spacing:0.1em;">NORMAL</span>';
 }
 if (speedrunMode) {
 html += ' <span class="speedrun-badge">SPEEDRUN</span>';
