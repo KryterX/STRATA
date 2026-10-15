@@ -1343,11 +1343,13 @@ justify-content: center; padding: 30px;
 
 .start-title {
 
-font-family: var(--font-mono); font-size: 2.4rem; font-weight: 700;
+font-family: var(--font-mono); font-size: 2.8rem; font-weight: 900;
 
-color: var(--text-bright); letter-spacing: 0.2em; text-transform: uppercase;
+color: var(--text-bright); letter-spacing: 0.25em; text-transform: uppercase;
 
 margin-bottom: 4px; opacity: 0; animation: start-fade-in 1.5s ease forwards;
+
+text-shadow: 0 0 40px var(--cyan), 0 0 80px rgba(0,228,255,0.15);
 
 }
 
@@ -1355,7 +1357,7 @@ margin-bottom: 4px; opacity: 0; animation: start-fade-in 1.5s ease forwards;
 
 font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-dim);
 
-letter-spacing: 0.3em; text-transform: lowercase; margin-bottom: 50px;
+letter-spacing: 0.3em; text-transform: lowercase; margin-bottom: 40px;
 
 opacity: 0; animation: start-fade-in 1.5s ease 0.5s forwards;
 
@@ -2681,13 +2683,13 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-title">strata</div>
 
-<div class="start-sub">an incremental experience</div>
+<div class="start-sub">an incremental descent</div>
 
-<div class="start-sub" style="font-size:0.55rem;margin-top:8px;max-width:280px;line-height:1.5;opacity:0.6;font-style:italic;">You found it. Most never do. One point of light — that's all you need to begin.</div>
+<div class="start-sub" style="font-size:0.55rem;margin-top:8px;max-width:280px;line-height:1.5;opacity:0.6;font-style:italic;">build. prestige. go deeper.</div>
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.1</div>
+<div class="start-version" id="startVersion">v1.9</div>
 
 </div>
 
@@ -2732,7 +2734,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.0</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3215,7 +3217,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.8";
+var STRATA_VERSION = "v1.9";
 
 // ============================================================
 
@@ -3550,7 +3552,11 @@ pendingRewardOptions: null,
 
 ppDripAccum: 0,
 
-autoPrestigeOn: false
+autoPrestigeOn: false,
+
+dimStartedAt: Date.now(),
+
+dimCompletedAt: 0
 
 };
 
@@ -4621,6 +4627,8 @@ if (allDone && activeDimIdx === unlockedDims - 1) {
 
 var completedDimNum = unlockedDims; // the dim we just completed (before incrementing)
 
+d.dimCompletedAt = Date.now();
+
 var _dimTime = gameStats.gameTime;
 
 if (_dimTime < hardAchievements.dimCompletionTime) hardAchievements.dimCompletionTime = _dimTime;
@@ -4694,41 +4702,269 @@ multiDimUnlocked = true;
 
 function showEndingScreen() {
 
-var text = '<span class="highlight">you completed the tenth dimension.</span><br><br>';
+var overlay = document.getElementById("endingOverlay");
+overlay.innerHTML = '';
+overlay.style.opacity = '0';
+overlay.classList.remove("hidden");
 
-text += "you\'ve been building this whole time.<br>";
+// Gather all stats
+var totalPrestiges = 0;
+var totalPP = 0;
+var totalGens = gameStats.totalGeneratorsBought || 0;
+var totalUpgrades = gameStats.totalUpgradesBought || 0;
+var totalChallenges = 0;
+var peakExponents = [];
+var dimTimes = [];
 
-text += "generators, upgrades, dimensions — layers of a system.<br><br>";
+for (var i = 0; i < dimensions.length && i < 10; i++) {
+  totalPrestiges += dimensions[i].prestigeCount || 0;
+  totalChallenges += dimensions[i].challenges ? dimensions[i].challenges.filter(function(c) { return c.completed; }).length : 0;
+  peakExponents.push(Math.floor(dimensions[i].maxExponentRecord || 0));
+  var _ds = dimensions[i].dimStartedAt || 0;
+  var _dc = dimensions[i].dimCompletedAt || 0;
+  dimTimes.push(_ds > 0 && _dc > _ds ? _dc - _ds : 0);
+}
 
-text += '<span class="highlight">this system.</span><br><br>';
+totalPP = gameStats.totalPPEarned || 0;
+var globalBoost = getGlobalBoostTotal();
+var permCount = permBuffs.length;
+var playTime = gameStats.realTime || 0;
 
-text += "the game you\'re playing was built by the choices you made.<br>";
+// Choose presentation mode
+var isSpeedrun = speedrunMode || false;
 
-text += "every restart was a revision.<br>";
+// Build the screen
+var wrap = document.createElement('div');
+wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;padding:20px;box-sizing:border-box;';
 
-text += "every kept upgrade, a decision about what matters.<br><br>";
+// === PHASE 1: Title slam ===
+var titleEl = document.createElement('div');
+titleEl.style.cssText = 'font-family:var(--font-mono);font-size:1.8rem;font-weight:900;color:var(--cyan);text-shadow:0 0 40px var(--cyan);opacity:0;transform:scale(0.3);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:24px;';
+titleEl.textContent = 'STRATA COMPLETE';
+wrap.appendChild(titleEl);
 
-text += '<span class="highlight">you are the strata.</span><br><br>';
+// === PHASE 2: Stats container ===
+var statsWrap = document.createElement('div');
+statsWrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;width:100%;max-width:400px;opacity:0;';
+wrap.appendChild(statsWrap);
 
-text += "...";
+// === PHASE 3: Choice buttons (hidden initially) ===
+var choiceWrap = document.createElement('div');
+choiceWrap.style.cssText = 'display:flex;gap:16px;width:100%;max-width:400px;margin-top:24px;opacity:0;';
+wrap.appendChild(choiceWrap);
 
-document.getElementById("endingText").innerHTML = text;
+overlay.appendChild(wrap);
 
-var choices = '<div class="ending-choice choice-endless" onclick="chooseEndless()">';
+// --- Helper: create a stat row ---
+function makeStat(label, value, color, isBig) {
+  var row = document.createElement('div');
+  row.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;padding:6px 12px;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);opacity:0;transform:translateX(-20px);';
+  var lbl = document.createElement('span');
+  lbl.style.cssText = 'font-family:var(--font-mono);font-size:' + (isBig ? '0.8rem' : '0.7rem') + ';color:var(--text-dim);letter-spacing:0.05em;text-transform:uppercase;';
+  lbl.textContent = label;
+  var val = document.createElement('span');
+  val.style.cssText = 'font-family:var(--font-mono);font-size:' + (isBig ? '1rem' : '0.85rem') + ';font-weight:700;color:' + (color || 'var(--text-bright)') + ';text-shadow:0 0 10px ' + (color || 'var(--text-bright)') + ';';
+  val.textContent = '0';
+  val.dataset.target = String(value);
+  row.appendChild(lbl);
+  row.appendChild(val);
+  return row;
+}
 
-choices += '<div class="ending-choice-title">endless</div>';
+// --- Helper: roll a number up ---
+function rollUp(el, target, duration, decimals) {
+  var start = 0;
+  var startTime = performance.now();
+  decimals = decimals || 0;
+  function tick() {
+    var t = Math.min(1, (performance.now() - startTime) / duration);
+    // Ease out cubic
+    var ease = 1 - Math.pow(1 - t, 3);
+    var cur = start + (target - start) * ease;
+    el.textContent = decimals > 0 ? cur.toFixed(decimals) : Math.floor(cur).toLocaleString();
+    if (t < 1) requestAnimationFrame(tick);
+    else el.textContent = decimals > 0 ? target.toFixed(decimals) : target.toLocaleString();
+  }
+  tick();
+}
 
-choices += '<div class="ending-choice-desc">keep building. infinite dimensions.<br>no end. no limit.</div></div>';
+// --- Helper: format time duration ---
+function fmtDuration(ms) {
+  if (ms <= 0) return '--';
+  var s = Math.floor(ms / 1000);
+  var h = Math.floor(s / 3600); s %= 3600;
+  var m = Math.floor(s / 60); s %= 60;
+  if (h > 0) return h + 'h ' + m + 'm ' + s + 's';
+  if (m > 0) return m + 'm ' + s + 's';
+  return s + 's';
+}
 
-choices += '<div class="ending-choice choice-retire" onclick="chooseRetire()">';
+// Build stat rows
+var stats;
+if (isSpeedrun) {
+  // SPEEDRUN: Cinematic dimension recap
+  stats = [];
+  for (var si = 0; si < 10; si++) {
+    (function(idx) {
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;padding:6px 12px;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);opacity:0;transform:translateX(-20px);';
+      var lbl = document.createElement('span');
+      lbl.style.cssText = 'font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim);letter-spacing:0.05em;text-transform:uppercase;';
+      lbl.textContent = 'DIM ' + (idx + 1);
+      var vals = document.createElement('span');
+      vals.style.cssText = 'font-family:var(--font-mono);font-size:0.75rem;font-weight:700;display:flex;gap:16px;';
+      var expSpan = document.createElement('span');
+      expSpan.style.cssText = 'color:var(--cyan);text-shadow:0 0 8px var(--cyan);';
+      expSpan.textContent = '1e0';
+      expSpan.dataset.target = String(peakExponents[idx] || 0);
+      expSpan.dataset.type = 'exp';
+      var timeSpan = document.createElement('span');
+      timeSpan.style.cssText = 'color:var(--green);text-shadow:0 0 8px var(--green);min-width:70px;text-align:right;';
+      timeSpan.textContent = '--';
+      timeSpan.dataset.time = String(dimTimes[idx] || 0);
+      vals.appendChild(expSpan);
+      vals.appendChild(timeSpan);
+      row.appendChild(lbl);
+      row.appendChild(vals);
+      stats.push(row);
+    })(si);
+  }
 
-choices += '<div class="ending-choice-title">retire</div>';
+  // Global boost row
+  var boostRow = makeStat('Global Boost', globalBoost, 'var(--magenta)', true);
+  boostRow.querySelector('span:last-child').textContent = 'x' + globalBoost.toFixed(2);
+  stats.push(boostRow);
 
-choices += '<div class="ending-choice-desc">stop here. your run is complete.<br>rest.</div></div>';
+  // Total time row
+  var totalTimeRow = document.createElement('div');
+  totalTimeRow.style.cssText = 'display:flex;justify-content:center;padding:10px 12px;border-radius:6px;background:rgba(255,255,255,0.05);border:1px solid var(--cyan-dim);opacity:0;transform:translateX(-20px);margin-top:4px;';
+  var ttLabel = document.createElement('span');
+  ttLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.9rem;font-weight:900;color:var(--cyan);text-shadow:0 0 15px var(--cyan);letter-spacing:0.1em;';
+  ttLabel.textContent = 'TOTAL: ' + fmtDuration(playTime * 1000);
+  totalTimeRow.appendChild(ttLabel);
+  stats.push(totalTimeRow);
 
-document.getElementById("endingChoices").innerHTML = choices;
+} else {
+  // DEFAULT: Stats-forward rolling tally
+  stats = [
+    makeStat('Dimensions', 10, 'var(--cyan)', true),
+    makeStat('Total Prestiges', totalPrestiges, 'var(--text-bright)', false),
+    makeStat('Prestige Points Earned', totalPP, 'var(--magenta)', false),
+    makeStat('Generators Bought', totalGens, 'var(--text-bright)', false),
+    makeStat('Upgrades Acquired', totalUpgrades, 'var(--text-bright)', false),
+    makeStat('Challenges Conquered', totalChallenges, 'var(--green)', false),
+    makeStat('Permanent Buffs', permCount, 'var(--magenta)', false),
+    makeStat('Global Boost', globalBoost, 'var(--cyan)', true),
+    makeStat('Time Played', playTime, 'var(--text-dim)', false),
+  ];
+}
 
-document.getElementById("endingOverlay").classList.remove("hidden");
+for (var si2 = 0; si2 < stats.length; si2++) statsWrap.appendChild(stats[si2]);
+
+// Build choice buttons
+var endlessBtn = document.createElement('div');
+endlessBtn.className = 'ending-choice choice-endless';
+endlessBtn.onclick = function() { chooseEndless(); };
+endlessBtn.innerHTML = '<div class="ending-choice-title">endless</div><div class="ending-choice-desc">keep building. infinite dimensions.<br>no end. no limit.</div>';
+
+var retireBtn = document.createElement('div');
+retireBtn.className = 'ending-choice choice-retire';
+retireBtn.onclick = function() { chooseRetire(); };
+retireBtn.innerHTML = '<div class="ending-choice-title">retire</div><div class="ending-choice-desc">stop here. your run is complete.<br>rest.</div>';
+
+choiceWrap.appendChild(endlessBtn);
+choiceWrap.appendChild(retireBtn);
+
+// ============================
+// ANIMATION SEQUENCE
+// ============================
+
+// Fade in overlay
+overlay.style.transition = 'opacity 0.8s ease';
+setTimeout(function() { overlay.style.opacity = '1'; }, 50);
+
+// Phase 1: Title slam (0.8s)
+setTimeout(function() {
+  titleEl.style.transition = 'opacity 0.2s, transform 0.25s cubic-bezier(0.2, 1.5, 0.4, 1)';
+  titleEl.style.opacity = '1';
+  titleEl.style.transform = 'scale(1)';
+  spawnParticleBurst(window.innerWidth / 2, window.innerHeight * 0.3, getThemeColor('--cyan'), 12, 50);
+}, 800);
+
+// Phase 2: Stats roll in one by one (staggered 200ms)
+var statDelay = 1400;
+var perStat = 200;
+
+setTimeout(function() { statsWrap.style.opacity = '1'; }, statDelay - 100);
+
+for (var ai = 0; ai < stats.length; ai++) {
+  (function(idx, delay) {
+    setTimeout(function() {
+      var row = stats[idx];
+      row.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+      row.style.opacity = '1';
+      row.style.transform = 'translateX(0)';
+
+      // Roll up the number
+      if (isSpeedrun && idx < 10) {
+        // Speedrun dim rows: roll exponent + show time
+        var expEl = row.querySelector('[data-type="exp"]');
+        var timeEl = row.querySelector('[data-time]');
+        if (expEl) {
+          var targetExp = parseInt(expEl.dataset.target) || 0;
+          var rollStart = performance.now();
+          var rollDur = 500;
+          function tickExp() {
+            var t = Math.min(1, (performance.now() - rollStart) / rollDur);
+            var ease = 1 - Math.pow(1 - t, 3);
+            var cur = Math.floor(targetExp * ease);
+            expEl.textContent = '1e' + cur.toLocaleString();
+            if (t < 1) requestAnimationFrame(tickExp);
+            else expEl.textContent = '1e' + targetExp.toLocaleString();
+          }
+          tickExp();
+        }
+        if (timeEl) {
+          var ms = parseInt(timeEl.dataset.time) || 0;
+          setTimeout(function() { timeEl.textContent = fmtDuration(ms); }, 300);
+        }
+      } else {
+        // Default stat rows
+        var valEl = row.querySelector('[data-target]');
+        if (valEl) {
+          var target = parseFloat(valEl.dataset.target);
+          // Special formatting for certain rows
+          var label = row.querySelector('span').textContent;
+          if (label === 'Global Boost') {
+            rollUp(valEl, target, 800, 2);
+            var _origTick = null;
+            var _rollStart = performance.now();
+            function tickBoost() {
+              var t = Math.min(1, (performance.now() - _rollStart) / 800);
+              var ease = 1 - Math.pow(1 - t, 3);
+              var cur = 1 + (target - 1) * ease;
+              valEl.textContent = 'x' + cur.toFixed(2);
+              if (t < 1) requestAnimationFrame(tickBoost);
+              else valEl.textContent = 'x' + target.toFixed(2);
+            }
+            tickBoost();
+          } else if (label === 'Time Played') {
+            valEl.textContent = fmtDuration(target * 1000);
+          } else {
+            rollUp(valEl, target, 600, 0);
+          }
+        }
+      }
+    }, delay);
+  })(ai, statDelay + ai * perStat);
+}
+
+// Phase 3: Choices appear
+var choiceDelay = statDelay + stats.length * perStat + 600;
+setTimeout(function() {
+  choiceWrap.style.transition = 'opacity 0.5s ease';
+  choiceWrap.style.opacity = '1';
+}, choiceDelay);
 
 }
 
@@ -4738,7 +4974,7 @@ document.getElementById("endingOverlay").classList.add("hidden");
 
 // Award dim 10 perm buff
 
-if (getPermBuffsPerDim(_completedNum) > 0 && permBuffs.length < PERM_BUFF_POOL.length) {
+if (getPermBuffsPerDim(10) > 0 && permBuffs.length < PERM_BUFF_POOL.length) {
 
 setTimeout(function() { showPermBuffOverlayMulti(10, getPermBuffsPerDim(10)); }, 200);
 
@@ -4764,26 +5000,48 @@ showStartScreen();
 }
 
 function showRetiredScreen() {
-  var totalPrestiges = 0;
-  for (var i = 0; i < dimensions.length; i++) totalPrestiges += dimensions[i].prestigeCount;
-  var html = '<div class="retired-screen">';
-  html += '<div class="retired-title">strata \u2014 complete</div>';
-  html += '<div class="retired-stats">';
-  html += 'dimensions completed: 10<br>';
-  html += 'total prestige points earned: ' + totalPrestiges + '<br>';
-  html += 'permanent buffs collected: ' + permBuffs.length + '<br>';
-  html += '<br>thank you for playing.<br><br>';
-  html += '<span style="color:var(--text-bright);">you built something.</span>';
-  html += '</div>';
-  html += '<button class="start-btn" onclick="document.getElementById(\'endingOverlay\').classList.add(\'hidden\'); showStartScreen();" style="margin-top:20px;">Back to Title</button>';
-  html += '</div>';
-  document.getElementById("endingText").innerHTML = html;
-  document.getElementById("endingChoices").innerHTML = '';
+  // Retired players see this when loading a retired save
+  document.getElementById("endingOverlay").innerHTML = '';
   document.getElementById("endingOverlay").classList.remove("hidden");
+
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;padding:20px;box-sizing:border-box;';
+
+  var title = document.createElement('div');
+  title.style.cssText = 'font-family:var(--font-mono);font-size:1.6rem;font-weight:900;color:var(--magenta);text-shadow:0 0 30px var(--magenta);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:16px;';
+  title.textContent = 'RETIRED';
+  wrap.appendChild(title);
+
+  var sub = document.createElement('div');
+  sub.style.cssText = 'font-family:var(--font-mono);font-size:0.75rem;color:var(--text-dim);margin-bottom:24px;letter-spacing:0.1em;';
+  sub.textContent = 'ten dimensions. complete.';
+  wrap.appendChild(sub);
+
+  var totalPrestiges = 0;
+  for (var i = 0; i < dimensions.length; i++) totalPrestiges += dimensions[i].prestigeCount || 0;
+  var statsDiv = document.createElement('div');
+  statsDiv.style.cssText = 'font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim);line-height:2;text-align:center;margin-bottom:24px;';
+  statsDiv.innerHTML = 'dimensions: <span style="color:var(--cyan);">10</span><br>' +
+    'prestiges: <span style="color:var(--text-bright);">' + totalPrestiges.toLocaleString() + '</span><br>' +
+    'permanent buffs: <span style="color:var(--magenta);">' + permBuffs.length + '</span><br>' +
+    'global boost: <span style="color:var(--cyan);">x' + getGlobalBoostTotal().toFixed(2) + '</span>';
+  wrap.appendChild(statsDiv);
+
+  var btn = document.createElement('button');
+  btn.className = 'start-btn';
+  btn.textContent = 'BACK TO TITLE';
+  btn.onclick = function() {
+    document.getElementById("endingOverlay").classList.add("hidden");
+    showStartScreen();
+  };
+  wrap.appendChild(btn);
+
+  document.getElementById("endingOverlay").appendChild(wrap);
 }
 
-
 function showDimUnlock(dimNum) {
+
+if (dimNum === 10) showDiscovery('final_dimension');
 
 var storyText = (dimNum <= 10 && STORY_UNLOCK[dimNum]) ? STORY_UNLOCK[dimNum] : "";
 
@@ -9221,7 +9479,11 @@ autoPrestigeOn: d.autoPrestigeOn,
 
 challengeStartTime: d.challengeStartTime || 0,
 
-ppDripAccum: d.ppDripAccum || 0
+ppDripAccum: d.ppDripAccum || 0,
+
+dimStartedAt: d.dimStartedAt || 0,
+
+dimCompletedAt: d.dimCompletedAt || 0
 
 };
 
@@ -9316,6 +9578,10 @@ d.autobuyTimer = sd.autobuyTimer || 0;
 d.autoPrestigeOn = sd.autoPrestigeOn !== false;
 
 d.challengeStartTime = sd.challengeStartTime || 0;
+
+d.dimStartedAt = sd.dimStartedAt || 0;
+
+d.dimCompletedAt = sd.dimCompletedAt || 0;
 
 d.ppDripAccum = sd.ppDripAccum || 0;
 
@@ -10453,7 +10719,7 @@ first_prestige: {
 
 title: "The Architect",
 
-text: "You've hit the ceiling of this layer. I remember when I hit mine. Everything resets, but you're not starting over \u2014 you're starting better. That's the difference. Prestige points let you reshape the foundation."
+text: "Everything resets. Your prestige points stay. Spend them on upgrades that make the next run faster."
 
 },
 
@@ -10461,7 +10727,7 @@ first_upgrade: {
 
 title: "The Architect",
 
-text: "Now you're shaping things. Every upgrade changes how deep you can go next time. The chips at the top show your net effects \u2014 that's the real picture of what you've built."
+text: "Now you\'re shaping things. Every upgrade changes how deep you can go next time. The chips at the top show your net effects \u2014 that\'s the real picture of what you\'ve built."
 
 },
 
@@ -10469,7 +10735,7 @@ first_challenge: {
 
 title: "The Architect",
 
-text: "This one will fight back. The defects are real \u2014 they'll weaken your generators, raise your costs, slow you down. But what you earn here is worth the pain. Complete all five to go deeper."
+text: "This one will fight back. The defects are real \u2014 they\'ll weaken your generators, raise your costs, slow you down. But what you earn here is worth the pain. Complete all five to go deeper."
 
 },
 
@@ -10477,7 +10743,7 @@ first_dimension: {
 
 title: "The Architect",
 
-text: "Another layer. The strata go deeper than I thought. Each one starts empty, but they're connected \u2014 what you build in one echoes in the others. Higher dimensions are harder, but the rewards ripple downward."
+text: "Each dimension is harder \u2014 twice as hard each layer. But every one you complete gives permanent upgrades that carry across all of them."
 
 },
 
@@ -10485,7 +10751,7 @@ first_restart: {
 
 title: "The Architect",
 
-text: "Starting over in the same layer? Bold. Keep what served you, discard what didn't. Push further to unlock more keep slots \u2014 the progress bar shows how close you are."
+text: "Starting over in the same layer? Bold. Keep what served you, discard what didn\'t. Push further to unlock more keep slots \u2014 the progress bar shows how close you are."
 
 },
 
@@ -10493,7 +10759,7 @@ break_infinity: {
 
 title: "The Architect",
 
-text: "You broke through. The ceiling was never real \u2014 just a number someone decided was big enough. Not anymore. Your points scale infinitely now, and so does your prestige."
+text: "The 1e308 cap is gone. Your points and PP scale as high as you can push them now."
 
 },
 
@@ -10501,7 +10767,7 @@ first_perm_buff: {
 
 title: "The Architect",
 
-text: "Some things survive the reset. This buff will follow you across every dimension, forever. Choose the one that matters most \u2014 you don't get to change your mind."
+text: "Some things survive the reset. This buff will follow you across every dimension, forever. Choose the one that matters most \u2014 you don\'t get to change your mind."
 
 },
 
@@ -10509,7 +10775,7 @@ echo_upgrade: {
 
 title: "The Architect",
 
-text: "Echo copies one of your existing upgrades at the rolled level. A mirror of what you've already built. Pick the original wisely."
+text: "Echo copies one of your existing upgrades at the rolled level. A mirror of what you\'ve already built. Pick the original wisely."
 
 },
 
@@ -10517,7 +10783,7 @@ auto_prestige: {
 
 title: "The Architect",
 
-text: "Smart. Let the machine handle the repetition \u2014 you focus on the choices that matter. It'll fire when the math says it's optimal. Toggle it on the upgrade tile."
+text: "Smart. Let the machine handle the repetition \u2014 you focus on the choices that matter. It\'ll fire when the math says it\'s optimal. Toggle it on the upgrade tile."
 
 },
 
@@ -10525,7 +10791,23 @@ gen_cascade: {
 
 title: "The Architect",
 
-text: "Good \u2014 you bought your second tier. Each generator feeds the one below it. Gen 2 creates Gen 1s, which create points. The deeper you build, the faster everything flows. That's the cascade."
+text: "Good \u2014 you bought your second tier. Each generator feeds the one below it. Gen 2 creates Gen 1s, which create points. The deeper you build, the faster everything flows. That\'s the cascade."
+
+},
+
+global_boost: {
+
+title: "The Architect",
+
+text: "Your highest exponent in each dimension feeds a global multiplier. The higher your records, the stronger the boost across every dimension."
+
+},
+
+final_dimension: {
+
+title: "The Architect",
+
+text: "Last dimension. The penalty is steep. Your records and permanent buffs are the only reason you can make it this far."
 
 },
 
@@ -10533,7 +10815,7 @@ time_bank: {
 
 title: "The Architect",
 
-text: "Time you weren't here, saved for when you are. Use the speed controls to burn through it \u2014 2x, 5x, 10x. Higher speeds drain the bank faster. Spend it wisely, or recklessly. Your call."
+text: "Time you weren\'t here, saved for when you are. Use the speed controls to burn through it \u2014 2x, 5x, 10x. Higher speeds drain the bank faster. Spend it wisely, or recklessly. Your call."
 
 }
 
@@ -11977,6 +12259,7 @@ var _lastGlobalBoostCache = 1;
 function checkGlobalBoostIncrease() {
   var newBoost = getGlobalBoostTotal();
   if (newBoost > _lastGlobalBoostCache + 0.01 && _lastGlobalBoostCache > 1) {
+    showDiscovery('global_boost');
     screenShimmer(getThemeColor('--cyan'));
     // Pulse the dim nav sub text
     var sub = document.getElementById('dimNavSub');
