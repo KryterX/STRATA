@@ -9849,6 +9849,36 @@ dimensions.push(d);
 
 }
 
+// Restore saved state (must happen BEFORE offline time banking)
+
+if (data.gameStats) {
+
+for (var sk in data.gameStats) { if (gameStats.hasOwnProperty(sk)) gameStats[sk] = data.gameStats[sk]; }
+
+}
+
+if (data.hardAchievements) {
+
+for (var hk in data.hardAchievements) { if (hardAchievements.hasOwnProperty(hk)) hardAchievements[hk] = data.hardAchievements[hk]; }
+
+}
+
+// Restore milestones from save blob only
+
+if (data.unlockedMilestones) {
+
+unlockedMilestones = data.unlockedMilestones;
+
+}
+
+// Restore discoveries from save blob only
+
+if (data.discoveryState) {
+
+window._discoveryState = data.discoveryState;
+
+}
+
 // Bank offline time instead of simulating
 
 if (data.timestamp) {
@@ -9919,45 +9949,6 @@ showDiscovery("time_bank");
 }
 
 } else { showSaveMsg("Game loaded!"); }
-
-// Restore saved state
-
-if (data.gameStats) {
-
-for (var sk in data.gameStats) { if (gameStats.hasOwnProperty(sk)) gameStats[sk] = data.gameStats[sk]; }
-
-}
-
-if (data.hardAchievements) {
-
-for (var hk in data.hardAchievements) { if (hardAchievements.hasOwnProperty(hk)) hardAchievements[hk] = data.hardAchievements[hk]; }
-
-}
-
-// Restore milestones (prefer save blob, fallback to global localStorage)
-
-if (data.unlockedMilestones) {
-
-unlockedMilestones = data.unlockedMilestones;
-
-} else {
-
-loadMilestones(); // migration: old save without milestones in blob
-
-}
-
-// Restore discoveries (prefer save blob, fallback to global localStorage)
-
-if (data.discoveryState) {
-
-window._discoveryState = data.discoveryState;
-
-} else {
-
-// Migration: old save without discoveries in blob - try global localStorage
-try { var _dRaw = localStorage.getItem("strata_discoveries"); window._discoveryState = _dRaw ? JSON.parse(_dRaw) : {}; } catch(e) { window._discoveryState = {}; }
-
-}
 
 gameStats.currentRunStart = Date.now();
 
@@ -10267,6 +10258,7 @@ setActiveSlot(getNextFreeSlot());
 dimensions = [createFreshDimension()];
 activeDimIdx = 0; unlockedDims = 1; multiDimUnlocked = false;
 permBuffs = []; dimCompletionCount = 0; gameRetired = false;
+gameStats = { realTime: 0, gameTime: 0, totalPrestiges: 0, totalPPEarned: 0, highestExponent: 0, fastestPrestige: Infinity, totalGeneratorsBought: 0, totalUpgradesBought: 0, challengesCompleted: 0, dimensionsCompleted: 0, currentRunStart: Date.now() };
 unlockedMilestones = {};
 window._discoveryState = {};
 hardAchievements = {
@@ -12107,13 +12099,7 @@ var MILESTONES = [
 var unlockedMilestones = {};
 
 function loadMilestones() {
-  // Milestones are now loaded from save data in loadGame().
-  // This is kept as a legacy fallback only.
-  if (Object.keys(unlockedMilestones).length > 0) return;
-  try {
-    var raw = localStorage.getItem("strata_milestones");
-    if (raw) unlockedMilestones = JSON.parse(raw);
-  } catch(e) {}
+  // Legacy — milestones are exclusively in the save blob now
 }
 
 function saveMilestones() {
