@@ -3157,6 +3157,39 @@ Buy Upgrade (1 PP)
 
 </div>
 
+
+<div class="restart-overlay hidden" id="slotOverflowOverlay" style="z-index:2100;">
+
+<div class="restart-overlay-title" id="slotOverflowTitle">Too Many Upgrades</div>
+
+<div class="restart-chips" id="slotOverflowChips"></div>
+
+<div class="restart-overlay-sub" id="slotOverflowSub">You have 7 upgrades but will only have 5 slots. Choose which 5 to keep.</div>
+
+<div class="restart-overlay-warn" id="slotOverflowWarn" style="color:var(--amber);">The rest will be lost.</div>
+
+<div class="upgrade-sort-bar" style="max-width:420px;" id="slotOverflowSortBar">
+
+<button class="sort-btn active-sort" onclick="setSlotOverflowSort('default')">Default</button>
+
+<button class="sort-btn" onclick="setSlotOverflowSort('level')">Lv</button>
+
+<button class="sort-btn" onclick="setSlotOverflowSort('type')">Type</button>
+
+</div>
+
+<div class="restart-slots-container" id="slotOverflowSlots"></div>
+
+<div style="display:flex;gap:10px;margin-top:12px;">
+
+<button class="challenge-btn" id="slotOverflowConfirm" onclick="confirmSlotOverflow()" style="flex:1;" disabled>Confirm</button>
+
+<button class="restart-cancel-btn" onclick="cancelSlotOverflow()" style="margin-top:0;">Back</button>
+
+</div>
+
+</div>
+
 <div class="perm-overlay hidden" id="permOverlay">
 
 <div class="perm-overlay-title">DIMENSION COMPLETE</div>
@@ -4425,6 +4458,9 @@ var fs = getFastStartPoints(); var ms = bn(10, 0);
 
 d.points = bnGte(fs, ms) ? fs : ms;
 
+d.maxExponent = 0;
+d._runBestExp = 0; d._lastRunIntExp = 0;
+
 initGenerators();
 
 invalidateRenderKeys();
@@ -5071,6 +5107,9 @@ var fs = getFastStartPoints(); var ms = bn(10, 0);
 
 d.points = bnGte(fs, ms) ? fs : ms;
 
+d.maxExponent = 0;
+d._runBestExp = 0; d._lastRunIntExp = 0;
+
 initGenerators();
 
 invalidateRenderKeys(); updateUI();
@@ -5092,6 +5131,9 @@ d.challengeStartTime = 0;
 var fs = getFastStartPoints(); var ms = bn(10, 0);
 
 d.points = bnGte(fs, ms) ? fs : ms;
+
+d.maxExponent = 0;
+d._runBestExp = 0; d._lastRunIntExp = 0;
 
 initGenerators();
 
@@ -5733,23 +5775,30 @@ var oldSlot = d.upgradeSlots[index];
 
 // Safety check: replacing upgrade_count could lose slots
 if (oldSlot && oldSlot.id === "upgrade_count") {
-  var filledCount = getFilledSlotCount();
-  var simSums = {};
+  // Build the post-replace upgrade set
+  var _postSet = [];
   for (var _si = 0; _si < d.upgradeSlots.length; _si++) {
     var _ss = d.upgradeSlots[_si]; if (!_ss) continue;
-    if (_si === index) continue;
-    if (!simSums[_ss.id]) simSums[_ss.id] = 0;
-    simSums[_ss.id] += _ss.level;
+    if (_si === index) continue; // skip the slot being replaced
+    _postSet.push({ id: _ss.id, level: _ss.level });
   }
-  if (!simSums[d.pendingUpgrade.id]) simSums[d.pendingUpgrade.id] = 0;
-  simSums[d.pendingUpgrade.id] += d.pendingUpgrade.level;
-  var newUCSum = (simSums["upgrade_count"] || 0) + getPermBuffSum("upgrade_count");
-  var newMaxSlots = Math.min(20, BASE_UPGRADE_SLOTS + Math.floor(2 * Math.pow(newUCSum, 0.6)));
-  if (newMaxSlots < filledCount) {
-    var loseCount = filledCount - newMaxSlots;
-    if (!confirm("Warning: Replacing this Upgrade Count will reduce your slots to " + newMaxSlots + ". You have " + filledCount + " upgrades \u2014 you will lose " + loseCount + " upgrade(s). Continue?")) {
-      return;
-    }
+  _postSet.push({ id: d.pendingUpgrade.id, level: d.pendingUpgrade.level }); // add new upgrade
+  var _postMaxSlots = calcMaxSlotsFromSet(_postSet);
+  if (_postSet.length > _postMaxSlots) {
+    // Overflow — show re-selection screen
+    var _replaceIndex = index;
+    var _pu = d.pendingUpgrade;
+    checkSlotOverflow(_postSet, function(finalKept) {
+      // Apply the kept set directly
+      d.upgradeSlots = [];
+      for (var _fk = 0; _fk < finalKept.length; _fk++) {
+        d.upgradeSlots.push(finalKept[_fk]);
+      }
+      d.pendingUpgrade = null;
+      document.getElementById("rewardOverlay").classList.add("hidden");
+      initUpgradeSlots(); ensureGeneratorCount(); invalidateRenderKeys(); updateUI();
+    });
+    return;
   }
 }
 
@@ -8126,6 +8175,31 @@ setTimeout(function() { chipEl.classList.remove("pulse"); }, 300);
 
 function confirmRestart() {
 
+var d = D();
+
+// Build kept upgrades list first
+var keptUpgrades = [];
+for (var i = 0; i < window._restartSelected.length; i++) {
+  var idx = window._restartSelected[i];
+  var slot = d.upgradeSlots[idx];
+  if (slot) keptUpgrades.push({ id: slot.id, level: slot.level });
+}
+
+// Check slot overflow — if keeping more than post-restart slots allow
+var overflowed = checkSlotOverflow(keptUpgrades, function(finalKept) {
+  // User re-selected within the reduced limit — proceed with restart
+  _doRestart(finalKept);
+});
+if (overflowed) return; // warning screen is showing, don't proceed
+
+// No overflow — proceed directly
+document.getElementById("restartOverlay").classList.add("hidden");
+_doRestart(keptUpgrades);
+
+}
+
+function _doRestart(keptUpgrades) {
+
 document.getElementById("restartOverlay").classList.add("hidden");
 
 var d = D();
@@ -8142,51 +8216,35 @@ if (_curExp > _oldRecord) d.maxExponentRecord = _curExp;
 recalcGlobalBoost();
 var _newBoost = getGlobalBoostTotal();
 
-if (_wasNewRecord) playNewRecordAnimation(_oldRecord, _curExp, _oldBoost, _newBoost);
-
-var keptUpgrades = [];
-
-for (var i = 0; i < window._restartSelected.length; i++) {
-
-var idx = window._restartSelected[i];
-
-var slot = d.upgradeSlots[idx];
-
-if (slot) keptUpgrades.push({ id: slot.id, level: slot.level });
-
+function _finishRestart() {
+  var _savedMaxExpRecord = D().maxExponentRecord || 0;
+  dimensions[activeDimIdx] = createFreshDimension();
+  var fresh = D();
+  fresh.maxExponentRecord = _savedMaxExpRecord;
+  fresh.upgradeSlots = keptUpgrades;
+  if (keptUpgrades.length > 0) fresh.hasPrestigedOnce = true;
+  if (getPermBuffSum("passive_prestige") > 0) {
+    fresh.hasPrestigedOnce = true;
+    if (fresh.prestigeCount < 1) fresh.prestigeCount = 1;
+  }
+  var _restartFs = getFastStartPoints(fresh);
+  if (bnGte(_restartFs, fresh.points)) fresh.points = _restartFs;
+  initUpgradeSlots(); initGenerators();
+  currentTab = "generators";
+  invalidateRenderKeys();
+  switchTab("generators");
+  updateUI();
+  restartScreenFlash();
+  showSaveMsg("Dimension " + (activeDimIdx + 1) + " restarted \u2014 kept " + keptUpgrades.length + " upgrade" + (keptUpgrades.length !== 1 ? "s" : "") + "!");
 }
 
-var _savedMaxExpRecord = d.maxExponentRecord || 0;
-dimensions[activeDimIdx] = createFreshDimension();
-
-var fresh = D();
-fresh.maxExponentRecord = _savedMaxExpRecord;
-
-var _keptCount = _keptCount;
-fresh.upgradeSlots = keptUpgrades;
-
-if (keptUpgrades.length > 0) fresh.hasPrestigedOnce = true;
-
-// Apply perm passive_prestige to restarted dimension
-if (getPermBuffSum("passive_prestige") > 0) {
-  fresh.hasPrestigedOnce = true;
-  if (fresh.prestigeCount < 1) fresh.prestigeCount = 1;
+if (_wasNewRecord) {
+  // Play epic animation, THEN do the reset
+  playNewRecordAnimation(_oldRecord, _curExp, _oldBoost, _newBoost, _finishRestart);
+} else {
+  // No new record — restart immediately with flash
+  _finishRestart();
 }
-// Apply perm fast_start to restarted dimension
-var _restartFs = getFastStartPoints(fresh);
-if (bnGte(_restartFs, fresh.points)) fresh.points = _restartFs;
-
-initUpgradeSlots(); initGenerators();
-
-currentTab = "generators";
-
-invalidateRenderKeys();
-
-switchTab("generators");
-
-updateUI();
-
-showSaveMsg("Dimension " + (activeDimIdx + 1) + " restarted — kept " + keptUpgrades.length + " upgrade" + (keptUpgrades.length !== 1 ? "s" : "") + "!");
 
 }
 
@@ -8202,8 +8260,17 @@ document.getElementById("restartOverlay").classList.add("hidden");
 
 var d = D();
 
-// Update max exponent record before restart
+// Build kept upgrades from indices
+var keptUpgrades = [];
+if (Array.isArray(keepSlotIdxArray)) {
+  for (var i = 0; i < keepSlotIdxArray.length; i++) {
+    var idx = keepSlotIdxArray[i];
+    var slot = d.upgradeSlots[idx];
+    if (slot) keptUpgrades.push({ id: slot.id, level: slot.level });
+  }
+}
 
+// Update max exponent record before restart
 var _curExp = bnLog10(d.points);
 var _oldRecord = d.maxExponentRecord || 0;
 var _oldBoost = getGlobalBoostTotal();
@@ -8214,56 +8281,223 @@ if (_curExp > _oldRecord) d.maxExponentRecord = _curExp;
 recalcGlobalBoost();
 var _newBoost = getGlobalBoostTotal();
 
-if (_wasNewRecord) playNewRecordAnimation(_oldRecord, _curExp, _oldBoost, _newBoost);
+function _finishLegacyRestart() {
+  var _savedMaxExpRecord = D().maxExponentRecord || 0;
+  dimensions[activeDimIdx] = createFreshDimension();
+  var fresh = D();
+  fresh.maxExponentRecord = _savedMaxExpRecord;
+  fresh.upgradeSlots = keptUpgrades;
+  if (keptUpgrades.length > 0) fresh.hasPrestigedOnce = true;
+  if (getPermBuffSum("passive_prestige") > 0) {
+    fresh.hasPrestigedOnce = true;
+    if (fresh.prestigeCount < 1) fresh.prestigeCount = 1;
+  }
+  var _restartFs = getFastStartPoints(fresh);
+  if (bnGte(_restartFs, fresh.points)) fresh.points = _restartFs;
+  initUpgradeSlots(); initGenerators();
+  currentTab = "generators";
+  invalidateRenderKeys();
+  switchTab("generators");
+  updateUI();
+  restartScreenFlash();
+  showSaveMsg("Dimension " + (activeDimIdx + 1) + " restarted \u2014 kept " + keptUpgrades.length + " upgrade" + (keptUpgrades.length !== 1 ? "s" : "") + "!");
+}
 
-var keptUpgrades = [];
-
-if (Array.isArray(keepSlotIdxArray)) {
-
-for (var i = 0; i < keepSlotIdxArray.length; i++) {
-
-var idx = keepSlotIdxArray[i];
-
-var slot = d.upgradeSlots[idx];
-
-if (slot) keptUpgrades.push({ id: slot.id, level: slot.level });
-
+if (_wasNewRecord) {
+  playNewRecordAnimation(_oldRecord, _curExp, _oldBoost, _newBoost, _finishLegacyRestart);
+} else {
+  _finishLegacyRestart();
 }
 
 }
 
-var _savedMaxExpRecord = d.maxExponentRecord || 0;
-dimensions[activeDimIdx] = createFreshDimension();
+// ============================================================
+// Slot Overflow Warning System
+// ============================================================
 
-var fresh = D();
-fresh.maxExponentRecord = _savedMaxExpRecord;
+// Shared state
+var _slotOverflow = {
+  upgrades: [],       // array of {id, level} — the set user wants to keep
+  maxSlots: 0,        // how many they CAN keep
+  selected: [],       // indices into upgrades[] they've picked
+  callback: null,     // function(keptUpgrades) called on confirm
+  sortMode: "default",
+  sortLevelAsc: false
+};
 
-var _keptCount = _keptCount;
-fresh.upgradeSlots = keptUpgrades;
-
-if (keptUpgrades.length > 0) fresh.hasPrestigedOnce = true;
-
-// Apply perm passive_prestige to restarted dimension
-if (getPermBuffSum("passive_prestige") > 0) {
-  fresh.hasPrestigedOnce = true;
-  if (fresh.prestigeCount < 1) fresh.prestigeCount = 1;
+// Calculate post-change max slots from a given upgrade set
+function calcMaxSlotsFromSet(upgradeSet) {
+  var ucSum = 0;
+  for (var i = 0; i < upgradeSet.length; i++) {
+    if (upgradeSet[i].id === "upgrade_count") ucSum += upgradeSet[i].level;
+  }
+  ucSum += getPermBuffSum("upgrade_count");
+  var permBonus = getPermBuffSum("upgrade_count") > 0 ? Math.min(15, Math.max(1, Math.floor(2 * Math.pow(getPermBuffSum("upgrade_count"), 0.6)))) : 0;
+  var slotBonus = Math.floor(2 * Math.pow(ucSum, 0.6));
+  return Math.min(20, BASE_UPGRADE_SLOTS + slotBonus);
 }
-// Apply perm fast_start to restarted dimension
-var _restartFs = getFastStartPoints(fresh);
-if (bnGte(_restartFs, fresh.points)) fresh.points = _restartFs;
 
-initUpgradeSlots(); initGenerators();
+// Check if a set of upgrades overflows and show warning if needed
+// Returns true if warning was shown (caller should stop), false if OK to proceed
+function checkSlotOverflow(upgradeSet, onConfirm) {
+  var maxSlots = calcMaxSlotsFromSet(upgradeSet);
+  if (upgradeSet.length <= maxSlots) return false;
 
-currentTab = "generators";
+  // Overflow — show the re-selection screen
+  _slotOverflow.upgrades = upgradeSet.slice();
+  _slotOverflow.maxSlots = maxSlots;
+  _slotOverflow.selected = [];
+  _slotOverflow.callback = onConfirm;
+  _slotOverflow.sortMode = "default";
+  _slotOverflow.sortLevelAsc = false;
 
-invalidateRenderKeys();
+  renderSlotOverflow();
+  document.getElementById("slotOverflowOverlay").classList.remove("hidden");
+  return true;
+}
 
-switchTab("generators");
+function setSlotOverflowSort(mode) {
+  if (mode === "level" && _slotOverflow.sortMode === "level") {
+    _slotOverflow.sortLevelAsc = !_slotOverflow.sortLevelAsc;
+  } else { _slotOverflow.sortLevelAsc = false; }
+  _slotOverflow.sortMode = mode;
+  renderSlotOverflow();
+}
 
-updateUI();
+function renderSlotOverflowChips() {
+  var el = document.getElementById("slotOverflowChips");
+  if (!el) return;
+  var selected = _slotOverflow.selected;
+  var upgrades = _slotOverflow.upgrades;
 
-showSaveMsg("Dimension " + (activeDimIdx + 1) + " restarted — kept " + keptUpgrades.length + " upgrade" + (keptUpgrades.length !== 1 ? "s" : "") + "!");
+  var owned = {};
+  for (var i = 0; i < selected.length; i++) {
+    var u = upgrades[selected[i]];
+    if (!u || u.id === "echo") continue;
+    if (!owned[u.id]) owned[u.id] = { sum: 0 };
+    owned[u.id].sum += u.level;
+  }
+  for (var p = 0; p < permBuffs.length; p++) {
+    var pid = permBuffs[p];
+    if (!owned[pid]) owned[pid] = { sum: 0 };
+    owned[pid].sum += (PERM_BUFF_LEVELS && PERM_BUFF_LEVELS[pid]) || 5;
+  }
 
+  var keys = Object.keys(owned);
+  if (keys.length === 0) {
+    el.innerHTML = '<div style="color:var(--text-dim);font-size:0.6rem;font-family:var(--font-mono);text-align:center;width:100%;">select upgrades to preview</div>';
+    return;
+  }
+  var html = "";
+  for (var k = 0; k < keys.length; k++) {
+    var id = keys[k];
+    var def = UPGRADE_DEFS.find(function(u) { return u.id === id; });
+    if (!def) continue;
+    var effect = getNetEffectAtSum(id, owned[id].sum);
+    if (!effect) continue;
+    html += '<div class="effect-chip" id="sochip-' + id + '">';
+    html += '<span class="chip-icon">' + def.icon + '</span>';
+    html += '<span class="chip-value">' + effect + '</span>';
+    html += '<div class="chip-bar" id="sochipbar-' + id + '"></div>';
+    html += '</div>';
+  }
+  el.innerHTML = html;
+  addChipTooltips();
+}
+
+function renderSlotOverflow() {
+  var upgrades = _slotOverflow.upgrades;
+  var maxSlots = _slotOverflow.maxSlots;
+  var selected = _slotOverflow.selected;
+
+  // Update text
+  document.getElementById("slotOverflowSub").textContent =
+    "You have " + upgrades.length + " upgrades but will only have " + maxSlots + " slot" + (maxSlots !== 1 ? "s" : "") + ". Choose which " + maxSlots + " to keep.";
+
+  // Build sortable indices
+  var indices = [];
+  for (var i = 0; i < upgrades.length; i++) indices.push(i);
+
+  if (_slotOverflow.sortMode === "alpha") {
+    indices.sort(function(a, b) {
+      var na = UPGRADE_DEFS.find(function(u) { return u.id === upgrades[a].id; });
+      var nb = UPGRADE_DEFS.find(function(u) { return u.id === upgrades[b].id; });
+      return (na ? na.name : "").localeCompare(nb ? nb.name : "");
+    });
+  } else if (_slotOverflow.sortMode === "level") {
+    indices.sort(function(a, b) {
+      return _slotOverflow.sortLevelAsc ? upgrades[a].level - upgrades[b].level : upgrades[b].level - upgrades[a].level;
+    });
+  } else if (_slotOverflow.sortMode === "type") {
+    indices.sort(function(a, b) {
+      if (upgrades[a].id !== upgrades[b].id) return upgrades[a].id.localeCompare(upgrades[b].id);
+      return upgrades[b].level - upgrades[a].level;
+    });
+  }
+
+  // Sort button states
+  var sortBtns = document.querySelectorAll("#slotOverflowSortBar .sort-btn");
+  for (var sb = 0; sb < sortBtns.length; sb++) {
+    sortBtns[sb].classList.remove("active-sort");
+    var mm = sortBtns[sb].getAttribute("onclick");
+    if (mm && mm.indexOf(_slotOverflow.sortMode) >= 0) sortBtns[sb].classList.add("active-sort");
+  }
+  var lvlBtn = document.querySelector('#slotOverflowSortBar .sort-btn[onclick*="level"]');
+  if (lvlBtn) lvlBtn.textContent = _slotOverflow.sortMode === "level" ? (_slotOverflow.sortLevelAsc ? "Lv↑" : "Lv↓") : "Lv";
+
+  var html = "";
+  for (var fi = 0; fi < indices.length; fi++) {
+    var idx = indices[fi];
+    var u = upgrades[idx];
+    var def = UPGRADE_DEFS.find(function(d) { return d.id === u.id; });
+    if (!def) continue;
+    var isSelected = selected.indexOf(idx) >= 0;
+    var borderColor = isSelected ? "var(--green)" : "var(--border)";
+    var bgColor = isSelected ? "#0a1a0a" : "var(--bg-card)";
+    var checkmark = isSelected ? ' <span style="color:var(--green);">[KEEP]</span>' : "";
+    var lvlCls = "lvl-" + Math.min(u.level, 10);
+    html += '<div class="restart-slot-option" style="border-color:' + borderColor + ';background:' + bgColor + ';" onclick="toggleSlotOverflowItem(' + idx + ')">';
+    html += '<div class="upgrade-icon">' + def.icon + '</div>';
+    html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + def.name + ' <span class="upgrade-level-badge ' + lvlCls + '">Lv.' + u.level + '</span>' + checkmark + '</div>';
+    html += '<div class="upgrade-slot-desc">' + def.descFn(u.level) + '</div></div></div>';
+  }
+
+  document.getElementById("slotOverflowSlots").innerHTML = html;
+  renderSlotOverflowChips();
+
+  // Enable/disable confirm
+  var confirmBtn = document.getElementById("slotOverflowConfirm");
+  if (confirmBtn) {
+    confirmBtn.disabled = selected.length !== maxSlots;
+    confirmBtn.textContent = "Confirm (" + selected.length + "/" + maxSlots + ")";
+  }
+}
+
+function toggleSlotOverflowItem(idx) {
+  var sel = _slotOverflow.selected;
+  var pos = sel.indexOf(idx);
+  if (pos >= 0) {
+    sel.splice(pos, 1);
+  } else {
+    if (sel.length >= _slotOverflow.maxSlots) return;
+    sel.push(idx);
+  }
+  renderSlotOverflow();
+}
+
+function confirmSlotOverflow() {
+  if (_slotOverflow.selected.length !== _slotOverflow.maxSlots) return;
+  var kept = [];
+  for (var i = 0; i < _slotOverflow.selected.length; i++) {
+    kept.push(_slotOverflow.upgrades[_slotOverflow.selected[i]]);
+  }
+  document.getElementById("slotOverflowOverlay").classList.add("hidden");
+  if (_slotOverflow.callback) _slotOverflow.callback(kept);
+}
+
+function cancelSlotOverflow() {
+  document.getElementById("slotOverflowOverlay").classList.add("hidden");
+  _slotOverflow.callback = null;
 }
 
 // ============================================================
@@ -12284,7 +12518,7 @@ function checkGlobalBoostIncrease() {
 }
 
 // ─── D1c-prestige: New Record Animation on Prestige ───
-function playNewRecordAnimation(oldExp, newExp, oldBoost, newBoost) {
+function playNewRecordAnimation(oldExp, newExp, oldBoost, newBoost, onComplete) {
   var overlay = document.getElementById('dimCompleteOverlay');
   var textEl = document.getElementById('dimCompleteText');
   var subEl = document.getElementById('dimCompleteSub');
@@ -12311,24 +12545,24 @@ function playNewRecordAnimation(oldExp, newExp, oldBoost, newBoost) {
 
   var labelEl = document.createElement('div');
   labelEl.textContent = 'EXPONENT RECORD';
-  labelEl.style.cssText = 'font-size:0.45rem;letter-spacing:0.2em;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;opacity:0;';
+  labelEl.style.cssText = 'font-size:0.5rem;letter-spacing:0.2em;color:var(--text-dim);margin-bottom:8px;text-transform:uppercase;opacity:0;';
   container.appendChild(labelEl);
 
   var counterEl = document.createElement('div');
   counterEl.textContent = 'e' + oldInt.toLocaleString();
-  counterEl.style.cssText = 'font-size:1.8rem;font-weight:800;color:var(--cyan);text-shadow:0 0 20px var(--cyan);opacity:0;transition:transform 0.08s ease;';
+  counterEl.style.cssText = 'font-size:2rem;font-weight:900;color:var(--cyan);text-shadow:0 0 30px var(--cyan), 0 0 70px rgba(0,228,255,0.2);opacity:0;transition:transform 0.08s ease;';
   container.appendChild(counterEl);
 
   var boostLabelEl = null, boostCounterEl = null;
   if (showBoost) {
     boostLabelEl = document.createElement('div');
     boostLabelEl.textContent = 'GLOBAL BOOST';
-    boostLabelEl.style.cssText = 'font-size:0.45rem;letter-spacing:0.2em;color:var(--text-dim);margin-top:18px;margin-bottom:6px;text-transform:uppercase;opacity:0;';
+    boostLabelEl.style.cssText = 'font-size:0.55rem;letter-spacing:0.25em;color:var(--text-dim);margin-top:20px;margin-bottom:8px;text-transform:uppercase;opacity:0;';
     container.appendChild(boostLabelEl);
 
     boostCounterEl = document.createElement('div');
     boostCounterEl.textContent = 'x' + oldBoost.toFixed(3);
-    boostCounterEl.style.cssText = 'font-size:1.4rem;font-weight:800;color:var(--green);text-shadow:0 0 16px var(--green);opacity:0;transition:transform 0.08s ease;';
+    boostCounterEl.style.cssText = 'font-size:1.6rem;font-weight:900;color:var(--green);text-shadow:0 0 24px var(--green), 0 0 60px rgba(0,255,136,0.2);opacity:0;transition:transform 0.08s ease;';
     container.appendChild(boostCounterEl);
   }
 
@@ -12413,31 +12647,32 @@ function playNewRecordAnimation(oldExp, newExp, oldBoost, newBoost) {
         rollCounter(counterEl, 'e', oldInt, newInt, 0, expDuration, function() {
           // Big burst on final landing
           var rect = counterEl.getBoundingClientRect();
-          spawnParticleBurst(rect.left + rect.width/2, rect.top, getThemeColor('--cyan'), 8, 50);
+          spawnParticleBurst(rect.left + rect.width/2, rect.top, getThemeColor('--cyan'), 14, 60);
 
           if (showBoost) {
             setTimeout(function() {
               // Phase 4: Show boost label + counter
               boostLabelEl.style.opacity = '1';
-              boostLabelEl.style.animation = 'dimTextAppear 0.2s ease-out forwards';
+              boostLabelEl.style.animation = 'dimTextAppear 0.3s ease-out forwards';
               boostCounterEl.style.opacity = '1';
               boostCounterEl.style.animation = 'dimTextAppear 0.3s ease-out forwards';
               pulse(boostCounterEl, 1.2);
 
               setTimeout(function() {
                 // Phase 5: Roll the boost counter
-                var boostDuration = Math.min(1500, Math.max(600, Math.abs(newBoost - oldBoost) * 2000));
+                var boostDuration = Math.min(2500, Math.max(1200, Math.abs(newBoost - oldBoost) * 4000));
                 rollCounter(boostCounterEl, 'x', oldBoost, newBoost, 3, boostDuration, function() {
                   var rect2 = boostCounterEl.getBoundingClientRect();
-                  spawnParticleBurst(rect2.left + rect2.width/2, rect2.top, getThemeColor('--green'), 6, 40);
+                  spawnParticleBurst(rect2.left + rect2.width/2, rect2.top, getThemeColor('--green'), 12, 60);
+                  spawnStarBurst(rect2.left + rect2.width/2, rect2.top + rect2.height/2, 8);
                   // Hold then fade out
-                  setTimeout(function() { fadeOutCinematic(); }, 800);
+                  setTimeout(function() { fadeOutCinematic(); }, 1500);
                 });
-              }, 400);
-            }, 300);
+              }, 600);
+            }, 500);
           } else {
             // No boost — hold then fade
-            setTimeout(function() { fadeOutCinematic(); }, 1000);
+            setTimeout(function() { fadeOutCinematic(); }, 1500);
           }
         });
       }, 500);
@@ -12445,14 +12680,15 @@ function playNewRecordAnimation(oldExp, newExp, oldBoost, newBoost) {
   }, 600);
 
   function fadeOutCinematic() {
-    overlay.style.animation = 'dimFlashReveal 1.0s ease-out forwards';
+    overlay.style.animation = 'dimFlashReveal 1.2s ease-out forwards';
     spawnConfetti(25);
     setTimeout(function() {
       overlay.classList.remove('active');
       overlay.style.opacity = '0';
       overlay.style.animation = '';
       overlay.innerHTML = '<div class="dim-complete-text" id="dimCompleteText"></div><div class="dim-complete-sub" id="dimCompleteSub"></div>';
-    }, 1200);
+      if (onComplete) onComplete();
+    }, 1400);
   }
 }
 
@@ -12480,6 +12716,16 @@ spawnParticleBurst(r.left + r.width/2, r.top, getThemeColor('--cyan'), 3, 30);
 }
 
 // ─── D3b: Prestige Screen Flash ───
+function restartScreenFlash() {
+  var flash = document.createElement('div');
+  flash.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--cyan);opacity:0.2;z-index:9990;pointer-events:none;';
+  document.body.appendChild(flash);
+  setTimeout(function() { flash.style.transition = 'opacity 0.5s ease-out'; flash.style.opacity = '0'; }, 50);
+  setTimeout(function() { flash.remove(); }, 600);
+  document.body.style.transform = 'translate(' + (Math.random()*3-1.5) + 'px,' + (Math.random()*3-1.5) + 'px)';
+  setTimeout(function() { document.body.style.transform = ''; }, 60);
+}
+
 function prestigeScreenFlash() {
   var flash = document.createElement('div');
   flash.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--magenta);opacity:0.25;z-index:9990;pointer-events:none;';
