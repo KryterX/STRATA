@@ -2693,7 +2693,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9</div>
+<div class="start-version" id="startVersion">v1.9.1</div>
 
 </div>
 
@@ -2745,7 +2745,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.1</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3169,6 +3169,16 @@ Buy Upgrade (1 PP)
 </div>
 
 
+
+<div class="restart-overlay hidden" id="confirmDialogOverlay" style="z-index:2200;">
+<div class="restart-overlay-title" id="confirmDialogTitle">Confirm</div>
+<div class="restart-overlay-sub" id="confirmDialogMessage" style="margin-bottom:16px;line-height:1.6;"></div>
+<div style="display:flex;gap:10px;margin-top:12px;width:100%;max-width:360px;">
+<button class="challenge-btn" id="confirmDialogYes" style="flex:1;">Confirm</button>
+<button class="restart-cancel-btn" id="confirmDialogNo" style="margin-top:0;flex:1;">Cancel</button>
+</div>
+</div>
+
 <div class="restart-overlay hidden" id="slotOverflowOverlay" style="z-index:2100;">
 
 <div class="restart-overlay-title" id="slotOverflowTitle">Too Many Upgrades</div>
@@ -3261,7 +3271,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9";
+var STRATA_VERSION = "v1.9.1";
 
 // ============================================================
 
@@ -5386,10 +5396,29 @@ if (oldSlot && oldSlot.id === "upgrade_count") {
   var newUCSum = (simSums["upgrade_count"] || 0) + getPermBuffSum("upgrade_count");
   var newMaxSlots = Math.min(20, BASE_UPGRADE_SLOTS + Math.floor(2 * Math.pow(newUCSum, 0.6)));
   if (newMaxSlots < filledCount) {
-    var loseCount = filledCount - newMaxSlots;
-    if (!confirm("Warning: Replacing this Upgrade Count will reduce your slots to " + newMaxSlots + ". You have " + filledCount + " upgrades \u2014 you will lose " + loseCount + " upgrade(s). Continue?")) {
-      return;
-    }
+    var _rcIndex = index;
+    var _rcPending = d.pendingUpgrade;
+    showConfirmDialog("Slot Reduction",
+      "Replacing this will reduce your slots to " + newMaxSlots + ". You have " + filledCount + " upgrades — some will be lost.",
+      "Replace", "Cancel",
+      function() { 
+        var _postSet = [];
+        for (var _ri = 0; _ri < D().upgradeSlots.length; _ri++) {
+          var _rs = D().upgradeSlots[_ri]; if (!_rs) continue;
+          if (_ri === _rcIndex) continue;
+          _postSet.push({ id: _rs.id, level: _rs.level });
+        }
+        _postSet.push({ id: _rcPending.id, level: _rcPending.level });
+        checkSlotOverflow(_postSet, function(finalKept) {
+          D().upgradeSlots = [];
+          for (var _fk = 0; _fk < finalKept.length; _fk++) D().upgradeSlots.push(finalKept[_fk]);
+          D().pendingUpgrade = null;
+          document.getElementById("rewardOverlay").classList.add("hidden");
+          initUpgradeSlots(); ensureGeneratorCount(); invalidateRenderKeys(); updateUI();
+        });
+      }
+    );
+    return;
   }
 }
 
@@ -5464,6 +5493,33 @@ updateUI();
 
 }
 
+
+function _finishPickOption(index) {
+  var d = D(); var opt = d.selectionOptions[index];
+  var def = (opt.defIdx < UPGRADE_DEFS.length ? UPGRADE_DEFS[opt.defIdx] : null) || UPGRADE_DEFS.find(function(u) { return u.id === opt.id; });
+  
+  d.selectionActive = false; d.selectionOptions = [];
+  document.getElementById("selectionOverlay").classList.add("hidden");
+  
+  var full = getFilledSlotCount() >= getMaxUpgradeSlots();
+  if (!full) {
+    var emptyIdx = d.upgradeSlots.indexOf(null);
+    if (emptyIdx >= 0) {
+      d.upgradeSlots[emptyIdx] = { id: def.id, level: opt.level };
+      d.upgradeBuyCount++;
+      ensureGeneratorCount(); initUpgradeSlots(); invalidateRenderKeys(); updateUI();
+      triggerUpgradeAnimation(def.id, opt.level, null, 0);
+      checkChallengeUnlock();
+      if (def.id === "break_infinity") showDiscovery("break_infinity");
+      if (def.id === "passive_prestige") showDiscovery("passive_prestige");
+      if (def.id === "echo") showDiscovery("echo_upgrade");
+      return;
+    }
+  }
+  d.pendingUpgrade = { id: def.id, level: opt.level, name: def.name, desc: def.descFn(opt.level) };
+  showUpgradeReplaceOverlay();
+}
+
 function pickOption(index) {
 
 var d = D(); var opt = d.selectionOptions[index];
@@ -5505,9 +5561,13 @@ if (!placed) {
     return _ucDef && _ucDef.id === "upgrade_count";
   });
   if (_hasUCOption && def.id !== "upgrade_count" && getMaxUpgradeSlots() < 20) {
-    if (!confirm("Your upgrade slots are full and Upgrade Count is available. Taking it could give you more slots. Are you sure you want " + def.name + " instead?")) {
-      return;
-    }
+    var _pickIdx = index;
+    showConfirmDialog("Upgrade Count Available",
+      "Your slots are full but Upgrade Count is in this selection. It could give you more slots. Take " + def.name + " instead?",
+      "Yes, take it", "Go back",
+      function() { _finishPickOption(_pickIdx); }
+    );
+    return;
   }
 }
 
@@ -7310,6 +7370,22 @@ pointsBar.classList.add("hidden"); prestigeBar.classList.remove("hidden"); prest
 
 function updateUI() {
 
+// Skip heavy UI updates while player is in an overlay (prevents click stealing on mobile)
+var _selOpen = document.getElementById("selectionOverlay");
+var _rewOpen = document.getElementById("rewardOverlay");
+var _restOpen = document.getElementById("restartOverlay");
+var _soOpen = document.getElementById("slotOverflowOverlay");
+var _echoOpen = document.getElementById("echoOverlay");
+if ((_selOpen && !_selOpen.classList.contains("hidden")) ||
+    (_rewOpen && !_rewOpen.classList.contains("hidden")) ||
+    (_restOpen && !_restOpen.classList.contains("hidden")) ||
+    (_soOpen && !_soOpen.classList.contains("hidden")) ||
+    (_echoOpen && !_echoOpen.classList.contains("hidden"))) {
+  // Only update points display and prestige button, skip everything else
+  document.getElementById("points").textContent = bnFormat(D().points);
+  return;
+}
+
 var d = D();
 
 var prompt = document.getElementById("prestigePrompt");
@@ -8311,6 +8387,32 @@ if (_wasNewRecord) {
 }
 
 // ============================================================
+// Themed Confirmation Dialog (replaces browser confirm())
+// ============================================================
+
+var _confirmState = { resolve: null };
+
+function showConfirmDialog(title, message, confirmText, cancelText, onConfirm, onCancel) {
+  var overlay = document.getElementById("confirmDialogOverlay");
+  if (!overlay) return;
+  document.getElementById("confirmDialogTitle").textContent = title || "Confirm";
+  document.getElementById("confirmDialogMessage").innerHTML = message || "";
+  var confirmBtn = document.getElementById("confirmDialogYes");
+  var cancelBtn = document.getElementById("confirmDialogNo");
+  confirmBtn.textContent = confirmText || "Confirm";
+  cancelBtn.textContent = cancelText || "Cancel";
+  confirmBtn.onclick = function() {
+    overlay.classList.add("hidden");
+    if (onConfirm) onConfirm();
+  };
+  cancelBtn.onclick = function() {
+    overlay.classList.add("hidden");
+    if (onCancel) onCancel();
+  };
+  overlay.classList.remove("hidden");
+}
+
+// ============================================================
 // Slot Overflow Warning System
 // ============================================================
 
@@ -8953,16 +9055,7 @@ function updateGeneratorsLive() {
 
 var key = getGenRenderKey();
 
-if (key !== lastGenRenderKey) {
-  lastGenRenderKey = key;
-  // Don't rebuild DOM while player is in a selection/reward overlay
-  var _selOverlay = document.getElementById("selectionOverlay");
-  var _rewOverlay = document.getElementById("rewardOverlay");
-  if ((_selOverlay && !_selOverlay.classList.contains("hidden")) ||
-      (_rewOverlay && !_rewOverlay.classList.contains("hidden"))) return;
-  renderGenerators();
-  return;
-}
+if (key !== lastGenRenderKey) { lastGenRenderKey = key; renderGenerators(); return; }
 
 var d = D(); var vis = getVisibleTiers();
 
@@ -9851,11 +9944,10 @@ return true;
 
 function resetGame() {
 
-var doReset = true;
-
-try { doReset = confirm("HARD RESET? All progress across ALL dimensions will be lost."); } catch(e) {}
-
-if (doReset) {
+showConfirmDialog("Hard Reset",
+  "ALL progress across ALL dimensions will be lost.<br>This cannot be undone.",
+  "Reset Everything", "Cancel",
+  function() {
 
 safeRemoveItem("nestedIdleSave2");
 
@@ -9881,10 +9973,6 @@ window._discoveryState = {};
 
 currentTab = "generators";
 
-// Remove cross-dim upgrades if they were added
-
-// Cross-dim upgrades are perm-only now; passive_prestige is in base UPGRADE_DEFS
-
 initUpgradeSlots(); initGenerators();
 
 updateTimeBankUI();
@@ -9899,7 +9987,8 @@ invalidateRenderKeys(); updateUI();
 
 showSaveMsg("Game reset!");
 
-}
+  }
+);
 
 }
 
@@ -10454,13 +10543,15 @@ showSaveMsg("Loaded " + getSlotName(slot).name + "!");
 
 function deleteSlot(slot) {
 
-if (!confirm("Delete " + getSlotName(slot).name + " save?")) return;
-
-localStorage.removeItem(getSaveSlotKey(slot));
-
-showSaveMsg(getSlotName(slot).name + " deleted.");
-
-renderSaveSlots();
+showConfirmDialog("Delete Save",
+  "Delete " + getSlotName(slot).name + "? This cannot be undone.",
+  "Delete", "Cancel",
+  function() {
+    localStorage.removeItem(getSaveSlotKey(slot));
+    showSaveMsg(getSlotName(slot).name + " deleted.");
+    renderSaveSlots();
+  }
+);
 
 }
 
@@ -11287,11 +11378,16 @@ document.getElementById("settingsOverlay").classList.add("hidden");
 }
 
 function returnToTitle() {
-  if (!confirm("Save and return to the title screen?")) return;
-  saveGame();
-  closeSettings();
-  gameStarted = false;
-  showStartScreen();
+  showConfirmDialog("Return to Title",
+    "Save and return to the title screen?",
+    "Save & Exit", "Cancel",
+    function() {
+      saveGame();
+      closeSettings();
+      gameStarted = false;
+      showStartScreen();
+    }
+  );
 }
 
 
