@@ -617,7 +617,7 @@ border-top: 2px solid transparent; font-family: var(--font-mono);
 /* =========== CHALLENGE SYSTEM =========== */
 
 .restart-sticky-section {
-    position: sticky; top: 0; z-index: 9;
+    position: sticky; top: 36px; z-index: 9;
     background: var(--bg-deep); padding-bottom: 6px;
   }
   .challenge-status {
@@ -653,7 +653,7 @@ transition: all var(--transition);
 
 .challenge-card.locked { border-color: var(--border); opacity: 0.3; }
 
-.challenge-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; position: sticky; top: 0; z-index: 10; background: var(--bg-deep); padding: 8px 0; }
+.challenge-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 
 .challenge-title { font-weight: 700; font-size: 0.95rem; color: var(--amber); font-family: var(--font-mono); }
 
@@ -743,7 +743,7 @@ transform: translateY(-1px);
 
 .challenge-btn:disabled { border-color: var(--border); color: #333; cursor: not-allowed; box-shadow: none; }
 
-.challenge-btn.quit-btn { border-color: var(--red-dim); color: var(--red); margin-top: 6px; position: relative; z-index: 5; }
+.challenge-btn.quit-btn { border-color: var(--red-dim); color: var(--red); margin-top: 6px; }
 
 .challenge-btn.quit-btn:hover { background: var(--red); color: #fff; box-shadow: 0 0 14px rgba(255,51,68,0.3); }
 
@@ -4452,6 +4452,8 @@ d.activeChallengeIdx = idx;
 
 d.challengeStartTime = Date.now();
 
+d._preChallengeMaxExponent = d.maxExponent || 0;
+
 // Hard/insane: force speed to 1x on challenge entry
 if (gameDifficulty === 'hard' || gameDifficulty === 'insane') {
   gameSpeed = 1; updateTimeBankUI();
@@ -4515,6 +4517,9 @@ d.pendingReward = d.pendingRewardOptions[0]; // backward compat
 d.activeChallengeIdx = -1;
 
 d.challengeStartTime = 0;
+
+// Restore pre-challenge maxExponent (challenge success shouldn't lose progress)
+d.maxExponent = Math.max(d.maxExponent || 0, d._preChallengeMaxExponent || 0);
 
 ensureNextChallenge();
 
@@ -5112,6 +5117,9 @@ d.activeChallengeIdx = -1;
 
 d.challengeStartTime = 0;
 
+// Restore pre-challenge maxExponent so keep-progress isn't lost
+d.maxExponent = Math.max(d.maxExponent || 0, d._preChallengeMaxExponent || 0);
+
 var fs = getFastStartPoints(); var ms = bn(10, 0);
 
 d.points = bnGte(fs, ms) ? fs : ms;
@@ -5135,6 +5143,9 @@ if (!isInChallenge()) return;
 d.activeChallengeIdx = -1;
 
 d.challengeStartTime = 0;
+
+// Restore pre-challenge maxExponent so keep-progress isn't lost
+d.maxExponent = Math.max(d.maxExponent || 0, d._preChallengeMaxExponent || 0);
 
 var fs = getFastStartPoints(); var ms = bn(10, 0);
 
