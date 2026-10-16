@@ -653,7 +653,7 @@ transition: all var(--transition);
 
 .challenge-card.locked { border-color: var(--border); opacity: 0.3; }
 
-.challenge-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.challenge-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; position: sticky; top: 0; z-index: 10; background: var(--bg-deep); padding: 8px 0; }
 
 .challenge-title { font-weight: 700; font-size: 0.95rem; color: var(--amber); font-family: var(--font-mono); }
 
@@ -743,7 +743,7 @@ transform: translateY(-1px);
 
 .challenge-btn:disabled { border-color: var(--border); color: #333; cursor: not-allowed; box-shadow: none; }
 
-.challenge-btn.quit-btn { border-color: var(--red-dim); color: var(--red); margin-top: 6px; }
+.challenge-btn.quit-btn { border-color: var(--red-dim); color: var(--red); margin-top: 6px; position: relative; z-index: 5; }
 
 .challenge-btn.quit-btn:hover { background: var(--red); color: #fff; box-shadow: 0 0 14px rgba(255,51,68,0.3); }
 
@@ -1743,6 +1743,10 @@ border-radius: 5px; margin-bottom: 4px; transition: all 0.2s;
 
 .save-slot.filled:hover { border-color: var(--cyan-dim); }
 
+.save-slot.active-slot { border-color: var(--cyan-dim); background: rgba(0,228,255,0.04); box-shadow: 0 0 8px rgba(0,228,255,0.08); position: relative; }
+
+.save-slot.active-slot::before { content: "\25B6"; position: absolute; left: -12px; top: 50%; transform: translateY(-50%); color: var(--cyan); font-size: 0.55rem; }
+
 .save-slot-info { flex: 1; min-width: 0; }
 
 .save-slot-name { font-size: 0.7rem; font-weight: 600; color: var(--text-bright); font-family: var(--font-mono); }
@@ -2720,6 +2724,13 @@ display: flex !important; /* override display:none so transition works */
 <div class="diff-card-desc">1 perma buff per dim<br>no speed during challenges<br>challenges scale to your power</div>
 </div>
 </div>
+<div class="diff-speedrun" id="diffArchitect" onclick="toggleArchitectTips()" style="margin-top:8px;">
+<div class="diff-speedrun-check" id="diffArchitectCheck">&#x2713;</div>
+<div>
+<div class="diff-speedrun-label">architect tips</div>
+<div class="diff-speedrun-sub">show gameplay hints from the architect</div>
+</div>
+</div>
 <div class="diff-speedrun" id="diffSpeedrun" onclick="toggleSpeedrunSelect()">
 <div class="diff-speedrun-check" id="diffSpeedrunCheck"></div>
 <div>
@@ -3452,7 +3463,7 @@ var UPGRADE_DEFS = [
 
 { id: "wide_selection",  name: "Wide Selection",   icon: "Π", descFn: function(l) { return "more upgrade choices (max 15)"; } }
 
-,{ id: "auto_prestige",    name: "Auto Prestige",     icon: "⟲", descFn: function(l) { return "auto prestige at " + l + " base PP"; } }
+ }
 
 ,{ id: "echo",             name: "Echo",              icon: "∂", descFn: function(l) { return "copy owned upgrade at lv." + l; } }
 
@@ -4562,8 +4573,6 @@ overclock: 5,         // 136 max buys (+36)
 
 wide_selection: 5,    // 8 picks per selection
 
-auto_prestige: 5,     // fires at ≤5 PP
-
 carry_weight: 5,      // +5 upgrades kept on dim restart
 
 foundation: 1,        // binary: 1 of each gen pre-bought
@@ -4711,8 +4720,10 @@ showDimUnlock(unlockedDims);
 // Step 2: After banner finishes, show perm buff selection (if any)
 var _bannerDelay = (unlockedDims <= 10 && typeof STORY_UNLOCK !== 'undefined' && STORY_UNLOCK[unlockedDims]) ? 5500 : 3500;
 setTimeout(function() {
-if (getPermBuffsPerDim(_completedNum) > 0 && permBuffs.length < PERM_BUFF_POOL.length) {
-showPermBuffOverlayMulti(_completedNum, getPermBuffsPerDim(_completedNum));
+var _permAvail = PERM_BUFF_POOL.length - permBuffs.length;
+var _permWanted = getPermBuffsPerDim(_completedNum);
+if (_permWanted > 0 && _permAvail > 0) {
+showPermBuffOverlayMulti(_completedNum, Math.min(_permWanted, _permAvail));
 } else {
 dimCompletionCount++;
 }
@@ -5107,7 +5118,6 @@ var fs = getFastStartPoints(); var ms = bn(10, 0);
 
 d.points = bnGte(fs, ms) ? fs : ms;
 
-d.maxExponent = 0;
 d._runBestExp = 0; d._lastRunIntExp = 0;
 
 initGenerators();
@@ -5132,7 +5142,6 @@ var fs = getFastStartPoints(); var ms = bn(10, 0);
 
 d.points = bnGte(fs, ms) ? fs : ms;
 
-d.maxExponent = 0;
 d._runBestExp = 0; d._lastRunIntExp = 0;
 
 initGenerators();
@@ -5950,7 +5959,7 @@ case "momentum": return "Output scales with highest gen tier";
 
 case "wide_selection": return "More choices when buying upgrades";
 
-case "auto_prestige": return "Auto-prestiges when PP threshold is reached";
+case : return "Auto-prestiges when PP threshold is reached";
 
 case "echo": return "Copies one of your existing upgrades";
 
@@ -6359,28 +6368,6 @@ return 100; // linear — every level is a full change
 
 }
 
-function toggleAutoPrestige() {
-
-var d = D();
-
-d.autoPrestigeOn = !d.autoPrestigeOn;
-
-// Reset tracking for fresh optimization
-
-d._apRunStart = Date.now();
-
-d._apLastExp = 0;
-
-d._apLastCheckTime = null;
-
-d._apCheckCounter = 0;
-
-invalidateRenderKeys();
-
-updateUI();
-if (typeof renderPermPanel === "function") renderPermPanel();
-
-}
 
 // Echo and Replace overlay sorting
 
@@ -6760,8 +6747,7 @@ function triggerUpgradeAnimation(gainId, gainLevels, drainId, drainLevels) {
 
 if (gainId === "break_infinity") showDiscovery('break_infinity');
 
-if (gainId === "auto_prestige") showDiscovery('auto_prestige');
-
+if (gainId === "auto_prestige") 
 if (gainId === "passive_prestige") showDiscovery('passive_prestige');
 
 if (gainId === "echo") showDiscovery('echo_upgrade');
@@ -8210,7 +8196,7 @@ var d = D();
 
 // Update max exponent record before restart
 
-var _curExp = bnLog10(d.points);
+var _curExp = Math.max(d.maxExponent || 0, bnLog10(d.points));
 var _oldRecord = d.maxExponentRecord || 0;
 var _oldBoost = getGlobalBoostTotal();
 var _wasNewRecord = Math.floor(_curExp) > Math.floor(_oldRecord);
@@ -8275,7 +8261,7 @@ if (Array.isArray(keepSlotIdxArray)) {
 }
 
 // Update max exponent record before restart
-var _curExp = bnLog10(d.points);
+var _curExp = Math.max(d.maxExponent || 0, bnLog10(d.points));
 var _oldRecord = d.maxExponentRecord || 0;
 var _oldBoost = getGlobalBoostTotal();
 var _wasNewRecord = Math.floor(_curExp) > Math.floor(_oldRecord);
@@ -8958,7 +8944,16 @@ function updateGeneratorsLive() {
 
 var key = getGenRenderKey();
 
-if (key !== lastGenRenderKey) { lastGenRenderKey = key; renderGenerators(); return; }
+if (key !== lastGenRenderKey) {
+  lastGenRenderKey = key;
+  // Don't rebuild DOM while player is in a selection/reward overlay
+  var _selOverlay = document.getElementById("selectionOverlay");
+  var _rewOverlay = document.getElementById("rewardOverlay");
+  if ((_selOverlay && !_selOverlay.classList.contains("hidden")) ||
+      (_rewOverlay && !_rewOverlay.classList.contains("hidden"))) return;
+  renderGenerators();
+  return;
+}
 
 var d = D(); var vis = getVisibleTiers();
 
@@ -9208,7 +9203,7 @@ var cost = getCost(gen.tier, gen.bought, d);
 
 var cap = hasBreakInfinity(d) ? false : bnGte(d.points, BASE_POINT_CAP);
 
-if (bnGte(d.points, cost) && !cap) { d.points = bnSub(d.points, cost); gen.bought++; }
+if (bnGte(d.points, cost) && !cap) { d.points = bnSub(d.points, cost); gen.bought++; gameStats.totalGeneratorsBought++; }
 
 }
 
@@ -9306,137 +9301,7 @@ while (bnGte(d.points, c) && g.bought < maxBuy) { d.points = bnSub(d.points, c);
 
 // Auto Prestige — PP efficiency optimizer
 
-var _apLevel = (d.autoPrestigeOn !== false) ? getUpgradeSum("auto_prestige", d) : 0;
-
-if (_apLevel > 0 && d.activeChallengeIdx < 0 && canPrestige(d)) {
-
-var _basePP = getBasePP(d);
-
-if (_basePP > 0) {
-
-// Cap at auto level
-
-var _cappedPP = Math.min(_basePP, _apLevel);
-
-var _apMult = getPrestigeBoostMult(d);
-
-var _earned = _cappedPP * _apMult;
-
-// If at or above cap, prestige immediately
-
-if (_basePP >= _apLevel) {
-
-d.prestigeCount += _earned;
-
-trackPPEarned(_earned); trackPrestige();
-
-hardAchievements.usedAutoPrestigeThisDim = true;
-
-d.hasPrestigedOnce = true;
-
-var _fs = getFastStartPoints(d); var _ms = bn(10, 0);
-
-d.points = bnGte(_fs, _ms) ? _fs : _ms;
-
-d._apRunStart = Date.now();
-
-d._apLastExp = 0;
-
-initGenerators(d);
-
-if (di === activeDimIdx) invalidateRenderKeys();
-
-} else {
-
-// Below cap — check if waiting for +1 PP is worth it
-
-if (!d._apRunStart) d._apRunStart = Date.now();
-
-if (!d._apCheckCounter) d._apCheckCounter = 0;
-
-d._apCheckCounter++;
-
-// Check every 10 frames
-
-if (d._apCheckCounter % 60 === 0) {
-
-var _curExp = bnLog10(d.points);
-
-var _expThreshold = hasBreakInfinity(d) ? PRESTIGE_EXP_THRESHOLD : 308;
-
-var _expToNext = _expThreshold - (_curExp % _expThreshold);
-
-var _runTime = (Date.now() - d._apRunStart) / 1000;
-
-if (_runTime > 10) {
-
-// Calculate growth rate from last check
-
-var _lastExp = d._apLastExp || 0;
-
-var _expGrowth = _curExp - _lastExp;
-
-if (_expGrowth > 0 && d._apLastCheckTime) {
-
-var _checkDt = (Date.now() - d._apLastCheckTime) / 1000;
-
-var _expRate = _expGrowth / _checkDt;
-
-if (_expRate > 0) {
-
-var _timeToNextPP = _expToNext / _expRate;
-
-// PP/sec if prestige now vs wait
-
-var _ppSecNow = _earned / _runTime;
-
-var _ppSecWait = ((_cappedPP + 1) * _apMult) / (_runTime + _timeToNextPP);
-
-// If prestiging now is better, or if waiting would take more than 30s
-
-if (_ppSecNow >= _ppSecWait || _timeToNextPP > 60) {
-
-d.prestigeCount += _earned;
-
-trackPPEarned(_earned); trackPrestige();
-
-hardAchievements.usedAutoPrestigeThisDim = true;
-
-d.hasPrestigedOnce = true;
-
-var _fs2 = getFastStartPoints(d); var _ms2 = bn(10, 0);
-
-d.points = bnGte(_fs2, _ms2) ? _fs2 : _ms2;
-
-d._apRunStart = Date.now();
-
-d._apLastExp = 0;
-
-d._apLastCheckTime = null;
-
-initGenerators(d);
-
-if (di === activeDimIdx) invalidateRenderKeys();
-
-}
-
-}
-
-}
-
-}
-
-d._apLastExp = _curExp;
-
-d._apLastCheckTime = Date.now();
-
-}
-
-}
-
-}
-
-}
+// Auto Prestige — removed
 
 // Passive Prestige — passively earn PP in this dimension
 
@@ -9662,6 +9527,7 @@ var data = {
 bankedTime: bankedTime,
 gameDifficulty: gameDifficulty || "normal",
 speedrunMode: speedrunMode || false,
+architectTipsEnabled: architectTipsEnabled !== false,
 
 gameStats: gameStats,
 
@@ -9760,6 +9626,7 @@ unlockedDims = data.unlockedDims || 1;
 multiDimUnlocked = !!data.multiDimUnlocked;
 gameDifficulty = data.gameDifficulty || "normal";
 speedrunMode = data.speedrunMode || false;
+architectTipsEnabled = data.architectTipsEnabled !== false;
 
 gameRetired = !!data.gameRetired;
 
@@ -10626,7 +10493,8 @@ var date = new Date(info.timestamp);
 
 var dateStr = date.toLocaleDateString() + " " + date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
 
-html += '<div class="save-slot filled">';
+var isActive = (i === getActiveSlot());
+html += '<div class="save-slot filled' + (isActive ? ' active-slot' : '') + '" style="position:relative;">';
 
 html += '<div class="save-slot-icon">' + sn.letter + '</div>';
 
@@ -11043,13 +10911,7 @@ text: "Echo copies one of your existing upgrades at the rolled level. A mirror o
 
 },
 
-auto_prestige: {
 
-title: "The Architect",
-
-text: "Smart. Let the machine handle the repetition \u2014 you focus on the choices that matter. It\'ll fire when the math says it\'s optimal. Toggle it on the upgrade tile."
-
-},
 
 gen_cascade: {
 
@@ -11097,6 +10959,8 @@ window._discoveryState = state;
 
 function showDiscovery(key) {
 
+if (!architectTipsEnabled) return; // tips disabled by player
+
 var state = getDiscoveryState();
 
 if (state[key]) return; // already shown
@@ -11124,10 +10988,6 @@ popup.innerHTML = '<div class="discovery-title">' + disc.title + '</div>' +
 '<button class="discovery-dismiss" onclick="dismissDiscovery(this)">Got it</button>';
 
 container.appendChild(popup);
-
-// Auto-dismiss after 10 seconds
-
-setTimeout(function() { dismissDiscovery(popup.querySelector(".discovery-dismiss")); }, 10000);
 
 }
 
@@ -11189,7 +11049,6 @@ wide_reward: "Challenge rewards in lower dims offer extra choices.",
 
 passive_prestige: "Passively earns a percentage of your prestige-able PP every second. 1% per level. No manual prestige needed.",
 
-auto_prestige: "Auto-prestiges when base PP earned is at or below this level. Prestige mult still applies. Stacks across copies."
 
 };
 
@@ -11955,10 +11814,10 @@ function playDimCompleteSequence(dimNum, callback) {
 
     // Hold, then confetti cascade and fade out
     setTimeout(function() {
-      spawnConfetti(60);
+      spawnConfetti(80);
       // Flash reveal
       setTimeout(function() {
-        overlay.style.animation = 'dimFlashReveal 1.0s ease-out forwards';
+        overlay.style.animation = 'dimFlashReveal 1.5s ease-out forwards';
         setTimeout(function() {
           overlay.classList.remove('active');
           overlay.style.opacity = '0';
@@ -11966,10 +11825,10 @@ function playDimCompleteSequence(dimNum, callback) {
           // Restore dimCompleteOverlay inner elements for other animations
           overlay.innerHTML = '<div class="dim-complete-text" id="dimCompleteText"></div><div class="dim-complete-sub" id="dimCompleteSub"></div>';
           if (callback) callback();
-        }, 1200);
-      }, 400);
-    }, 1600);
-  }, 700);
+        }, 1800);
+      }, 600);
+    }, 3200);
+  }, 1000);
 }
 
 function screenShimmer(color) {
@@ -12034,7 +11893,7 @@ var MILESTONES = [
 
 { id: "first_prestige", name: "Reset!", desc: "Prestige for the first time", check: function() { return gameStats.totalPrestiges >= 1; } },
 
-{ id: "big_spender", name: "Big Spender", desc: "Spend 10 PP total", check: function() { return gameStats.totalPPEarned >= 10; } },
+{ id: "big_spender", name: "Big Spender", desc: "Earn 10 PP total", check: function() { return gameStats.totalPPEarned >= 10; } },
 
 { id: "fully_loaded", name: "Fully Loaded", desc: "Fill all upgrade slots", check: function() { return getFilledSlotCount() >= getMaxUpgradeSlots() && getMaxUpgradeSlots() >= 5; } },
 
@@ -12064,7 +11923,7 @@ var MILESTONES = [
 
 { id: "challenge1", name: "Challenger", desc: "Complete your first challenge", check: function() { return gameStats.challengesCompleted >= 1; } },
 
-{ id: "challenge5", name: "Unstoppable", desc: "Complete all 5 challenges", check: function() { return gameStats.challengesCompleted >= 5; } },
+{ id: "challenge5", name: "Unstoppable", desc: "Complete all 5 challenges in one dimension", check: function() { var d = D(); return d.challenges && d.challenges.filter(function(c) { return c.completed; }).length >= 5; } },
 
 // Late Game
 
@@ -12261,6 +12120,16 @@ showStartScreen();
 
 var _selectedDifficulty = null;
 var _selectedSpeedrun = false;
+
+var architectTipsEnabled = true;
+
+function toggleArchitectTips() {
+architectTipsEnabled = !architectTipsEnabled;
+var check = document.getElementById("diffArchitectCheck");
+if (check) check.textContent = architectTipsEnabled ? "\u2713" : "";
+var el = document.getElementById("diffArchitect");
+if (el) el.classList.toggle("diff-speedrun-active", architectTipsEnabled);
+}
 
 function selectDifficulty(diff) {
 _selectedDifficulty = diff;
