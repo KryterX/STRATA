@@ -3220,7 +3220,7 @@ Buy Upgrade (1 PP)
 
 <button class="tab-btn active" id="btnTabGen" onclick="switchTab('generators')">Generators</button>
 
-<button class="tab-btn tab-upgrades" id="btnTabUpg" onclick="switchTab('upgrades')">Upgrades</button>
+<button class="tab-btn tab-upgrades hidden-tab" id="btnTabUpg" onclick="switchTab('upgrades')">Upgrades</button>
 
 <button class="tab-btn tab-challenges hidden-tab" id="btnTabCh" onclick="switchTab('challenges')">Challenges</button>
 
@@ -7179,6 +7179,10 @@ var dimNav = document.getElementById("dimNav");
 
 var dimPenaltyEl = document.getElementById("dimPenalty");
 
+var btnTabUpg = document.getElementById("btnTabUpg");
+if (d.hasPrestigedOnce || d.prestigeCount > 0) btnTabUpg.classList.remove("hidden-tab");
+else btnTabUpg.classList.add("hidden-tab");
+
 if (d.challengesUnlocked) btnTabCh.classList.remove("hidden-tab");
 
 else btnTabCh.classList.add("hidden-tab");
@@ -7323,7 +7327,7 @@ var rateEl = document.getElementById("rate");
 
 var tabBar = document.getElementById("tabBar");
 
-if (d.hasPrestigedOnce || getFilledSlotCount() > 0 || permBuffs.length > 0) tabBar.classList.remove("hidden");
+if (gameStarted) tabBar.classList.remove("hidden");
 
 else tabBar.classList.add("hidden");
 
@@ -10901,41 +10905,39 @@ var s = gameStats;
 
 var html = "";
 
-// Timers
+// Helper: only show a stat row if value is non-zero/meaningful
+function statRow(name, value, highlight) {
+  if (value === 0 || value === null || value === undefined) return "";
+  var cls = highlight ? "stat-value stat-highlight" : "stat-value";
+  return '<div class="stat-row"><span class="stat-name">' + name + '</span><span class="' + cls + '">' + value + '</span></div>';
+}
 
+// Timers — always show (time is always ticking)
 html += '<div class="stats-section">';
-
 html += '<div class="stats-section-label">Time</div>';
-
 html += '<div class="stat-row"><span class="stat-name">Real Time</span><span class="stat-value">' + formatTime(s.realTime) + '</span></div>';
-
 html += '<div class="stat-row"><span class="stat-name">Game Time</span><span class="stat-value stat-highlight">' + formatTime(s.gameTime) + '</span></div>';
-
 html += '</div>';
 
-// General stats
+// Progress — only show stats that have been achieved
+var progressHtml = "";
+if (s.highestExponent > 1) progressHtml += statRow("Highest Exponent", "e" + Math.floor(s.highestExponent));
+progressHtml += statRow("Total Prestiges", s.totalPrestiges);
+progressHtml += statRow("Total PP Earned", s.totalPPEarned);
+if (s.fastestPrestige !== null && s.fastestPrestige !== Infinity && s.fastestPrestige > 0) {
+  progressHtml += '<div class="stat-row"><span class="stat-name">Fastest Prestige</span><span class="stat-value">' + formatTime(s.fastestPrestige) + '</span></div>';
+}
+progressHtml += statRow("Generators Bought", s.totalGeneratorsBought);
+progressHtml += statRow("Upgrades Bought", s.totalUpgradesBought);
+progressHtml += statRow("Challenges Completed", s.challengesCompleted);
+progressHtml += statRow("Dimensions Completed", s.dimensionsCompleted);
 
-html += '<div class="stats-section">';
-
-html += '<div class="stats-section-label">Progress</div>';
-
-html += '<div class="stat-row"><span class="stat-name">Highest Exponent</span><span class="stat-value">e' + Math.floor(s.highestExponent) + '</span></div>';
-
-html += '<div class="stat-row"><span class="stat-name">Total Prestiges</span><span class="stat-value">' + s.totalPrestiges + '</span></div>';
-
-html += '<div class="stat-row"><span class="stat-name">Total PP Earned</span><span class="stat-value">' + s.totalPPEarned + '</span></div>';
-
-html += '<div class="stat-row"><span class="stat-name">Fastest Prestige</span><span class="stat-value">' + formatTime(s.fastestPrestige) + '</span></div>';
-
-html += '<div class="stat-row"><span class="stat-name">Generators Bought</span><span class="stat-value">' + s.totalGeneratorsBought + '</span></div>';
-
-html += '<div class="stat-row"><span class="stat-name">Upgrades Bought</span><span class="stat-value">' + s.totalUpgradesBought + '</span></div>';
-
-html += '<div class="stat-row"><span class="stat-name">Challenges Completed</span><span class="stat-value">' + s.challengesCompleted + '</span></div>';
-
-html += '<div class="stat-row"><span class="stat-name">Dimensions Completed</span><span class="stat-value">' + s.dimensionsCompleted + '</span></div>';
-
-html += '</div>';
+if (progressHtml) {
+  html += '<div class="stats-section">';
+  html += '<div class="stats-section-label">Progress</div>';
+  html += progressHtml;
+  html += '</div>';
+}
 
 // Milestones section
 
