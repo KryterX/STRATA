@@ -2438,6 +2438,70 @@ font-family: var(--font-mono); background: #1a1408; color: var(--amber);
 border: 1px solid var(--amber-dim); margin-left: 4px;
 }
 
+/* Sticker Display */
+.sticker-grid { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px 0; }
+.sticker {
+  width: 36px; height: 36px; border-radius: 6px; display: flex; align-items: center;
+  justify-content: center; font-size: 0.9rem; font-family: var(--font-mono);
+  transition: all 0.3s ease; cursor: default; position: relative;
+}
+.sticker.silhouette {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.08); text-shadow: none;
+}
+.sticker.selected {
+  border: 1px solid; opacity: 1; animation: stickerPulse 1.5s ease-in-out infinite;
+}
+.sticker.beaten {
+  border: 1px solid; opacity: 1;
+  box-shadow: 0 0 8px rgba(255,255,255,0.1);
+}
+.sticker.beaten.selected {
+  animation: stickerPulse 1.5s ease-in-out infinite;
+  box-shadow: 0 0 12px rgba(255,255,255,0.2);
+}
+.sticker.golden {
+  background: linear-gradient(135deg, #d4a017, #f0d060, #d4a017);
+  color: #1a0f00; border: 1px solid #f0d060;
+  box-shadow: 0 0 16px rgba(240,208,96,0.3);
+  animation: goldenShimmer 3s ease-in-out infinite;
+}
+@keyframes stickerPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+@keyframes goldenShimmer {
+  0%, 100% { box-shadow: 0 0 16px rgba(240,208,96,0.3); }
+  50% { box-shadow: 0 0 24px rgba(240,208,96,0.5); }
+}
+
+.sticker-section-label {
+  font-family: var(--font-mono); font-size: 0.45rem; color: var(--text-dim);
+  letter-spacing: 0.15em; text-transform: uppercase; text-align: center;
+  margin-top: 8px; margin-bottom: 4px;
+}
+
+/* Modifier Toggle Cards */
+.mod-toggle {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  cursor: pointer; transition: all 0.2s; margin-bottom: 4px; user-select: none;
+}
+.mod-toggle:hover { border-color: var(--border-hover); background: var(--bg-card-hover); }
+.mod-toggle.active { border-color: var(--cyan-dim); background: rgba(0,228,255,0.04); }
+.mod-toggle-icon { font-size: 1rem; width: 24px; text-align: center; }
+.mod-toggle-info { flex: 1; }
+.mod-toggle-name { font-family: var(--font-mono); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.mod-toggle-desc { font-size: 0.55rem; color: var(--text-dim); margin-top: 2px; }
+.mod-toggle-check { width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 0.6rem; transition: all 0.2s; }
+.mod-toggle.active .mod-toggle-check { border-color: var(--cyan); color: var(--cyan); background: rgba(0,228,255,0.1); }
+
+/* Difficulty cards with completion badges */
+.diff-card-badge { font-size: 0.6rem; margin-left: 6px; }
+.diff-card-locked { opacity: 0.3; pointer-events: none; }
+.diff-card-stickers { display: flex; gap: 3px; margin-top: 6px; justify-content: center; }
+
+
 
 /* ═══ D1: Global Boost Flair ═══ */
 @keyframes expMilestonePulse {
@@ -2693,37 +2757,14 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.2</div>
+<div class="start-version" id="startVersion">v1.9.4</div>
 
 </div>
 
 <div class="diff-screen hidden" id="diffScreen">
 <div class="diff-title">choose your path</div>
-<div class="diff-sub">this cannot be changed once chosen</div>
-<div class="diff-cards">
-<div class="diff-card diff-easy" onclick="selectDifficulty('easy')">
-<div class="diff-check" id="diffCheckEasy"></div>
-<div class="diff-card-title">easy</div>
-<div class="diff-card-desc">all perma buffs by dim 5<br>2× offline bank gain<br>speed allowed in challenges</div>
-</div>
-<div class="diff-card diff-normal" onclick="selectDifficulty('normal')">
-<div class="diff-check" id="diffCheckNormal"></div>
-<div class="diff-card-title">normal</div>
-<div class="diff-card-desc">all perma buffs by dim 9<br>normal bank gain<br>speed allowed in challenges</div>
-</div>
-<div class="diff-card diff-hard" onclick="selectDifficulty('hard')">
-<div class="diff-check" id="diffCheckHard"></div>
-<div class="diff-card-title">hard</div>
-<div class="diff-card-desc">1 perma buff per dim<br>normal bank gain<br>no speed during challenges</div>
-</div>
-</div>
-<div class="diff-insane-row" style="margin-top:16px;width:100%;max-width:560px;display:flex;flex-direction:column;align-items:center;">
-<div class="diff-card diff-insane" onclick="selectDifficulty('insane')" style="width:100%;max-width:280px;">
-<div class="diff-check" id="diffCheckInsane"></div>
-<div class="diff-card-title">insane</div>
-<div class="diff-card-desc">1 perma buff per dim<br>no speed during challenges<br>challenges scale to your power</div>
-</div>
-</div>
+<div class="diff-sub">select a difficulty to begin</div>
+<div class="diff-cards" id="diffCards"></div>
 <div class="diff-speedrun" id="diffArchitect" onclick="toggleArchitectTips()" style="margin-top:8px;">
 <div class="diff-speedrun-check" id="diffArchitectCheck">&#x2713;</div>
 <div>
@@ -2731,21 +2772,27 @@ display: flex !important; /* override display:none so transition works */
 <div class="diff-speedrun-sub">show gameplay hints from the architect</div>
 </div>
 </div>
-<div class="diff-speedrun" id="diffSpeedrun" onclick="toggleSpeedrunSelect()">
-<div class="diff-speedrun-check" id="diffSpeedrunCheck"></div>
-<div>
-<div class="diff-speedrun-label">⏱ speedrun mode</div>
-<div class="diff-speedrun-sub">start with 72 hours banked time</div>
-</div>
-</div>
-<button class="diff-begin-btn" id="diffBeginBtn" onclick="confirmDifficulty()">begin</button>
 <button class="diff-back-btn" onclick="backFromDifficulty()">← back</button>
+</div>
+
+<div class="diff-screen hidden" id="modifierScreen">
+<div class="diff-title" id="modScreenTitle">easy — modifiers</div>
+<div class="diff-sub">toggle modifiers for your run</div>
+
+<div id="stickerDisplay" style="width:100%;max-width:420px;margin-bottom:16px;"></div>
+
+<div id="modifierToggles" style="width:100%;max-width:420px;"></div>
+
+<div style="display:flex;gap:10px;margin-top:16px;">
+<button class="diff-begin-btn" id="modRunBtn" onclick="confirmModifierRun()">run</button>
+<button class="diff-back-btn" onclick="backFromModifiers()">← back</button>
+</div>
 </div>
 
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.2</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.4</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3271,7 +3318,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.2";
+var STRATA_VERSION = "v1.9.4";
 
 // ============================================================
 
@@ -4507,6 +4554,9 @@ var ch = d.challenges[d.activeChallengeIdx];
 ch.completed = true;
 gameStats.challengesCompleted++;
 
+// Track minimalist: completing challenge with few upgrades
+if (getFilledSlotCount() <= 3) hardAchievements.minimalistChallenge = true;
+
 var _ppEarned = getPrestigeEarned();
 
 d.prestigeCount += _ppEarned;
@@ -4762,6 +4812,9 @@ multiDimUnlocked = true;
 }
 
 function showEndingScreen() {
+
+// Mark this difficulty + modifiers as completed
+markCompletion(gameDifficulty, activeModifiers);
 
 var overlay = document.getElementById("endingOverlay");
 overlay.innerHTML = '';
@@ -8294,6 +8347,7 @@ recalcGlobalBoost();
 var _newBoost = getGlobalBoostTotal();
 
 function _finishRestart() {
+  if (keptUpgrades.length === 0) hardAchievements.hasRestartedWithZero = true;
   var _savedMaxExpRecord = D().maxExponentRecord || 0;
   dimensions[activeDimIdx] = createFreshDimension();
   var fresh = D();
@@ -8359,6 +8413,7 @@ recalcGlobalBoost();
 var _newBoost = getGlobalBoostTotal();
 
 function _finishLegacyRestart() {
+  if (keptUpgrades.length === 0) hardAchievements.hasRestartedWithZero = true;
   var _savedMaxExpRecord = D().maxExponentRecord || 0;
   dimensions[activeDimIdx] = createFreshDimension();
   var fresh = D();
@@ -9495,6 +9550,9 @@ if (curExp > (d.maxExponent || 0)) d.maxExponent = curExp;
 
 // maxExponentRecord updated on dim reset only (not per-frame)
 
+// Track glass cannon: reaching high exponent with few upgrades
+if (di === activeDimIdx && curExp >= 10000 && getFilledSlotCount() <= 3) hardAchievements.glassCannon = true;
+
 // Challenge auto-complete
 
 // Check time limit expiry
@@ -9632,6 +9690,7 @@ bankedTime: bankedTime,
 gameDifficulty: gameDifficulty || "normal",
 speedrunMode: speedrunMode || false,
 architectTipsEnabled: architectTipsEnabled !== false,
+activeModifiers: activeModifiers || [],
 
 gameStats: gameStats,
 
@@ -9731,6 +9790,7 @@ multiDimUnlocked = !!data.multiDimUnlocked;
 gameDifficulty = data.gameDifficulty || "normal";
 speedrunMode = data.speedrunMode || false;
 architectTipsEnabled = data.architectTipsEnabled !== false;
+activeModifiers = data.activeModifiers || [];
 
 gameRetired = !!data.gameRetired;
 
@@ -9964,7 +10024,7 @@ gameDifficulty = "normal"; speedrunMode = false;
 
 gameStats = { realTime: 0, gameTime: 0, totalPrestiges: 0, totalPPEarned: 0, highestExponent: 0, fastestPrestige: Infinity, totalGeneratorsBought: 0, totalUpgradesBought: 0, challengesCompleted: 0, dimensionsCompleted: 0, currentRunStart: Date.now() };
 
-hardAchievements = { dimCompletionTime: Infinity, usedAutoBuyThisDim: false, usedAutoPrestigeThisDim: false, everDowngraded: false, maxPPHoarded: 0 };
+hardAchievements = { dimCompletionTime: Infinity, usedAutoBuyThisDim: false, usedAutoPrestigeThisDim: false, everDowngraded: false, maxPPHoarded: 0, hasRestartedWithZero: false, glassCannon: false, minimalistChallenge: false };
 
 unlockedMilestones = {};
 
@@ -10239,7 +10299,10 @@ hardAchievements = {
   usedAutoBuyThisDim: false,
   usedAutoPrestigeThisDim: false,
   everDowngraded: false,
-  maxPPHoarded: 0
+  maxPPHoarded: 0,
+  hasRestartedWithZero: false,
+  glassCannon: false,
+  minimalistChallenge: false
 };
 bankedTime = speedrunMode ? 259200 : 0; gameSpeed = 1;
 // Cross-dim upgrades are perm-only now; passive_prestige is in base UPGRADE_DEFS
@@ -12062,13 +12125,13 @@ var MILESTONES = [
 
 // ═══ HARD ACHIEVEMENTS ═══
 
-{ id: "sub60", name: "Sub-60", desc: "Complete all 5 challenges in a dim within 60s game time", check: function() { return hardAchievements.dimCompletionTime < 60; } },
+{ id: "sub60", name: "Sub-60", desc: "Complete a dimension in under 60 seconds game time", check: function() { return hardAchievements.dimCompletionTime < 60; } },
 
-{ id: "no_auto", name: "Purist Run", desc: "Complete a dimension without Auto Buy or Auto Prestige", check: function() { return gameStats.dimensionsCompleted > 0 && !hardAchievements.usedAutoBuyThisDim && !hardAchievements.usedAutoPrestigeThisDim; } },
+{ id: "no_auto", name: "Purist Run", desc: "Complete a dimension without Auto Buy", check: function() { return gameStats.dimensionsCompleted > 0 && !hardAchievements.usedAutoBuyThisDim; } },
 
-{ id: "ironman", name: "Ironman", desc: "Restart keeping 0 upgrades, then reach e308", check: function() { var d = D(); return d.upgradeSlots.length > 0 && getFilledSlotCount() === 0 && bnLog10(d.points) >= 308; } },
+{ id: "ironman", name: "Ironman", desc: "Restart keeping 0 upgrades, then reach e308", check: function() { return hardAchievements.hasRestartedWithZero && getFilledSlotCount() === 0 && bnLog10(D().points) >= 308; } },
 
-{ id: "glass_cannon", name: "Glass Cannon", desc: "Reach e10000 with only 3 filled upgrade slots", check: function() { return gameStats.highestExponent >= 10000 && getFilledSlotCount() <= 3; } },
+{ id: "glass_cannon", name: "Glass Cannon", desc: "Reach e10000 with only 3 filled upgrade slots", check: function() { return hardAchievements.glassCannon; } },
 
 { id: "hoarder", name: "Hoarder", desc: "Accumulate 200 PP without spending", check: function() { return hardAchievements.maxPPHoarded >= 200; } },
 
@@ -12082,7 +12145,7 @@ var MILESTONES = [
 
 { id: "stacked", name: "Stacked", desc: "Have 5 copies of the same upgrade type", check: function() { var d = D(); var counts = {}; for (var i = 0; i < d.upgradeSlots.length; i++) { var s = d.upgradeSlots[i]; if (s) { counts[s.id] = (counts[s.id] || 0) + 1; } } for (var k in counts) { if (counts[k] >= 5) return true; } return false; } },
 
-{ id: "minimalist", name: "Minimalist", desc: "Complete a challenge with 3 or fewer upgrades", check: function() { return gameStats.challengesCompleted > 0 && getFilledSlotCount() <= 3; } },
+{ id: "minimalist", name: "Minimalist", desc: "Complete a challenge with 3 or fewer upgrades", check: function() { return hardAchievements.minimalistChallenge; } },
 
 { id: "handicapped", name: "Handicapped", desc: "Complete Challenge 5 (5 defects)", check: function() { var d = D(); return d.challenges.length >= 5 && d.challenges[4] && d.challenges[4].completed; } },
 
@@ -12212,6 +12275,7 @@ loadMilestones();
 
 loadSettings();
 
+loadCompletionHistory();
 loadTheme();
 
 var vl = document.getElementById("versionLabel"); if (vl) vl.textContent = STRATA_VERSION;
@@ -12225,10 +12289,302 @@ showStartScreen();
 // Difficulty System
 // ============================================================
 
+function selectDifficulty(diff) {
+  _selectedDifficulty = diff;
+  
+  if (hasBeatenDifficulty(diff)) {
+    // Already beaten — show modifier screen
+    showModifierScreen(diff);
+  } else {
+    // Not beaten — go straight to game (no modifiers)
+    gameDifficulty = diff;
+    activeModifiers = [];
+    speedrunMode = false;
+    document.getElementById("diffScreen").classList.add("hidden");
+    startGameAfterDifficulty();
+  }
+}
+
+function toggleSpeedrunSelect() {
+  // Legacy — speedrun is now a modifier, not a standalone toggle
+}
+
+function confirmDifficulty() {
+  // Legacy — replaced by selectDifficulty direct flow
+  if (_selectedDifficulty) selectDifficulty(_selectedDifficulty);
+}
+
+function showDifficultyScreen() {
+  _selectedDifficulty = null;
+  activeModifiers = [];
+  
+  var container = document.getElementById("diffCards");
+  if (!container) return;
+  
+  var html = "";
+  var colors = { easy: "var(--green)", normal: "var(--cyan)", hard: "var(--red)", insane: "#ff6600" };
+  var descs = {
+    easy: "all perma buffs by dim 5<br>2\u00d7 offline bank gain<br>speed allowed in challenges",
+    normal: "all perma buffs by dim 9<br>normal bank gain<br>speed allowed in challenges",
+    hard: "1 perma buff per dim<br>normal bank gain<br>no speed during challenges",
+    insane: "1 perma buff per dim<br>no speed during challenges<br>challenges scale to your power"
+  };
+  
+  for (var di = 0; di < DIFFICULTIES_ORDER.length; di++) {
+    var diff = DIFFICULTIES_ORDER[di];
+    var unlocked = isDifficultyUnlocked(diff);
+    var beaten = hasBeatenDifficulty(diff);
+    
+    if (!unlocked) continue; // Don't show locked difficulties
+    
+    var badge = beaten ? ' <span class="diff-card-badge" style="color:' + colors[diff] + ';">\u2713</span>' : "";
+    
+    html += '<div class="diff-card diff-' + diff + '" onclick="selectDifficulty(\'' + diff + '\')">';
+    html += '<div class="diff-card-title">' + diff + badge + '</div>';
+    html += '<div class="diff-card-desc">' + descs[diff] + '</div>';
+    
+    // Show mini sticker preview if beaten
+    if (beaten) {
+      html += '<div class="diff-card-stickers">';
+      for (var mi = 0; mi < MODIFIERS.length; mi++) {
+        var mod = MODIFIERS[mi];
+        var modBeaten = hasBeatenModifier(diff, mod.id);
+        var cls = modBeaten ? "beaten" : "silhouette";
+        var style = modBeaten ? "color:" + mod.color + ";border-color:" + mod.color + ";background:rgba(255,255,255,0.05);" : "";
+        html += '<span class="sticker ' + cls + '" style="width:20px;height:20px;font-size:0.55rem;' + style + '">' + mod.icon + '</span>';
+      }
+      html += '</div>';
+    }
+    
+    html += '</div>';
+  }
+  
+  container.innerHTML = html;
+  
+  // Update architect tips check
+  var archCheck = document.getElementById("diffArchitectCheck");
+  if (archCheck) archCheck.textContent = architectTipsEnabled ? "\u2713" : "";
+  
+  document.getElementById("diffScreen").classList.remove("hidden");
+}
+
+var _selectedModifiers = [];
+
+function showModifierScreen(diff) {
+  _selectedDifficulty = diff;
+  _selectedModifiers = [];
+  
+  document.getElementById("diffScreen").classList.add("hidden");
+  document.getElementById("modScreenTitle").textContent = diff + " \u2014 modifiers";
+  
+  renderStickerDisplay(diff);
+  renderModifierToggles(diff);
+  
+  document.getElementById("modifierScreen").classList.remove("hidden");
+}
+
+function renderStickerDisplay(diff) {
+  var el = document.getElementById("stickerDisplay");
+  if (!el) return;
+  
+  var html = "";
+  
+  // Individual modifier stickers
+  html += '<div class="sticker-section-label">modifiers</div>';
+  html += '<div class="sticker-grid">';
+  for (var i = 0; i < MODIFIERS.length; i++) {
+    var mod = MODIFIERS[i];
+    var beaten = hasBeatenModifier(diff, mod.id);
+    var selected = _selectedModifiers.indexOf(mod.id) >= 0;
+    var cls = "sticker";
+    var style = "";
+    
+    if (beaten && selected) {
+      cls += " beaten selected";
+      style = "color:" + mod.color + ";border-color:" + mod.color + ";background:rgba(255,255,255,0.08);";
+    } else if (beaten) {
+      cls += " beaten";
+      style = "color:" + mod.color + ";border-color:" + mod.color + ";background:rgba(255,255,255,0.06);";
+    } else if (selected) {
+      cls += " selected";
+      style = "color:" + mod.color + ";border-color:" + mod.color + ";background:rgba(255,255,255,0.03);";
+    } else {
+      cls += " silhouette";
+    }
+    
+    html += '<span class="' + cls + '" style="' + style + '" title="' + mod.name + '">' + mod.icon + '</span>';
+  }
+  html += '</div>';
+  
+  // Combo tier stickers
+  html += '<div class="sticker-section-label">combo tiers</div>';
+  html += '<div class="sticker-grid">';
+  var comboLabels = [
+    { key: "2", label: "\u2461" },
+    { key: "3", label: "\u2462" },
+    { key: "4", label: "\u2463" },
+    { key: "5", label: "\u2464" },
+    { key: "all", label: "\u2605" }
+  ];
+  for (var ci = 0; ci < comboLabels.length; ci++) {
+    var combo = comboLabels[ci];
+    var cBeaten = hasBeatenCombo(diff, combo.key);
+    var cls = "sticker" + (cBeaten ? (combo.key === "all" ? " golden" : " beaten") : " silhouette");
+    var style = "";
+    if (cBeaten && combo.key !== "all") {
+      style = "color:var(--green);border-color:var(--green);background:rgba(0,255,136,0.06);";
+    }
+    html += '<span class="' + cls + '" style="' + style + '">' + combo.label + '</span>';
+  }
+  html += '</div>';
+  
+  el.innerHTML = html;
+}
+
+function renderModifierToggles(diff) {
+  var el = document.getElementById("modifierToggles");
+  if (!el) return;
+  
+  var html = "";
+  for (var i = 0; i < MODIFIERS.length; i++) {
+    var mod = MODIFIERS[i];
+    var selected = _selectedModifiers.indexOf(mod.id) >= 0;
+    var beaten = hasBeatenModifier(diff, mod.id);
+    var beatenBadge = beaten ? ' <span style="color:' + mod.color + ';font-size:0.5rem;">\u2713</span>' : '';
+    
+    html += '<div class="mod-toggle' + (selected ? ' active' : '') + '" onclick="toggleModifier(\'' + mod.id + '\')">';
+    html += '<div class="mod-toggle-icon" style="color:' + mod.color + ';">' + mod.icon + '</div>';
+    html += '<div class="mod-toggle-info">';
+    html += '<div class="mod-toggle-name">' + mod.name + beatenBadge + '</div>';
+    html += '<div class="mod-toggle-desc">' + mod.desc + '</div>';
+    html += '</div>';
+    html += '<div class="mod-toggle-check">' + (selected ? '\u2713' : '') + '</div>';
+    html += '</div>';
+  }
+  
+  el.innerHTML = html;
+}
+
+function toggleModifier(modId) {
+  var idx = _selectedModifiers.indexOf(modId);
+  if (idx >= 0) {
+    _selectedModifiers.splice(idx, 1);
+  } else {
+    _selectedModifiers.push(modId);
+  }
+  renderStickerDisplay(_selectedDifficulty);
+  renderModifierToggles(_selectedDifficulty);
+}
+
+function confirmModifierRun() {
+  gameDifficulty = _selectedDifficulty;
+  activeModifiers = _selectedModifiers.slice();
+  
+  // Speedrun mode if speedrun modifier is active
+  speedrunMode = activeModifiers.indexOf("speedrun_mod") >= 0;
+  
+  document.getElementById("modifierScreen").classList.add("hidden");
+  startGameAfterDifficulty();
+}
+
+function backFromModifiers() {
+  document.getElementById("modifierScreen").classList.add("hidden");
+  showDifficultyScreen();
+  document.getElementById("diffScreen").classList.remove("hidden");
+}
+
+
 var _selectedDifficulty = null;
 var _selectedSpeedrun = false;
 
 var architectTipsEnabled = true;
+
+// ============================================================
+// Completion & Modifier System
+// ============================================================
+
+var MODIFIERS = [
+  { id: "speedrun_mod", name: "Speedrun", icon: "⏱", color: "var(--amber)", desc: "Real-time limit. Banked time given." },
+  { id: "no_prestige", name: "No Prestige", icon: "∅", color: "var(--magenta)", desc: "Can\u2019t prestige. Passive PP only." },
+  { id: "isolated", name: "Isolated", icon: "◎", color: "var(--cyan)", desc: "Global boost locked at 1.0x." },
+  { id: "fragile", name: "Fragile", icon: "♢", color: "var(--red)", desc: "Dim restart keeps max 1 upgrade." },
+  { id: "blind", name: "Blind", icon: "?", color: "#b060ff", desc: "Upgrade levels hidden until picked." },
+  { id: "drought", name: "Drought", icon: "✕", color: "#888", desc: "Challenges give zero rewards." }
+];
+
+var DIFFICULTIES_ORDER = ["easy", "normal", "hard", "insane"];
+
+// Completion history — persisted in localStorage, NOT per-save
+// Structure: { easy: { base: true, mods: { speedrun_mod: true, ... }, combos: { 2: true, 3: true, ... } }, ... }
+var completionHistory = {};
+
+function loadCompletionHistory() {
+  try {
+    var raw = localStorage.getItem("strata_completion");
+    if (raw) completionHistory = JSON.parse(raw);
+  } catch(e) { completionHistory = {}; }
+}
+
+function saveCompletionHistory() {
+  try { localStorage.setItem("strata_completion", JSON.stringify(completionHistory)); } catch(e) {}
+}
+
+function markCompletion(difficulty, activeModifiers) {
+  if (!completionHistory[difficulty]) completionHistory[difficulty] = { base: false, mods: {}, combos: {} };
+  var ch = completionHistory[difficulty];
+  
+  if (!activeModifiers || activeModifiers.length === 0) {
+    // Base completion
+    ch.base = true;
+  } else {
+    // Mark each individual modifier
+    for (var i = 0; i < activeModifiers.length; i++) {
+      ch.mods[activeModifiers[i]] = true;
+    }
+    // Mark combo tier
+    var count = activeModifiers.length;
+    ch.combos[count] = true;
+    // All 6 = special
+    if (count >= MODIFIERS.length) ch.combos["all"] = true;
+  }
+  
+  saveCompletionHistory();
+}
+
+function hasBeatenDifficulty(difficulty) {
+  return completionHistory[difficulty] && completionHistory[difficulty].base;
+}
+
+function isDifficultyUnlocked(difficulty) {
+  var idx = DIFFICULTIES_ORDER.indexOf(difficulty);
+  if (idx <= 1) return true; // easy + normal always visible
+  // Must beat the previous difficulty to unlock
+  var prev = DIFFICULTIES_ORDER[idx - 1];
+  return hasBeatenDifficulty(prev);
+}
+
+function hasBeatenModifier(difficulty, modId) {
+  var ch = completionHistory[difficulty];
+  return ch && ch.mods && ch.mods[modId];
+}
+
+function hasBeatenCombo(difficulty, count) {
+  var ch = completionHistory[difficulty];
+  return ch && ch.combos && ch.combos[count];
+}
+
+// Active modifiers for current run (set on game start)
+var activeModifiers = [];
+
+function getSpeedrunTimeLimit() {
+  // Base 24h, +25% per additional active modifier, scaled by difficulty
+  var baseHours = { easy: 24, normal: 24, hard: 24, insane: 24 };
+  var base = (baseHours[gameDifficulty] || 24) * 3600; // in seconds
+  var otherMods = activeModifiers.filter(function(m) { return m !== "speedrun_mod"; }).length;
+  return Math.floor(base * (1 + 0.25 * otherMods));
+}
+
+
 
 function toggleArchitectTips() {
 architectTipsEnabled = !architectTipsEnabled;
@@ -12238,62 +12594,6 @@ var el = document.getElementById("diffArchitect");
 if (el) el.classList.toggle("diff-speedrun-active", architectTipsEnabled);
 }
 
-function selectDifficulty(diff) {
-_selectedDifficulty = diff;
-var cards = document.querySelectorAll('.diff-card');
-for (var i = 0; i < cards.length; i++) cards[i].classList.remove('selected');
-var card = document.querySelector('.diff-' + diff);
-if (card) card.classList.add('selected');
-// Update check marks
-document.getElementById('diffCheckEasy').textContent = diff === 'easy' ? '✓' : '';
-document.getElementById('diffCheckNormal').textContent = diff === 'normal' ? '✓' : '';
-document.getElementById('diffCheckHard').textContent = diff === 'hard' ? '✓' : '';
-document.getElementById('diffCheckInsane').textContent = diff === 'insane' ? '\u2713' : '';
-// Enable begin button
-var btn = document.getElementById('diffBeginBtn');
-if (btn) btn.classList.add('ready');
-}
-
-function toggleSpeedrunSelect() {
-_selectedSpeedrun = !_selectedSpeedrun;
-var el = document.getElementById('diffSpeedrun');
-var check = document.getElementById('diffSpeedrunCheck');
-if (_selectedSpeedrun) {
-el.classList.add('active');
-check.textContent = '✓';
-} else {
-el.classList.remove('active');
-check.textContent = '';
-}
-}
-
-function confirmDifficulty() {
-if (!_selectedDifficulty) return;
-gameDifficulty = _selectedDifficulty;
-speedrunMode = _selectedSpeedrun;
-document.getElementById('diffScreen').classList.add('hidden');
-// Apply speedrun mode
-if (speedrunMode) {
-bankedTime = 259200; // 72 hours
-updateTimeBankUI();
-}
-startGameAfterDifficulty();
-}
-
-function showDifficultyScreen() {
-_selectedDifficulty = null;
-_selectedSpeedrun = false;
-var cards = document.querySelectorAll('.diff-card');
-for (var i = 0; i < cards.length; i++) cards[i].classList.remove('selected');
-document.getElementById('diffCheckEasy').textContent = '';
-document.getElementById('diffCheckNormal').textContent = '';
-document.getElementById('diffCheckHard').textContent = '';
-document.getElementById('diffCheckInsane').textContent = '';
-document.getElementById('diffSpeedrun').classList.remove('active');
-document.getElementById('diffSpeedrunCheck').textContent = '';
-document.getElementById('diffBeginBtn').classList.remove('ready');
-document.getElementById('diffScreen').classList.remove('hidden');
-}
 
 function backFromDifficulty() {
   document.getElementById("diffScreen").classList.add("hidden");
