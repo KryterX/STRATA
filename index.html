@@ -1589,7 +1589,7 @@ font-family: var(--font-mono); display: block;
 
 position: fixed; top: 0; left: 0; right: 0; bottom: 0;
 
-background: rgba(4,4,8,0.94); z-index: 1200; display: flex;
+background: rgba(4,4,8,0.94); z-index: 3200; display: flex;
 
 flex-direction: column; align-items: center; justify-content: center;
 
@@ -2756,23 +2756,7 @@ display: flex !important; /* override display:none so transition works */
 
 <body>
 
-<div class="start-screen hidden" id="titleSettingsScreen" style="z-index:3100;">
-<div class="start-title" style="font-size:1.2rem;margin-bottom:20px;">settings</div>
 
-<div style="width:100%;max-width:360px;">
-
-<div style="font-family:var(--font-mono);font-size:0.6rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">theme</div>
-<div id="titleThemeGrid" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;"></div>
-
-<div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px;">
-<button class="start-btn" onclick="globalHardReset()" style="border-color:var(--red-dim);color:var(--red);font-size:0.65rem;">reset all data</button>
-<div style="font-size:0.5rem;color:var(--text-dim);margin-top:4px;text-align:center;">deletes ALL saves, completion progress, and settings</div>
-</div>
-
-</div>
-
-<button class="start-btn" onclick="closeTitleSettings()" style="margin-top:20px;">← back</button>
-</div>
 
 <div class="start-screen" id="startScreen">
 
@@ -2784,7 +2768,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.13</div>
+<div class="start-version" id="startVersion">v1.9.14</div>
 
 </div>
 
@@ -2819,7 +2803,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.13</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.14</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3346,7 +3330,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.13";
+var STRATA_VERSION = "v1.9.14";
 
 // ============================================================
 
@@ -10198,15 +10182,7 @@ var gameStarted = false;
 
 function showTitleSettings() {
   document.getElementById("startScreen").classList.add("hidden");
-  document.getElementById("titleSettingsScreen").classList.remove("hidden");
-  // Render theme grid
-  var grid = document.getElementById("titleThemeGrid");
-  if (grid) renderThemeGrid(grid);
-}
-
-function closeTitleSettings() {
-  document.getElementById("titleSettingsScreen").classList.add("hidden");
-  document.getElementById("startScreen").classList.remove("hidden");
+  showSettings(true);
 }
 
 function globalHardReset() {
@@ -11624,13 +11600,31 @@ if (confirmTog) confirmTog.checked = gameSettings.confirmReset === "on";
 
 }
 
-function showSettings() {
+var _settingsFromTitle = false;
+
+function showSettings(fromTitle) {
+
+_settingsFromTitle = !!fromTitle;
 
 renderThemeGrid();
 
 renderSettingsUI();
 
 renderSaveSlots();
+
+// Swap buttons based on context
+var returnBtn = document.querySelector('.settings-scroll [onclick="returnToTitle()"]');
+var resetBtn = document.querySelector('.settings-scroll [onclick="resetGame()"]');
+if (returnBtn) returnBtn.style.display = _settingsFromTitle ? "none" : "";
+if (resetBtn) {
+  if (_settingsFromTitle) {
+    resetBtn.textContent = "Reset All Data";
+    resetBtn.onclick = globalHardReset;
+  } else {
+    resetBtn.textContent = "Hard Reset (Delete All Data)";
+    resetBtn.onclick = resetGame;
+  }
+}
 
 document.getElementById("settingsOverlay").classList.remove("hidden");
 
@@ -11639,6 +11633,10 @@ document.getElementById("settingsOverlay").classList.remove("hidden");
 function closeSettings() {
 
 document.getElementById("settingsOverlay").classList.add("hidden");
+if (_settingsFromTitle) {
+  _settingsFromTitle = false;
+  showStartScreen();
+}
 
 }
 
