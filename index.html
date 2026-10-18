@@ -2768,7 +2768,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.22</div>
+<div class="start-version" id="startVersion">v1.9.24</div>
 
 </div>
 
@@ -2803,7 +2803,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.22</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.24</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3330,7 +3330,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.22";
+var STRATA_VERSION = "v1.9.24";
 
 // ============================================================
 
@@ -10206,54 +10206,42 @@ function showTitleSettings() {
 
 function globalHardReset() {
   showConfirmDialog("Reset All Data",
-    "This will delete ALL saves, completion progress, settings, and local data.<br><br>This cannot be undone.",
+    "This will delete ALL saves and local data. This cannot be undone.",
     "Delete Everything", "Cancel",
     function() {
-      // Delete every save slot (same method as deleteSlot which works)
-      for (var i = 0; i < 100; i++) {
-        try { localStorage.removeItem(getSaveSlotKey(i)); } catch(e) {}
-      }
-      // Delete the active save
-      try { localStorage.removeItem("nestedIdleSave2"); } catch(e) {}
-      // Delete global data
-      try { localStorage.removeItem("strata_active_slot"); } catch(e) {}
-      try { localStorage.removeItem("strata_completion"); } catch(e) {}
-      try { localStorage.removeItem("strata_settings"); } catch(e) {}
-      try { localStorage.removeItem("strata_theme"); } catch(e) {}
-      try { localStorage.removeItem("strata_milestones"); } catch(e) {}
-      try { localStorage.removeItem("strata_discoveries"); } catch(e) {}
-      
-      // Full in-memory state reset
       gameStarted = false;
       activeSlotIdx = -1;
+      
+      // Same exact delete that deleteSlot uses — just loop it
+      for (var i = 0; i < 100; i++) {
+        localStorage.removeItem(getSaveSlotKey(i));
+      }
+      localStorage.removeItem("nestedIdleSave2");
+      localStorage.removeItem("strata_active_slot");
+      localStorage.removeItem("strata_completion");
+      localStorage.removeItem("strata_settings");
+      localStorage.removeItem("strata_theme");
+      localStorage.removeItem("strata_milestones");
+      localStorage.removeItem("strata_discoveries");
+      
+      // Reset memory
       dimensions = [createFreshDimension()];
-      activeDimIdx = 0;
-      unlockedDims = 1;
-      multiDimUnlocked = false;
-      permBuffs = [];
-      dimCompletionCount = 0;
-      gameRetired = false;
-      activeModifiers = [];
-      completionHistory = {};
-      bankedTime = 0;
-      gameSpeed = 1;
-      gameDifficulty = "normal";
-      speedrunMode = false;
+      activeDimIdx = 0; unlockedDims = 1; multiDimUnlocked = false;
+      permBuffs = []; dimCompletionCount = 0; gameRetired = false;
+      activeModifiers = []; completionHistory = {};
+      bankedTime = 0; gameSpeed = 1;
+      gameDifficulty = "normal"; speedrunMode = false;
       architectTipsEnabled = true;
       gameStats = { realTime: 0, gameTime: 0, totalPrestiges: 0, totalPPEarned: 0, highestExponent: 0, fastestPrestige: Infinity, totalGeneratorsBought: 0, totalUpgradesBought: 0, challengesCompleted: 0, dimensionsCompleted: 0, currentRunStart: Date.now() };
       hardAchievements = { dimCompletionTime: Infinity, usedAutoBuyThisDim: false, usedAutoPrestigeThisDim: false, everDowngraded: false, maxPPHoarded: 0, hasRestartedWithZero: false, glassCannon: false, minimalistChallenge: false };
-      unlockedMilestones = {};
-      window._discoveryState = {};
+      unlockedMilestones = {}; window._discoveryState = {};
       
-      // Return to title
-      closeSettings();
+      document.getElementById("settingsOverlay").classList.add("hidden");
+      _settingsFromTitle = false;
       showStartScreen();
-      showSaveMsg("All data reset.");
     }
   );
-}
-
-function showStartScreen() {
+}function showStartScreen() {
 
 var hasSave = !!safeGetItem("nestedIdleSave2");
 
@@ -10888,11 +10876,6 @@ html += '<button class="slot-btn slot-del" onclick="deleteSlot(' + i + ')">\u271
 html += '</div></div>';
 
 }
-
-// "New Save" button at the bottom
-html += '<div class="save-slot empty" style="justify-content:center;cursor:pointer;" onclick="saveToSlot(getNextFreeSlot())">';
-html += '<div style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;">+ new save</div>';
-html += '</div>';
 
 container.innerHTML = html;
 
