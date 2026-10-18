@@ -2768,7 +2768,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.25</div>
+<div class="start-version" id="startVersion">v1.9.26</div>
 
 </div>
 
@@ -2803,7 +2803,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.25</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.26</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3113,7 +3113,7 @@ Buy Upgrade (1 PP)
 <div style="margin-top:12px;">
 <button class="ctrl-btn" style="width:100%;background:var(--bg-card);border-color:var(--amber-dim);color:var(--amber);" onclick="returnToTitle()">Return to Title Screen</button>
 </div>
-<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);"><button class="ctrl-btn" style="width:100%;background:var(--bg-card);border-color:var(--red-dim);color:var(--red);" onclick="globalHardReset()">Reset This Save</button></div>
+<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);"><button class="ctrl-btn" style="width:100%;background:var(--bg-card);border-color:var(--red-dim);color:var(--red);" onclick="resetGame()">Reset This Save</button></div>
 <button class="settings-close-btn" onclick="closeSettings()">Close</button>
 
 </div>
@@ -3330,7 +3330,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.25";
+var STRATA_VERSION = "v1.9.26";
 
 // ============================================================
 
@@ -10210,12 +10210,7 @@ function globalHardReset() {
     "Delete Everything", "Cancel",
     function() {
       gameStarted = false;
-      activeSlotIdx = -1;
-      
-      // Same exact delete that deleteSlot uses — just loop it
-      for (var i = 0; i < 100; i++) {
-        deleteSlot(i);
-      }
+      for (var i = 0; i < 100; i++) { localStorage.removeItem("strata_slot_" + i); }
       localStorage.removeItem("nestedIdleSave2");
       localStorage.removeItem("strata_active_slot");
       localStorage.removeItem("strata_completion");
@@ -10223,8 +10218,7 @@ function globalHardReset() {
       localStorage.removeItem("strata_theme");
       localStorage.removeItem("strata_milestones");
       localStorage.removeItem("strata_discoveries");
-      
-      // Reset memory
+      activeSlotIdx = -1;
       dimensions = [createFreshDimension()];
       activeDimIdx = 0; unlockedDims = 1; multiDimUnlocked = false;
       permBuffs = []; dimCompletionCount = 0; gameRetired = false;
@@ -10235,13 +10229,13 @@ function globalHardReset() {
       gameStats = { realTime: 0, gameTime: 0, totalPrestiges: 0, totalPPEarned: 0, highestExponent: 0, fastestPrestige: Infinity, totalGeneratorsBought: 0, totalUpgradesBought: 0, challengesCompleted: 0, dimensionsCompleted: 0, currentRunStart: Date.now() };
       hardAchievements = { dimCompletionTime: Infinity, usedAutoBuyThisDim: false, usedAutoPrestigeThisDim: false, everDowngraded: false, maxPPHoarded: 0, hasRestartedWithZero: false, glassCannon: false, minimalistChallenge: false };
       unlockedMilestones = {}; window._discoveryState = {};
-      
       document.getElementById("settingsOverlay").classList.add("hidden");
       _settingsFromTitle = false;
       showStartScreen();
     }
   );
-}function showStartScreen() {
+}
+function showStartScreen() {
 
 var hasSave = !!safeGetItem("nestedIdleSave2");
 
