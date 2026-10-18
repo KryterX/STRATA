@@ -10214,7 +10214,7 @@ function globalHardReset() {
       
       // Same exact delete that deleteSlot uses — just loop it
       for (var i = 0; i < 100; i++) {
-        localStorage.removeItem(getSaveSlotKey(i));
+        deleteSlot(i);
       }
       localStorage.removeItem("nestedIdleSave2");
       localStorage.removeItem("strata_active_slot");
