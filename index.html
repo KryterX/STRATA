@@ -1829,6 +1829,15 @@ flex-shrink: 0;
 
 }
 
+
+.start-slot-del {
+  background: transparent; border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text-dim); font-size: 0.7rem; padding: 0 8px; cursor: pointer;
+  transition: all 0.2s; flex-shrink: 0;
+}
+.start-slot-del:hover { border-color: var(--red-dim); color: var(--red); background: rgba(255,51,68,0.08); }
+
+
 /* Start screen save select */
 
 .start-slot-active { border-color: var(--cyan-dim) !important; }
@@ -2757,7 +2766,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.7</div>
+<div class="start-version" id="startVersion">v1.9.10</div>
 
 </div>
 
@@ -2792,7 +2801,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.7</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.10</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3319,7 +3328,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.7";
+var STRATA_VERSION = "v1.9.10";
 
 // ============================================================
 
@@ -3524,7 +3533,9 @@ var UPGRADE_DEFS = [
 ,{ id: "echo",             name: "Echo",              icon: "∂", descFn: function(l) { return "copy owned upgrade at lv." + l; } }
 
 ,{ id: "passive_prestige", name: "Passive Prestige", icon: "\u2248", descFn: function(l) { return "earn " + l + "% of prestige PP per second"; } }
-,{ id: "transcendence", name: "Transcendence", icon: "\u039E\u2298", descFn: function(l) { return "max upgrade level +5, challenge defects -5 (all dims)"; } }
+,{ id: "transcendence", name: "Transcendence", icon: "\u039E\u2298", descFn: function(l) { return "max upgrade level +5, challenge defects -5 (all dims)"; } },{ id: "carry_weight", name: "Carry Weight", icon: "\u2696", descFn: function(l) { return "+" + l + " upgrades kept on dim restart"; } }
+,{ id: "foundation", name: "Foundation", icon: "\u2693", descFn: function(l) { return l > 0 ? "1 of each gen pre-bought on restart" : "no effect"; } }
+,{ id: "wide_reward", name: "Wide Reward", icon: "\u2740", descFn: function(l) { return "+" + Math.ceil(l * 0.7) + " extra challenge reward picks"; } }
 ];
 
 var DEFECT_POOL = ["upgrade_boost","discount","gen_expansion","gen_boost","overclock","momentum"];
@@ -3793,13 +3804,18 @@ var _ucLvl = getPermBuffSum("upgrade_count"); var permBonus = _ucLvl > 0 ? Math.
 
 function getMaxLevel(dim) {
 
-// Asymptotic: approaches 25 (base 5 + up to 20).
+// Base 5 + ascend slot bonus (asymptotic up to +20) + ascend perm bonus (asymptotic) + transcendence flat +5
 
 var slotSum = 0; var _d = dim || D(); for (var i = 0; i < _d.upgradeSlots.length; i++) { var s = _d.upgradeSlots[i]; if (s && s.id === "ascend") slotSum += s.level; }
 
 var gain = slotSum > 0 ? Math.max(1, 20 * (1 - 1 / (1 + slotSum / 20))) : 0;
 
-var _trLvl = getPermBuffSum("transcendence"); var _asLvl = getPermBuffSum("ascend"); var _ascPermTotal = _trLvl + _asLvl; var permBonus = _ascPermTotal > 0 ? Math.min(20, Math.max(1, Math.floor(20 * (1 - 1 / (1 + _ascPermTotal / 20))))) : 0; return Math.max(1, Math.floor(5 + gain)) + permBonus;
+var _asLvl = getPermBuffSum("ascend"); var permBonus = _asLvl > 0 ? Math.min(20, Math.max(1, Math.floor(20 * (1 - 1 / (1 + _asLvl / 20))))) : 0;
+
+// Transcendence: flat +5 max level (not asymptotic)
+var _trFlat = getPermBuffSum("transcendence") > 0 ? 5 : 0;
+
+return Math.max(1, Math.floor(5 + gain)) + permBonus + _trFlat;
 
 }
 
@@ -5115,9 +5131,11 @@ document.getElementById("endingOverlay").classList.add("hidden");
 
 // Award dim 10 perm buff
 
-if (getPermBuffsPerDim(10) > 0 && permBuffs.length < PERM_BUFF_POOL.length) {
+var _endPermWanted = getPermBuffsPerDim(10);
+var _endPermAvail = PERM_BUFF_POOL.length - permBuffs.length;
+if (_endPermWanted > 0 && _endPermAvail > 0) {
 
-setTimeout(function() { showPermBuffOverlayMulti(10, getPermBuffsPerDim(10)); }, 200);
+setTimeout(function() { showPermBuffOverlayMulti(10, Math.min(_endPermWanted, _endPermAvail)); }, 200);
 
 }
 
@@ -10207,7 +10225,8 @@ var slotLabel = curSlot >= 0 && getSlotName(curSlot) ? getSlotName(curSlot).name
 
 var slotLetter = curSlot >= 0 && getSlotName(curSlot) ? getSlotName(curSlot).letter : "\u25B6";
 
-html += '<button class="start-slot-btn start-slot-active" onclick="startContinue()">';
+html += '<div style="display:flex;gap:4px;align-items:stretch;">';
+html += '<button class="start-slot-btn start-slot-active" onclick="startContinue()" style="flex:1;">';
 
 html += '<span class="start-slot-letter">' + slotLetter + '</span>';
 
@@ -10218,6 +10237,8 @@ html += '<span class="start-slot-info">' + slotLabel + ' \u2014 Dim ' + aDimIdx 
 html += '<span class="start-slot-date">' + aDateStr + '</span>';
 
 html += '</button>';
+html += '<button class="start-slot-del" onclick="event.stopPropagation();deleteSlotFromTitle(' + curSlot + ')" title="Delete">\u2715</button>';
+html += '</div>';
 
 } catch(e) {
 
@@ -10265,15 +10286,14 @@ var date = new Date(info.timestamp);
 
 var dateStr = date.toLocaleDateString() + " " + date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
 
-html += '<button class="start-slot-btn" onclick="loadFromSlotAndStart(' + si + ')">';
-
+html += '<div style="display:flex;gap:4px;align-items:stretch;">';
+html += '<button class="start-slot-btn" onclick="loadFromSlotAndStart(' + si + ')" style="flex:1;">';
 html += '<span class="start-slot-letter">' + sn.letter + '</span>';
-
 html += '<span class="start-slot-info">' + sn.name + ' \u2014 Dim ' + info.dimIdx + '/' + info.dims + getDiffBadgeHtml(info.difficulty, info.speedrun) + '</span>';
-
 html += '<span class="start-slot-date">' + dateStr + '</span>';
-
 html += '</button>';
+html += '<button class="start-slot-del" onclick="event.stopPropagation();deleteSlotFromTitle(' + si + ')" title="Delete">\u2715</button>';
+html += '</div>';
 
 }
 
@@ -10322,6 +10342,23 @@ requestAnimationFrame(gameTick);
 
 } catch(e) { showSaveMsg("Failed to load " + getSlotName(slot).name); }
 
+}
+
+
+function deleteSlotFromTitle(slot) {
+  showConfirmDialog("Delete Save",
+    "Delete " + getSlotName(slot).name + "? This cannot be undone.",
+    "Delete", "Cancel",
+    function() {
+      localStorage.removeItem(getSaveSlotKey(slot));
+      // If deleting the active slot, clear the active save too
+      if (slot === getActiveSlot()) {
+        safeRemoveItem("nestedIdleSave2");
+        setActiveSlot(-1);
+      }
+      showSaveSelect(); // refresh the list
+    }
+  );
 }
 
 function startContinue() {
@@ -12688,7 +12725,7 @@ function backFromDifficulty() {
 // Perm buff distribution per difficulty
 function getPermBuffsPerDim(dimNum) {
 if (gameDifficulty === 'easy') {
-var easy = [0, 1, 2, 3, 4, 4, 0, 0, 0, 0, 0];
+var easy = [0, 1, 2, 3, 3, 4, 0, 0, 0, 0, 0];
 return dimNum <= 10 ? easy[dimNum] || 0 : 0;
 }
 if (gameDifficulty === 'hard' || gameDifficulty === 'insane') {
@@ -12837,9 +12874,15 @@ showSaveMsg('Permanent buff' + (_permPickCount > 1 ? 's' : '') + ' acquired!');
 // Check if more perm buffs are owed
 if (dimCompletionCount < unlockedDims - 1 && permBuffs.length < PERM_BUFF_POOL.length) {
   var nextDimNum = dimCompletionCount + 1;
-  setTimeout(function() {
-    showPermBuffOverlayMulti(nextDimNum, getPermBuffsPerDim(nextDimNum));
-  }, 400);
+  var _chainWanted = getPermBuffsPerDim(nextDimNum);
+  var _chainAvail = PERM_BUFF_POOL.length - permBuffs.length;
+  if (_chainWanted > 0 && _chainAvail > 0) {
+    setTimeout(function() {
+      showPermBuffOverlayMulti(nextDimNum, Math.min(_chainWanted, _chainAvail));
+    }, 400);
+  } else {
+    dimCompletionCount++;
+  }
 }
 }
 
