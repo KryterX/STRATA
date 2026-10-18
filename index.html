@@ -2768,7 +2768,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.16</div>
+<div class="start-version" id="startVersion">v1.9.17</div>
 
 </div>
 
@@ -2803,7 +2803,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.16</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.17</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3330,7 +3330,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.16";
+var STRATA_VERSION = "v1.9.17";
 
 // ============================================================
 
@@ -7473,14 +7473,25 @@ pointsBar.classList.add("hidden"); prestigeBar.classList.remove("hidden"); prest
 
 }
 
-// Prestige button visibility — always runs regardless of dim count
+// Prestige button visibility (for multi-dim)
 if (d.hasPrestigedOnce && currentTab === "generators" && !isInChallenge() && activeModifiers.indexOf("no_prestige") < 0) {
   prestigeBtn.classList.remove("hidden");
 } else if (currentTab === "generators") {
   prestigeBtn.classList.add("hidden");
 }
 
+} // end unlockedDims >= 2
+
+// Prestige button visibility — also handles dim 1 (unlockedDims < 2)
+if (d.hasPrestigedOnce && currentTab === "generators" && !isInChallenge() && activeModifiers.indexOf("no_prestige") < 0) {
+  prestigeBtn.classList.remove("hidden");
+} else if (currentTab !== "generators") {
+  // Non-generator tabs: hide prestige btn (handled by inner branches for multi-dim, 
+  // but need to handle for dim 1 too)
+  prestigeBtn.classList.add("hidden");
 }
+
+} // end updateTopBars
 
 function updateUI() {
 
