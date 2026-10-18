@@ -2768,7 +2768,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.19</div>
+<div class="start-version" id="startVersion">v1.9.20</div>
 
 </div>
 
@@ -2803,7 +2803,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.19</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.20</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3330,7 +3330,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.19";
+var STRATA_VERSION = "v1.9.20";
 
 // ============================================================
 
@@ -10211,18 +10211,32 @@ function globalHardReset() {
           var key = localStorage.key(i);
           if (key && key.indexOf("strata") >= 0) keysToRemove.push(key);
         }
-        // Also clear the main save
         keysToRemove.push("nestedIdleSave2");
         for (var k = 0; k < keysToRemove.length; k++) {
-          localStorage.removeItem(keysToRemove[k]);
+          try { localStorage.removeItem(keysToRemove[k]); } catch(e2) {}
         }
       } catch(e) {}
       
-      // Reset in-memory state
-      completionHistory = {};
+      // Full in-memory state reset — prevent auto-save from restoring old data
+      gameStarted = false;
+      dimensions = [createFreshDimension()];
+      activeDimIdx = 0;
+      unlockedDims = 1;
+      multiDimUnlocked = false;
       permBuffs = [];
-      activeModifiers = [];
+      dimCompletionCount = 0;
       gameRetired = false;
+      activeModifiers = [];
+      completionHistory = {};
+      bankedTime = 0;
+      gameSpeed = 1;
+      gameDifficulty = "normal";
+      speedrunMode = false;
+      architectTipsEnabled = true;
+      gameStats = { realTime: 0, gameTime: 0, totalPrestiges: 0, totalPPEarned: 0, highestExponent: 0, fastestPrestige: Infinity, totalGeneratorsBought: 0, totalUpgradesBought: 0, challengesCompleted: 0, dimensionsCompleted: 0, currentRunStart: Date.now() };
+      hardAchievements = { dimCompletionTime: Infinity, usedAutoBuyThisDim: false, usedAutoPrestigeThisDim: false, everDowngraded: false, maxPPHoarded: 0, hasRestartedWithZero: false, glassCannon: false, minimalistChallenge: false };
+      unlockedMilestones = {};
+      window._discoveryState = {};
       
       // Return to title
       closeSettings();
