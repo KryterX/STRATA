@@ -2768,7 +2768,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.14</div>
+<div class="start-version" id="startVersion">v1.9.16</div>
 
 </div>
 
@@ -2803,7 +2803,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.14</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.16</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3330,7 +3330,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.14";
+var STRATA_VERSION = "v1.9.16";
 
 // ============================================================
 
@@ -7473,11 +7473,11 @@ pointsBar.classList.add("hidden"); prestigeBar.classList.remove("hidden"); prest
 
 }
 
-// Safety: ensure prestige button visibility is always correct
+// Prestige button visibility — always runs regardless of dim count
 if (d.hasPrestigedOnce && currentTab === "generators" && !isInChallenge() && activeModifiers.indexOf("no_prestige") < 0) {
   prestigeBtn.classList.remove("hidden");
-}
-
+} else if (currentTab === "generators") {
+  prestigeBtn.classList.add("hidden");
 }
 
 }
@@ -10145,6 +10145,9 @@ document.getElementById("tabBar").classList.add("hidden");
 
 invalidateRenderKeys(); updateUI();
 
+closeSettings();
+gameStarted = false;
+showStartScreen();
 showSaveMsg("Game reset!");
 
   }
@@ -10211,7 +10214,7 @@ function globalHardReset() {
       gameRetired = false;
       
       // Return to title
-      document.getElementById("titleSettingsScreen").classList.add("hidden");
+      closeSettings();
       showStartScreen();
       showSaveMsg("All data reset.");
     }
