@@ -2757,7 +2757,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.4</div>
+<div class="start-version" id="startVersion">v1.9.5</div>
 
 </div>
 
@@ -2792,7 +2792,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.4</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.5</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3298,6 +3298,7 @@ Buy Upgrade (1 PP)
 
 <div id="discoveryContainer"></div>
 
+<div id="speedrunCountdown" class="hidden" style="position:fixed;top:8px;right:12px;z-index:200;font-family:var(--font-mono);font-size:0.75rem;font-weight:700;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:4px 10px;pointer-events:none;"></div>
 <div class="dim-nav hidden" id="dimNav">
 
 <button class="dim-nav-btn" id="dimPrevBtn" onclick="switchDim(-1)">&#x25C0;</button>
@@ -3318,7 +3319,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.4";
+var STRATA_VERSION = "v1.9.5";
 
 // ============================================================
 
@@ -4023,6 +4024,7 @@ return 1.87 - 0.87 * Math.exp(-maxExp / 10000);
 
 function getGlobalBoostTotal() {
 
+if (activeModifiers.indexOf("isolated") >= 0) return 1;
 return _globalBoostCache;
 
 }
@@ -4217,6 +4219,9 @@ var _def = UPGRADE_DEFS[pi];
 
 if (crossDimOnly.indexOf(_def.id) >= 0) continue; if (_def.id === "transcendence") continue;
 
+// No Prestige modifier: exclude passive_prestige from selection pool
+if (activeModifiers.indexOf("no_prestige") >= 0 && _def.id === "passive_prestige") continue;
+
 pool.push({ defIdx: pi, def: _def });
 
 }
@@ -4391,6 +4396,9 @@ for (var _cpi = 0; _cpi < UPGRADE_DEFS.length; _cpi++) {
 var _cdef = UPGRADE_DEFS[_cpi];
 
 if (_crossDimOnly2.indexOf(_cdef.id) >= 0) continue; if (_cdef.id === "transcendence") continue;
+
+// No Prestige modifier: exclude passive_prestige from reward pool
+if (activeModifiers.indexOf("no_prestige") >= 0 && _cdef.id === "passive_prestige") continue;
 
 pool.push({ defIdx: _cpi });
 
@@ -4570,6 +4578,24 @@ var _pBtn = document.getElementById('prestigeBtn');
 if (_pBtn) { var _r = _pBtn.getBoundingClientRect(); spawnParticleBurst(_r.left + _r.width/2, _r.top, getThemeColor('--magenta'), 15, 100); }
 
 d.hasPrestigedOnce = true;
+
+// Drought modifier: skip rewards entirely
+if (activeModifiers.indexOf("drought") >= 0) {
+  d.pendingRewardOptions = null;
+  d.pendingReward = null;
+  d.activeChallengeIdx = -1;
+  d.challengeStartTime = 0;
+  d.maxExponent = Math.max(d.maxExponent || 0, d._preChallengeMaxExponent || 0);
+  ensureNextChallenge();
+  var fs = getFastStartPoints(); var ms = bn(10, 0);
+  d.points = bnGte(fs, ms) ? fs : ms;
+  initGenerators();
+  invalidateRenderKeys();
+  checkDimensionUnlock();
+  showSaveMsg("Challenge complete! (No reward — Drought)");
+  updateUI();
+  return;
+}
 
 d.pendingRewardOptions = ch.rewardOptions || [ch.reward];
 
@@ -5269,11 +5295,12 @@ html += '<div class="selection-card-icon">' + def.icon + '</div>';
 
 html += '<div class="selection-card-info"><div class="selection-card-name">' + def.name + '</div>';
 
-html += '<div class="selection-card-plain">' + rPlain + '</div>';
+var _rwBlind = activeModifiers.indexOf("blind") >= 0;
+html += '<div class="selection-card-plain">' + (_rwBlind ? '???' : rPlain) + '</div>';
 
-html += '<div class="selection-card-effect">' + rEffect + '</div></div>';
+html += '<div class="selection-card-effect">' + (_rwBlind ? '<span style="color:var(--text-dim);font-style:italic">hidden</span>' : rEffect) + '</div></div>';
 
-html += '<div class="selection-card-level ' + lvlClass + '">Lv.' + opt.level + '</div></div>';
+html += '<div class="selection-card-level ' + (_rwBlind ? '' : lvlClass) + '">' + (_rwBlind ? 'Lv.?' : 'Lv.' + opt.level) + '</div></div>';
 
 }
 
@@ -7063,11 +7090,12 @@ html += '<div class="selection-card-icon">' + def.icon + '</div>';
 
 html += '<div class="selection-card-info"><div class="selection-card-name">' + def.name + '</div>';
 
-html += '<div class="selection-card-plain">' + plainDesc + '</div>';
+var _isBlind = activeModifiers.indexOf("blind") >= 0;
+html += '<div class="selection-card-plain">' + (_isBlind ? '???' : plainDesc) + '</div>';
 
-html += '<div class="selection-card-effect">' + effectDesc + '</div></div>';
+html += '<div class="selection-card-effect">' + (_isBlind ? '<span style="color:var(--text-dim);font-style:italic">hidden</span>' : effectDesc) + '</div></div>';
 
-html += '<div class="selection-card-level ' + lvlClass + '">Lv.' + opt.level + '</div></div>';
+html += '<div class="selection-card-level ' + (_isBlind ? '' : lvlClass) + '">' + (_isBlind ? 'Lv.?' : 'Lv.' + opt.level) + '</div></div>';
 
 }
 
@@ -7344,8 +7372,10 @@ if (activeDimIdx === 0) {
 
 // Dim 1: no penalty, just show global boost
 
+if (activeModifiers.indexOf("isolated") >= 0) {
+document.getElementById("dimNavSub").innerHTML = 'dim boost <span style="color:var(--red)">1.0x (isolated)</span>';
+} else if (activeDimIdx === 0) {
 document.getElementById("dimNavSub").innerHTML = 'dim boost <span style="color:' + _boostColor + '">x' + _dnPerDim.toFixed(2) + '</span>' + _boostStr;
-
 } else {
 
 document.getElementById("dimNavSub").innerHTML = 'dim boost <span style="color:' + _boostColor + '">x' + _dnPerDim.toFixed(2) + '</span> | penalty <span style="color:' + _netColor + '">x' + _dnPenalty.toFixed(_dnPenalty<0.01?4:_dnPenalty<0.1?3:2) + '</span>';
@@ -7411,6 +7441,8 @@ pointsBar.classList.remove("hidden"); prestigeBar.classList.add("hidden"); prest
 pointsBar.classList.remove("hidden"); prestigeBar.classList.add("hidden");
 
 if (isInChallenge()) prestigeBtn.classList.add("hidden");
+
+else if (activeModifiers.indexOf("no_prestige") >= 0) { prestigeBtn.classList.add("hidden"); }
 
 else prestigeBtn.classList.remove("hidden");
 
@@ -7503,6 +7535,8 @@ if (_uBtn) {
 function doPrestige() {
 
 var d = D();
+
+if (activeModifiers.indexOf("no_prestige") >= 0) { showSaveMsg("Prestige blocked (No Prestige modifier)"); return; }
 
 if (!canPrestige()) return;
 
@@ -7912,6 +7946,9 @@ gap = Math.ceil(gap * 1.75);
 }
 
 count += getCarryWeightBonus(activeDimIdx);
+
+// Fragile modifier: cap keep count at 1
+if (activeModifiers.indexOf("fragile") >= 0) return Math.min(1, count);
 
 return count;
 
@@ -8994,6 +9031,9 @@ html += '</div>';
 
 var rwOpts = ch.rewardOptions || [ch.reward];
 
+if (activeModifiers.indexOf("drought") >= 0) {
+html += '<div style="font-size:0.75rem;color:var(--red);text-transform:uppercase;letter-spacing:0.1em;margin:8px 0;font-weight:700;">✕ NO REWARD (Drought)</div>';
+} else {
 html += '<div style="font-size:0.65rem;color:var(--green-dim);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">Reward (pick 1 of ' + rwOpts.length + ')</div>';
 
 for (var rr = 0; rr < rwOpts.length; rr++) {
@@ -9016,6 +9056,7 @@ html += '<div class="reward-desc" style="color:var(--green);font-family:var(--fo
 
 html += '<div class="reward-level ' + rwLvlClass + '">Lv.' + rwOpts[rr].level + '</div></div>';
 
+}
 }
 
 if (isActive) {
@@ -9504,7 +9545,7 @@ var _mm = getMomentumMult(d);
 
 var _dp = getDimPenalty(di);
 
-var _cb = multiDimUnlocked ? _globalBoostCache : 1;
+var _cb = multiDimUnlocked ? (activeModifiers.indexOf("isolated") >= 0 ? 1 : _globalBoostCache) : 1;
 
 var sharedMult = bnFromNum(_gb * _mm * _dp * _cb * bgDt);
 
@@ -9600,9 +9641,14 @@ d.prestigeCount += getBasePP(d) * getPrestigeBoostMult(d);
 
 d.hasPrestigedOnce = true;
 
-d.pendingRewardOptions = ch.rewardOptions || [ch.reward];
-
-d.pendingReward = d.pendingRewardOptions[0]; // backward compat
+// Drought modifier: skip rewards for background dims too
+if (activeModifiers.indexOf("drought") >= 0) {
+  d.pendingRewardOptions = null;
+  d.pendingReward = null;
+} else {
+  d.pendingRewardOptions = ch.rewardOptions || [ch.reward];
+  d.pendingReward = d.pendingRewardOptions[0]; // backward compat
+}
 
 d.activeChallengeIdx = -1;
 
@@ -9659,6 +9705,30 @@ _ppPct = Math.min(100, (_ppExp / _ppTh) * 100);
 document.getElementById("prestigeBtn").style.setProperty("--pp-pct", _ppPct.toFixed(1) + "%");
 
 updatePlayTime(realDt, dt);
+
+// Speedrun modifier: check time limit
+if (activeModifiers.indexOf("speedrun_mod") >= 0 && gameStarted) {
+  var _srLimit = getSpeedrunTimeLimit();
+  var _srElapsed = gameStats.realTime || 0;
+  var _srRemaining = Math.max(0, _srLimit - _srElapsed);
+  // Update countdown UI
+  var _srEl = document.getElementById("speedrunCountdown");
+  if (_srEl) {
+    _srEl.classList.remove("hidden");
+    var _srH = Math.floor(_srRemaining / 3600);
+    var _srM = Math.floor((_srRemaining % 3600) / 60);
+    var _srS = Math.floor(_srRemaining % 60);
+    var _srColor = _srRemaining < 300 ? "var(--red)" : _srRemaining < 3600 ? "var(--amber)" : "var(--green)";
+    _srEl.innerHTML = '<span style="color:' + _srColor + '">⏱ ' + _srH + 'h ' + ((_srM<10?'0':'')+_srM) + 'm ' + ((_srS<10?'0':'')+_srS) + 's</span>';
+  }
+  // Time's up!
+  if (_srRemaining <= 0) {
+    speedrunTimesUp();
+  }
+} else {
+  var _srEl2 = document.getElementById("speedrunCountdown");
+  if (_srEl2) _srEl2.classList.add("hidden");
+}
 
 if (window._bgTickCounter && window._bgTickCounter % 60 === 0) checkMilestones();
 
@@ -12575,6 +12645,18 @@ function hasBeatenCombo(difficulty, count) {
 
 // Active modifiers for current run (set on game start)
 var activeModifiers = [];
+
+function speedrunTimesUp() {
+  // Time's up - save and return to title
+  saveGame();
+  gameStarted = false;
+  showConfirmDialog("⏱ Time's Up!",
+    "Your speedrun time has expired! Your progress has been saved.",
+    "Return to Title", null,
+    function() { showStartScreen(); },
+    function() { showStartScreen(); }
+  );
+}
 
 function getSpeedrunTimeLimit() {
   // Base 24h, +25% per additional active modifier, scaled by difficulty
