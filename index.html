@@ -2768,7 +2768,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.21</div>
+<div class="start-version" id="startVersion">v1.9.22</div>
 
 </div>
 
@@ -2803,7 +2803,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.21</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.22</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3113,7 +3113,7 @@ Buy Upgrade (1 PP)
 <div style="margin-top:12px;">
 <button class="ctrl-btn" style="width:100%;background:var(--bg-card);border-color:var(--amber-dim);color:var(--amber);" onclick="returnToTitle()">Return to Title Screen</button>
 </div>
-<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);"><button class="ctrl-btn" style="width:100%;background:var(--bg-card);border-color:var(--red-dim);color:var(--red);" onclick="resetGame()">Hard Reset (Delete All Data)</button></div>
+<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);"><button class="ctrl-btn" style="width:100%;background:var(--bg-card);border-color:var(--red-dim);color:var(--red);" onclick="resetGame()">Reset This Save</button></div>
 <button class="settings-close-btn" onclick="closeSettings()">Close</button>
 
 </div>
@@ -3330,7 +3330,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.21";
+var STRATA_VERSION = "v1.9.22";
 
 // ============================================================
 
@@ -10115,9 +10115,9 @@ return true;
 
 function resetGame() {
 
-showConfirmDialog("Hard Reset",
-  "ALL progress across ALL dimensions will be lost.<br>This cannot be undone.",
-  "Reset Everything", "Cancel",
+showConfirmDialog("Reset This Save",
+  "Reset this save file? All progress in this run will be lost — dimensions, upgrades, prestige points, everything.<br>You will start fresh at Dimension 1.",
+  "Reset Save", "Cancel",
   function() {
 
 safeRemoveItem("nestedIdleSave2");
@@ -10157,9 +10157,14 @@ document.getElementById("tabBar").classList.add("hidden");
 invalidateRenderKeys(); updateUI();
 
 closeSettings();
-gameStarted = false;
-showStartScreen();
-showSaveMsg("Game reset!");
+initUpgradeSlots(); initGenerators();
+updateTimeBankUI();
+recalcGlobalBoost();
+invalidateRenderKeys();
+switchTab("generators");
+updateUI();
+saveGame();
+showSaveMsg("Save reset — back to Dimension 1.");
 
   }
 );
@@ -10204,20 +10209,21 @@ function globalHardReset() {
     "This will delete ALL saves, completion progress, settings, and local data.<br><br>This cannot be undone.",
     "Delete Everything", "Cancel",
     function() {
-      // Clear ALL localStorage keys
-      try {
-        var keysToRemove = [];
-        for (var i = 0; i < localStorage.length; i++) {
-          var key = localStorage.key(i);
-          if (key && key.indexOf("strata") >= 0) keysToRemove.push(key);
-        }
-        keysToRemove.push("nestedIdleSave2");
-        for (var k = 0; k < keysToRemove.length; k++) {
-          try { localStorage.removeItem(keysToRemove[k]); } catch(e2) {}
-        }
-      } catch(e) {}
+      // Delete every save slot (same method as deleteSlot which works)
+      for (var i = 0; i < 100; i++) {
+        try { localStorage.removeItem(getSaveSlotKey(i)); } catch(e) {}
+      }
+      // Delete the active save
+      try { localStorage.removeItem("nestedIdleSave2"); } catch(e) {}
+      // Delete global data
+      try { localStorage.removeItem("strata_active_slot"); } catch(e) {}
+      try { localStorage.removeItem("strata_completion"); } catch(e) {}
+      try { localStorage.removeItem("strata_settings"); } catch(e) {}
+      try { localStorage.removeItem("strata_theme"); } catch(e) {}
+      try { localStorage.removeItem("strata_milestones"); } catch(e) {}
+      try { localStorage.removeItem("strata_discoveries"); } catch(e) {}
       
-      // Full in-memory state reset — prevent auto-save from restoring old data
+      // Full in-memory state reset
       gameStarted = false;
       activeSlotIdx = -1;
       dimensions = [createFreshDimension()];
