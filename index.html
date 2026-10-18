@@ -2768,7 +2768,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.20</div>
+<div class="start-version" id="startVersion">v1.9.21</div>
 
 </div>
 
@@ -2803,7 +2803,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.20</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.21</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3330,7 +3330,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.20";
+var STRATA_VERSION = "v1.9.21";
 
 // ============================================================
 
@@ -10219,6 +10219,7 @@ function globalHardReset() {
       
       // Full in-memory state reset — prevent auto-save from restoring old data
       gameStarted = false;
+      activeSlotIdx = -1;
       dimensions = [createFreshDimension()];
       activeDimIdx = 0;
       unlockedDims = 1;
@@ -10848,15 +10849,14 @@ if (!container) return;
 
 var html = "";
 
-var _slotCount = getSaveSlotCount();
-
-for (var i = 0; i <= _slotCount; i++) {
-
-var sn = getSlotName(i);
+// Only show filled slots — skip empty ones
+for (var i = 0; i < 100; i++) {
 
 var info = getSaveSlotInfo(i);
 
-if (info) {
+if (!info) continue;
+
+var sn = getSlotName(i);
 
 var date = new Date(info.timestamp);
 
@@ -10881,23 +10881,12 @@ html += '<button class="slot-btn slot-del" onclick="deleteSlot(' + i + ')">\u271
 
 html += '</div></div>';
 
-} else {
+}
 
-html += '<div class="save-slot empty">';
-
-html += '<div class="save-slot-icon" style="opacity:0.3">' + sn.letter + '</div>';
-
-html += '<div class="save-slot-info"><div class="save-slot-name">' + sn.name + '</div>';
-
-html += '<div class="save-slot-detail">Empty</div></div>';
-
-html += '<button class="slot-btn slot-save" onclick="saveToSlot(' + i + ')">Save</button>';
-
+// "New Save" button at the bottom
+html += '<div class="save-slot empty" style="justify-content:center;cursor:pointer;" onclick="saveToSlot(getNextFreeSlot())">';
+html += '<div style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;">+ new save</div>';
 html += '</div>';
-
-}
-
-}
 
 container.innerHTML = html;
 
