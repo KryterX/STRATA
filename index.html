@@ -2756,6 +2756,24 @@ display: flex !important; /* override display:none so transition works */
 
 <body>
 
+<div class="start-screen hidden" id="titleSettingsScreen" style="z-index:3100;">
+<div class="start-title" style="font-size:1.2rem;margin-bottom:20px;">settings</div>
+
+<div style="width:100%;max-width:360px;">
+
+<div style="font-family:var(--font-mono);font-size:0.6rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">theme</div>
+<div id="titleThemeGrid" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;"></div>
+
+<div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px;">
+<button class="start-btn" onclick="globalHardReset()" style="border-color:var(--red-dim);color:var(--red);font-size:0.65rem;">reset all data</button>
+<div style="font-size:0.5rem;color:var(--text-dim);margin-top:4px;text-align:center;">deletes ALL saves, completion progress, and settings</div>
+</div>
+
+</div>
+
+<button class="start-btn" onclick="closeTitleSettings()" style="margin-top:20px;">← back</button>
+</div>
+
 <div class="start-screen" id="startScreen">
 
 <div class="start-title">strata</div>
@@ -2766,7 +2784,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.12</div>
+<div class="start-version" id="startVersion">v1.9.13</div>
 
 </div>
 
@@ -2801,7 +2819,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.12</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.13</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3226,7 +3244,7 @@ Buy Upgrade (1 PP)
 
 
 
-<div class="restart-overlay hidden" id="confirmDialogOverlay" style="z-index:2200;">
+<div class="restart-overlay hidden" id="confirmDialogOverlay" style="z-index:3500;">
 <div class="restart-overlay-title" id="confirmDialogTitle">Confirm</div>
 <div class="restart-overlay-sub" id="confirmDialogMessage" style="margin-bottom:16px;line-height:1.6;"></div>
 <div style="display:flex;gap:10px;margin-top:12px;width:100%;max-width:360px;">
@@ -3328,7 +3346,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.12";
+var STRATA_VERSION = "v1.9.13";
 
 // ============================================================
 
@@ -10178,6 +10196,52 @@ function safeRemoveItem(k) { try { if (storageAvailable) localStorage.removeItem
 
 var gameStarted = false;
 
+function showTitleSettings() {
+  document.getElementById("startScreen").classList.add("hidden");
+  document.getElementById("titleSettingsScreen").classList.remove("hidden");
+  // Render theme grid
+  var grid = document.getElementById("titleThemeGrid");
+  if (grid) renderThemeGrid(grid);
+}
+
+function closeTitleSettings() {
+  document.getElementById("titleSettingsScreen").classList.add("hidden");
+  document.getElementById("startScreen").classList.remove("hidden");
+}
+
+function globalHardReset() {
+  showConfirmDialog("Reset All Data",
+    "This will delete ALL saves, completion progress, settings, and local data.<br><br>This cannot be undone.",
+    "Delete Everything", "Cancel",
+    function() {
+      // Clear ALL localStorage keys
+      try {
+        var keysToRemove = [];
+        for (var i = 0; i < localStorage.length; i++) {
+          var key = localStorage.key(i);
+          if (key && key.indexOf("strata") >= 0) keysToRemove.push(key);
+        }
+        // Also clear the main save
+        keysToRemove.push("nestedIdleSave2");
+        for (var k = 0; k < keysToRemove.length; k++) {
+          localStorage.removeItem(keysToRemove[k]);
+        }
+      } catch(e) {}
+      
+      // Reset in-memory state
+      completionHistory = {};
+      permBuffs = [];
+      activeModifiers = [];
+      gameRetired = false;
+      
+      // Return to title
+      document.getElementById("titleSettingsScreen").classList.add("hidden");
+      showStartScreen();
+      showSaveMsg("All data reset.");
+    }
+  );
+}
+
 function showStartScreen() {
 
 var hasSave = !!safeGetItem("nestedIdleSave2");
@@ -10195,6 +10259,8 @@ html += '<button class="start-btn" onclick="startNew()">new game</button>';
 html += '<button class="start-btn" onclick="startNew()">begin</button>';
 
 }
+
+html += '<button class="start-btn" onclick="showTitleSettings()" style="margin-top:12px;font-size:0.65rem;opacity:0.6;border-color:var(--border);">settings</button>';
 
 document.getElementById("startButtons").innerHTML = html;
 
@@ -10361,7 +10427,16 @@ function deleteSlotFromTitle(slot) {
         safeRemoveItem("nestedIdleSave2");
         setActiveSlot(-1);
       }
-      showSaveSelect(); // refresh the list
+      // Refresh the list, or go back to start if no saves left
+      var _anyLeft = false;
+      for (var _dsi = 0; _dsi < 100; _dsi++) {
+        if (localStorage.getItem(getSaveSlotKey(_dsi))) { _anyLeft = true; break; }
+      }
+      if (!_anyLeft && !safeGetItem("nestedIdleSave2")) {
+        showStartScreen();
+      } else {
+        showSaveSelect();
+      }
     }
   );
 }
