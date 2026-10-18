@@ -2768,7 +2768,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.24</div>
+<div class="start-version" id="startVersion">v1.9.25</div>
 
 </div>
 
@@ -2803,7 +2803,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.24</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.25</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3330,7 +3330,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.24";
+var STRATA_VERSION = "v1.9.25";
 
 // ============================================================
 
@@ -10214,7 +10214,7 @@ function globalHardReset() {
       
       // Same exact delete that deleteSlot uses — just loop it
       for (var i = 0; i < 100; i++) {
-        localStorage.removeItem("strata_slot_" + i);
+        localStorage.removeItem(getSaveSlotKey(i));
       }
       localStorage.removeItem("nestedIdleSave2");
       localStorage.removeItem("strata_active_slot");
@@ -11619,16 +11619,22 @@ renderSettingsUI();
 renderSaveSlots();
 
 // Swap buttons based on context
-var returnBtn = document.querySelector('.settings-scroll [onclick="returnToTitle()"]');
-var resetBtn = document.querySelector('.settings-scroll [onclick="resetGame()"]');
+var returnBtn = document.querySelector('.settings-scroll [onclick*="returnToTitle"]');
+var resetBtns = document.querySelectorAll('.settings-scroll .ctrl-btn');
+var resetBtn = null;
+for (var _rb = 0; _rb < resetBtns.length; _rb++) {
+  if (resetBtns[_rb].style.color && resetBtns[_rb].style.color.indexOf("red") >= 0) resetBtn = resetBtns[_rb];
+  var _rOC = resetBtns[_rb].getAttribute("onclick") || "";
+  if (_rOC.indexOf("resetGame") >= 0 || _rOC.indexOf("globalHardReset") >= 0) resetBtn = resetBtns[_rb];
+}
 if (returnBtn) returnBtn.style.display = _settingsFromTitle ? "none" : "";
 if (resetBtn) {
   if (_settingsFromTitle) {
     resetBtn.textContent = "Reset All Data";
-    resetBtn.onclick = globalHardReset;
+    resetBtn.setAttribute("onclick", "globalHardReset()");
   } else {
-    resetBtn.textContent = "Hard Reset (Delete All Data)";
-    resetBtn.onclick = resetGame;
+    resetBtn.textContent = "Reset This Save";
+    resetBtn.setAttribute("onclick", "resetGame()");
   }
 }
 
