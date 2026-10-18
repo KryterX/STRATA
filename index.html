@@ -2768,7 +2768,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.18</div>
+<div class="start-version" id="startVersion">v1.9.19</div>
 
 </div>
 
@@ -2803,7 +2803,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.18</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.19</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3330,7 +3330,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.18";
+var STRATA_VERSION = "v1.9.19";
 
 // ============================================================
 
@@ -3535,9 +3535,9 @@ var UPGRADE_DEFS = [
 ,{ id: "echo",             name: "Echo",              icon: "∂", descFn: function(l) { return "copy owned upgrade at lv." + l; } }
 
 ,{ id: "passive_prestige", name: "Passive Prestige", icon: "\u2248", descFn: function(l) { return "earn " + l + "% of prestige PP per second"; } }
-,{ id: "transcendence", name: "Transcendence", icon: "\u039E\u2298", descFn: function(l) { return "max upgrade level +5, challenge defects -5 (all dims)"; } },{ id: "carry_weight", name: "Carry Weight", icon: "\u2696", descFn: function(l) { return "+" + l + " upgrades kept on dim restart"; } }
-,{ id: "foundation", name: "Foundation", icon: "\u2693", descFn: function(l) { return l > 0 ? "1 of each gen pre-bought on restart" : "no effect"; } }
-,{ id: "wide_reward", name: "Wide Reward", icon: "\u2740", descFn: function(l) { return "+" + Math.ceil(l * 0.7) + " extra challenge reward picks"; } }
+,{ id: "transcendence", name: "Transcendence", icon: "\u039E\u2298", descFn: function(l) { return "max upgrade level +5, challenge defects -5 (all dims)"; } },{ id: "carry_weight", name: "Carry Weight", icon: "\u03c9", descFn: function(l) { return "+" + l + " upgrades kept on dim restart"; } }
+,{ id: "foundation", name: "Foundation", icon: "\u03c6", descFn: function(l) { return l > 0 ? "1 of each gen pre-bought on restart" : "no effect"; } }
+,{ id: "wide_reward", name: "Wide Reward", icon: "\u03c4", descFn: function(l) { return "+" + Math.ceil(l * 0.7) + " extra challenge reward picks"; } }
 ];
 
 var DEFECT_POOL = ["upgrade_boost","discount","gen_expansion","gen_boost","overclock","momentum"];
@@ -4236,7 +4236,7 @@ var _def = UPGRADE_DEFS[pi];
 
 // Cross-dim upgrades: only available in Dim 2+ (activeDimIdx > 0)
 
-if (crossDimOnly.indexOf(_def.id) >= 0) continue; if (_def.id === "transcendence") continue;
+if (crossDimOnly.indexOf(_def.id) >= 0) continue; if (_def.id === "transcendence" || _def.id === "carry_weight" || _def.id === "foundation" || _def.id === "wide_reward") continue;
 
 // No Prestige modifier: exclude passive_prestige from selection pool
 if (activeModifiers.indexOf("no_prestige") >= 0 && _def.id === "passive_prestige") continue;
@@ -4414,7 +4414,7 @@ for (var _cpi = 0; _cpi < UPGRADE_DEFS.length; _cpi++) {
 
 var _cdef = UPGRADE_DEFS[_cpi];
 
-if (_crossDimOnly2.indexOf(_cdef.id) >= 0) continue; if (_cdef.id === "transcendence") continue;
+if (_crossDimOnly2.indexOf(_cdef.id) >= 0) continue; if (_cdef.id === "transcendence" || _cdef.id === "carry_weight" || _cdef.id === "foundation" || _cdef.id === "wide_reward") continue;
 
 // No Prestige modifier: exclude passive_prestige from reward pool
 if (activeModifiers.indexOf("no_prestige") >= 0 && _cdef.id === "passive_prestige") continue;
