@@ -2757,7 +2757,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.6</div>
+<div class="start-version" id="startVersion">v1.9.7</div>
 
 </div>
 
@@ -2792,7 +2792,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.6</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.7</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3319,7 +3319,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.6";
+var STRATA_VERSION = "v1.9.7";
 
 // ============================================================
 
@@ -3543,6 +3543,7 @@ var unlockedDims = 1;
 
 var multiDimUnlocked = false; var permBuffs = []; var dimCompletionCount = 0;
 var gameDifficulty = "normal"; var speedrunMode = false;
+var activeModifiers = [];
 
 // permBuffs = permanent upgrades earned by completing dimensions (levels in PERM_BUFF_LEVELS)
 
@@ -12646,7 +12647,6 @@ function hasBeatenCombo(difficulty, count) {
 }
 
 // Active modifiers for current run (set on game start)
-var activeModifiers = [];
 
 function speedrunTimesUp() {
   // Time's up - save and return to title
