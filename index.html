@@ -2768,7 +2768,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.26</div>
+<div class="start-version" id="startVersion">v1.9.27</div>
 
 </div>
 
@@ -2803,7 +2803,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.26</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.27</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3113,7 +3113,7 @@ Buy Upgrade (1 PP)
 <div style="margin-top:12px;">
 <button class="ctrl-btn" style="width:100%;background:var(--bg-card);border-color:var(--amber-dim);color:var(--amber);" onclick="returnToTitle()">Return to Title Screen</button>
 </div>
-<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);"><button class="ctrl-btn" style="width:100%;background:var(--bg-card);border-color:var(--red-dim);color:var(--red);" onclick="resetGame()">Reset This Save test</button></div>
+<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);"><button id="btnResetSave" class="ctrl-btn" style="width:100%;background:var(--bg-card);border-color:var(--red-dim);color:var(--red);" onclick="resetGame()">Reset This Save</button><button id="btnResetAll" class="ctrl-btn" style="width:100%;background:var(--bg-card);border-color:var(--red-dim);color:var(--red);display:none;margin-top:6px;" onclick="globalHardReset()">Reset All Data</button></div>
 <button class="settings-close-btn" onclick="closeSettings()">Close</button>
 
 </div>
@@ -3330,7 +3330,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.26";
+var STRATA_VERSION = "v1.9.27";
 
 // ============================================================
 
@@ -10209,19 +10209,6 @@ function globalHardReset() {
     "This will delete ALL saves and local data. This cannot be undone.",
     "Delete Everything", "Cancel",
     function() {
-        for (var i = 0; i < 100; i++) {
-    if (localStorage.getItem("strata_slot_" + i)) before.push(i);
-}
-for (var i = 0; i < 100; i++) {
-    localStorage.removeItem("strata_slot_" + i);
-}
-localStorage.removeItem("nestedIdleSave2");
-localStorage.removeItem("strata_active_slot");
-
-var after = [];
-for (var i = 0; i < 100; i++) {
-    if (localStorage.getItem("strata_slot_" + i)) after.push(i);
-}
       gameStarted = false;
       for (var i = 0; i < 100; i++) { localStorage.removeItem("strata_slot_" + i); }
       localStorage.removeItem("nestedIdleSave2");
@@ -11625,25 +11612,13 @@ renderSettingsUI();
 
 renderSaveSlots();
 
-// Swap buttons based on context
+// Show/hide buttons based on context (title vs in-game)
 var returnBtn = document.querySelector('.settings-scroll [onclick*="returnToTitle"]');
-var resetBtns = document.querySelectorAll('.settings-scroll .ctrl-btn');
-var resetBtn = null;
-for (var _rb = 0; _rb < resetBtns.length; _rb++) {
-  if (resetBtns[_rb].style.color && resetBtns[_rb].style.color.indexOf("red") >= 0) resetBtn = resetBtns[_rb];
-  var _rOC = resetBtns[_rb].getAttribute("onclick") || "";
-  if (_rOC.indexOf("resetGame") >= 0 || _rOC.indexOf("globalHardReset") >= 0) resetBtn = resetBtns[_rb];
-}
 if (returnBtn) returnBtn.style.display = _settingsFromTitle ? "none" : "";
-if (resetBtn) {
-  if (_settingsFromTitle) {
-    resetBtn.textContent = "Reset All Data";
-    resetBtn.setAttribute("onclick", "globalHardReset()");
-  } else {
-    resetBtn.textContent = "Reset This Save";
-    resetBtn.setAttribute("onclick", "resetGame()");
-  }
-}
+var _brs = document.getElementById("btnResetSave");
+var _bra = document.getElementById("btnResetAll");
+if (_brs) _brs.style.display = _settingsFromTitle ? "none" : "";
+if (_bra) _bra.style.display = _settingsFromTitle ? "" : "none";
 
 document.getElementById("settingsOverlay").classList.remove("hidden");
 
