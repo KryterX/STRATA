@@ -2768,7 +2768,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.27</div>
+<div class="start-version" id="startVersion">v1.9.30</div>
 
 </div>
 
@@ -2803,7 +2803,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.27</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.30</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3086,8 +3086,6 @@ Buy Upgrade (1 PP)
 
 </div>
 
-<div id="saveSlots"></div>
-
 </div>
 
 <div class="settings-section">
@@ -3110,9 +3108,7 @@ Buy Upgrade (1 PP)
 
 </div>
 
-<div style="margin-top:12px;">
-<button class="ctrl-btn" style="width:100%;background:var(--bg-card);border-color:var(--amber-dim);color:var(--amber);" onclick="returnToTitle()">Return to Title Screen</button>
-</div>
+
 <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);"><button id="btnResetSave" class="ctrl-btn" style="width:100%;background:var(--bg-card);border-color:var(--red-dim);color:var(--red);" onclick="resetGame()">Reset This Save</button><button id="btnResetAll" class="ctrl-btn" style="width:100%;background:var(--bg-card);border-color:var(--red-dim);color:var(--red);display:none;margin-top:6px;" onclick="globalHardReset()">Reset All Data</button></div>
 <button class="settings-close-btn" onclick="closeSettings()">Close</button>
 
@@ -3330,7 +3326,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.27";
+var STRATA_VERSION = "v1.9.30";
 
 // ============================================================
 
@@ -3670,7 +3666,9 @@ autoPrestigeOn: false,
 
 dimStartedAt: Date.now(),
 
-dimCompletedAt: 0
+dimCompletedAt: 0,
+
+restartCount: 0
 
 };
 
@@ -4583,6 +4581,7 @@ gameStats.challengesCompleted++;
 
 // Track minimalist: completing challenge with few upgrades
 if (getFilledSlotCount() <= 3) hardAchievements.minimalistChallenge = true;
+if (getFilledSlotCount() === 0) hardAchievements.nakedChallenge = true;
 
 var _ppEarned = getPrestigeEarned();
 
@@ -8423,6 +8422,7 @@ recalcGlobalBoost();
 var _newBoost = getGlobalBoostTotal();
 
 function _finishRestart() {
+  D().restartCount = (D().restartCount || 0) + 1;
   if (keptUpgrades.length === 0) hardAchievements.hasRestartedWithZero = true;
   var _savedMaxExpRecord = D().maxExponentRecord || 0;
   dimensions[activeDimIdx] = createFreshDimension();
@@ -8489,6 +8489,7 @@ recalcGlobalBoost();
 var _newBoost = getGlobalBoostTotal();
 
 function _finishLegacyRestart() {
+  D().restartCount = (D().restartCount || 0) + 1;
   if (keptUpgrades.length === 0) hardAchievements.hasRestartedWithZero = true;
   var _savedMaxExpRecord = D().maxExponentRecord || 0;
   dimensions[activeDimIdx] = createFreshDimension();
@@ -9630,8 +9631,17 @@ if (curExp > (d.maxExponent || 0)) d.maxExponent = curExp;
 
 // maxExponentRecord updated on dim reset only (not per-frame)
 
+// Secret: track staying at exactly e308
+if (di === activeDimIdx && !hasBreakInfinity(d) && d.points.e === 308) {
+  hardAchievements._308holdTimer = (hardAchievements._308holdTimer || 0) + bgDt;
+  if (hardAchievements._308holdTimer >= 60) hardAchievements.held308for60 = true;
+} else if (di === activeDimIdx) {
+  hardAchievements._308holdTimer = 0;
+}
+
 // Track glass cannon: reaching high exponent with few upgrades
 if (di === activeDimIdx && curExp >= 10000 && getFilledSlotCount() <= 3) hardAchievements.glassCannon = true;
+if (di === activeDimIdx && curExp >= 100000 && getFilledSlotCount() <= 1) hardAchievements.razorsEdge = true;
 
 // Challenge auto-complete
 
@@ -9859,13 +9869,17 @@ ppDripAccum: d.ppDripAccum || 0,
 
 dimStartedAt: d.dimStartedAt || 0,
 
-dimCompletedAt: d.dimCompletedAt || 0
+dimCompletedAt: d.dimCompletedAt || 0,
+
+restartCount: d.restartCount || 0
 
 };
 
 }),
 
 unlockedMilestones: unlockedMilestones,
+unlockedAchievements: unlockedAchievements,
+unlockedAchievementCategories: unlockedAchievementCategories,
 discoveryState: getDiscoveryState(),
 
 
@@ -9961,6 +9975,8 @@ d.dimStartedAt = sd.dimStartedAt || 0;
 
 d.dimCompletedAt = sd.dimCompletedAt || 0;
 
+d.restartCount = sd.restartCount || 0;
+
 d.ppDripAccum = sd.ppDripAccum || 0;
 
 d.maxExponent = sd.maxExponent || 0;
@@ -10010,9 +10026,13 @@ for (var hk in data.hardAchievements) { if (hardAchievements.hasOwnProperty(hk))
 // Restore milestones from save blob only
 
 if (data.unlockedMilestones) {
-
 unlockedMilestones = data.unlockedMilestones;
-
+}
+if (data.unlockedAchievements) {
+unlockedAchievements = data.unlockedAchievements;
+}
+if (data.unlockedAchievementCategories) {
+unlockedAchievementCategories = data.unlockedAchievementCategories;
 }
 
 // Restore discoveries from save blob only
@@ -10133,9 +10153,11 @@ gameDifficulty = "normal"; speedrunMode = false;
 
 gameStats = { realTime: 0, gameTime: 0, totalPrestiges: 0, totalPPEarned: 0, highestExponent: 0, fastestPrestige: Infinity, totalGeneratorsBought: 0, totalUpgradesBought: 0, challengesCompleted: 0, dimensionsCompleted: 0, currentRunStart: Date.now() };
 
-hardAchievements = { dimCompletionTime: Infinity, usedAutoBuyThisDim: false, usedAutoPrestigeThisDim: false, everDowngraded: false, maxPPHoarded: 0, hasRestartedWithZero: false, glassCannon: false, minimalistChallenge: false };
+hardAchievements = { dimCompletionTime: Infinity, usedAutoBuyThisDim: false, usedAutoPrestigeThisDim: false, everDowngraded: false, maxPPHoarded: 0, hasRestartedWithZero: false, glassCannon: false, minimalistChallenge: false, nakedChallenge: false, flawlessRun: false, razorsEdge: false, held308for60: false, _308holdTimer: 0, _sessionBreak: false };
 
 unlockedMilestones = {};
+unlockedAchievements = {};
+unlockedAchievementCategories = {};
 
 try { localStorage.removeItem("strata_milestones"); } catch(e) {}
 
@@ -10227,8 +10249,10 @@ function globalHardReset() {
       gameDifficulty = "normal"; speedrunMode = false;
       architectTipsEnabled = true;
       gameStats = { realTime: 0, gameTime: 0, totalPrestiges: 0, totalPPEarned: 0, highestExponent: 0, fastestPrestige: Infinity, totalGeneratorsBought: 0, totalUpgradesBought: 0, challengesCompleted: 0, dimensionsCompleted: 0, currentRunStart: Date.now() };
-      hardAchievements = { dimCompletionTime: Infinity, usedAutoBuyThisDim: false, usedAutoPrestigeThisDim: false, everDowngraded: false, maxPPHoarded: 0, hasRestartedWithZero: false, glassCannon: false, minimalistChallenge: false };
-      unlockedMilestones = {}; window._discoveryState = {};
+      hardAchievements = { dimCompletionTime: Infinity, usedAutoBuyThisDim: false, usedAutoPrestigeThisDim: false, everDowngraded: false, maxPPHoarded: 0, hasRestartedWithZero: false, glassCannon: false, minimalistChallenge: false, nakedChallenge: false, flawlessRun: false, razorsEdge: false, held308for60: false, _308holdTimer: 0, _sessionBreak: false };
+      unlockedMilestones = {};
+unlockedAchievements = {};
+unlockedAchievementCategories = {}; window._discoveryState = {};
       document.getElementById("settingsOverlay").classList.add("hidden");
       _settingsFromTitle = false;
       showStartScreen();
@@ -10476,6 +10500,8 @@ activeDimIdx = 0; unlockedDims = 1; multiDimUnlocked = false;
 permBuffs = []; dimCompletionCount = 0; gameRetired = false;
 gameStats = { realTime: 0, gameTime: 0, totalPrestiges: 0, totalPPEarned: 0, highestExponent: 0, fastestPrestige: Infinity, totalGeneratorsBought: 0, totalUpgradesBought: 0, challengesCompleted: 0, dimensionsCompleted: 0, currentRunStart: Date.now() };
 unlockedMilestones = {};
+unlockedAchievements = {};
+unlockedAchievementCategories = {};
 window._discoveryState = {};
 hardAchievements = {
   dimCompletionTime: Infinity,
@@ -11107,11 +11133,8 @@ if (curExp > gameStats.highestExponent) gameStats.highestExponent = curExp;
 function renderStatsTab() {
 
 var el = document.getElementById("statsContent");
-
 if (!el) return;
-
 var s = gameStats;
-
 var html = "";
 
 // Helper: only show a stat row if value is non-zero/meaningful
@@ -11121,14 +11144,14 @@ function statRow(name, value, highlight) {
   return '<div class="stat-row"><span class="stat-name">' + name + '</span><span class="' + cls + '">' + value + '</span></div>';
 }
 
-// Timers — always show (time is always ticking)
+// Timers — always show
 html += '<div class="stats-section">';
 html += '<div class="stats-section-label">Time</div>';
 html += '<div class="stat-row"><span class="stat-name">Real Time</span><span class="stat-value">' + formatTime(s.realTime) + '</span></div>';
 html += '<div class="stat-row"><span class="stat-name">Game Time</span><span class="stat-value stat-highlight">' + formatTime(s.gameTime) + '</span></div>';
 html += '</div>';
 
-// Progress — only show stats that have been achieved
+// Progress — only non-zero
 var progressHtml = "";
 if (s.highestExponent > 1) progressHtml += statRow("Highest Exponent", "e" + Math.floor(s.highestExponent));
 progressHtml += statRow("Total Prestiges", s.totalPrestiges);
@@ -11140,7 +11163,6 @@ progressHtml += statRow("Generators Bought", s.totalGeneratorsBought);
 progressHtml += statRow("Upgrades Bought", s.totalUpgradesBought);
 progressHtml += statRow("Challenges Completed", s.challengesCompleted);
 progressHtml += statRow("Dimensions Completed", s.dimensionsCompleted);
-
 if (progressHtml) {
   html += '<div class="stats-section">';
   html += '<div class="stats-section-label">Progress</div>';
@@ -11148,27 +11170,66 @@ if (progressHtml) {
   html += '</div>';
 }
 
-// Milestones section
-
-html += '<div class="stats-section">';
-
-html += '<div class="stats-section-label">Milestones</div>';
-
-for (var mi = 0; mi < MILESTONES.length; mi++) {
-
-var m = MILESTONES[mi];
-
-var unlocked = !!unlockedMilestones[m.id];
-
-var cls = unlocked ? "stat-row milestone-done" : "stat-row milestone-locked";
-
-var icon = unlocked ? "\u2605" : "\u2606";
-
-html += '<div class="' + cls + '"><span class="stat-name">' + icon + ' ' + m.name + '</span><span class="stat-value">' + m.desc + '</span></div>';
-
+// Achievements — only show unlocked categories
+var totalEarned = 0;
+var totalAch = 0;
+for (var ci = 0; ci < ACHIEVEMENT_CATEGORIES.length; ci++) {
+  var cat = ACHIEVEMENT_CATEGORIES[ci];
+  totalAch += cat.achievements.length;
+  
+  // Secret category: only show earned achievements individually
+  if (cat.isSecret) {
+    var secretHtml = "";
+    for (var si = 0; si < cat.achievements.length; si++) {
+      var sa = cat.achievements[si];
+      if (unlockedAchievements[sa.id]) {
+        totalEarned++;
+        secretHtml += '<div class="stat-row milestone-done"><span class="stat-name">\u2605 ' + sa.name + '</span><span class="stat-value">' + sa.desc + '</span></div>';
+      }
+    }
+    if (secretHtml) {
+      html += '<div class="stats-section">';
+      html += '<div class="stats-section-label">\u2605 Secret</div>';
+      html += secretHtml;
+      html += '</div>';
+    }
+    continue;
+  }
+  
+  // Normal categories: only show if unlocked
+  if (!unlockedAchievementCategories[cat.id]) continue;
+  
+  html += '<div class="stats-section">';
+  var catEarned = 0;
+  for (var _ce = 0; _ce < cat.achievements.length; _ce++) {
+    if (unlockedAchievements[cat.achievements[_ce].id]) catEarned++;
+  }
+  totalEarned += catEarned;
+  html += '<div class="stats-section-label">' + cat.name + ' (' + catEarned + '/' + cat.achievements.length + ')</div>';
+  
+  for (var ai = 0; ai < cat.achievements.length; ai++) {
+    var a = cat.achievements[ai];
+    var unlocked = !!unlockedAchievements[a.id];
+    var cls = unlocked ? "stat-row milestone-done" : "stat-row milestone-locked";
+    var icon = unlocked ? "\u2605" : "\u2606";
+    html += '<div class="' + cls + '"><span class="stat-name">' + icon + ' ' + a.name + '</span><span class="stat-value">' + a.desc + '</span></div>';
+  }
+  html += '</div>';
 }
 
-html += '</div>';
+// Achievement summary at top if any earned
+if (totalEarned > 0) {
+  var summaryHtml = '<div class="stats-section" style="border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:4px;">';
+  summaryHtml += '<div class="stats-section-label">Achievements</div>';
+  summaryHtml += '<div class="stat-row"><span class="stat-name">Earned</span><span class="stat-value stat-highlight">' + totalEarned + ' / ' + totalAch + '</span></div>';
+  summaryHtml += '</div>';
+  // Insert after progress section
+  var insertPoint = html.indexOf('</div>', html.indexOf('Progress') > 0 ? html.indexOf('Progress') : html.indexOf('Time'));
+  if (insertPoint > 0) {
+    insertPoint = html.indexOf('</div>', insertPoint + 6) + 6;
+    html = html.substring(0, insertPoint) + summaryHtml + html.substring(insertPoint);
+  }
+}
 
 el.innerHTML = html;
 
@@ -11612,13 +11673,16 @@ renderSettingsUI();
 
 renderSaveSlots();
 
-// Show/hide buttons based on context (title vs in-game)
-var returnBtn = document.querySelector('.settings-scroll [onclick*="returnToTitle"]');
-if (returnBtn) returnBtn.style.display = _settingsFromTitle ? "none" : "";
+// Show/hide elements based on context (title vs in-game)
+
 var _brs = document.getElementById("btnResetSave");
 var _bra = document.getElementById("btnResetAll");
+var _saveSection = document.getElementById("settingsSaveSection");
+var _returnBtn = document.getElementById("settingsReturnBtn");
 if (_brs) _brs.style.display = _settingsFromTitle ? "none" : "";
 if (_bra) _bra.style.display = _settingsFromTitle ? "" : "none";
+if (_saveSection) _saveSection.style.display = _settingsFromTitle ? "none" : "";
+if (_returnBtn) _returnBtn.style.display = _settingsFromTitle ? "none" : "";
 
 document.getElementById("settingsOverlay").classList.remove("hidden");
 
@@ -12239,183 +12303,226 @@ container.appendChild(p);
 
 // ============================================================
 
-var MILESTONES = [
+var ACHIEVEMENT_CATEGORIES = [
 
-// Early Game
+{ id: "generators", name: "Generators", achievements: [
+  { id: "gen_first", name: "First Steps", desc: "Buy your first generator", check: function() { return gameStats.totalGeneratorsBought >= 1; } },
+  { id: "gen_cascade", name: "Cascade", desc: "Buy a Tier 2 generator", check: function() { var d = D(); return d.generators.length >= 2 && d.generators[1].bought > 0; } },
+  { id: "gen_50", name: "Full House", desc: "Buy 50 generators total", check: function() { return gameStats.totalGeneratorsBought >= 50; } },
+  { id: "gen_500", name: "Army", desc: "Buy 500 generators total", check: function() { return gameStats.totalGeneratorsBought >= 500; } },
+  { id: "gen_5000", name: "Legion", desc: "Buy 5,000 generators total", check: function() { return gameStats.totalGeneratorsBought >= 5000; } },
+  { id: "gen_50000", name: "Swarm", desc: "Buy 50,000 generators total", check: function() { return gameStats.totalGeneratorsBought >= 50000; } },
+  { id: "gen_500000", name: "Infinite Army", desc: "Buy 500,000 generators total", check: function() { return gameStats.totalGeneratorsBought >= 500000; } },
+  { id: "gen_t10", name: "Tenfold", desc: "Own 10 generator tiers", check: function() { return D().generators.length >= 10; } },
+  { id: "gen_t20", name: "Twenty Deep", desc: "Own 20 generator tiers", check: function() { return D().generators.length >= 20; } },
+  { id: "gen_t50", name: "Fifty Deep", desc: "Own 50 generator tiers", check: function() { return D().generators.length >= 50; } },
+  { id: "gen_t100", name: "Hundred Deep", desc: "Own 100 generator tiers", check: function() { return D().generators.length >= 100; } },
+  { id: "gen_maxbuy", name: "Max Buys", desc: "Max out purchases on any generator", check: function() { var d = D(); var mb = getMaxBuy(); for (var i = 0; i < d.generators.length; i++) { if (d.generators[i].bought >= mb) return true; } return false; } },
+  { id: "gen_allmaxed", name: "All Maxed", desc: "Max out purchases on every generator", check: function() { var d = D(); var mb = getMaxBuy(); if (d.generators.length === 0) return false; for (var i = 0; i < d.generators.length; i++) { if (d.generators[i].bought < mb) return false; } return true; } }
+]},
 
-{ id: "first_gen", name: "First Steps", desc: "Buy your first generator", check: function() { return gameStats.totalGeneratorsBought >= 1; } },
+{ id: "points", name: "Points", achievements: [
+  { id: "pt_e10", name: "Getting Started", desc: "Reach e10", check: function() { return gameStats.highestExponent >= 10; } },
+  { id: "pt_e100", name: "Climbing", desc: "Reach e100", check: function() { return gameStats.highestExponent >= 100; } },
+  { id: "pt_e308", name: "The Wall", desc: "Reach e308", check: function() { return gameStats.highestExponent >= 308; } },
+  { id: "pt_e1000", name: "Infinity+1", desc: "Reach e1,000", check: function() { return gameStats.highestExponent >= 1000; } },
+  { id: "pt_e10000", name: "Exponential", desc: "Reach e10,000", check: function() { return gameStats.highestExponent >= 10000; } },
+  { id: "pt_e100000", name: "Astronomical", desc: "Reach e100,000", check: function() { return gameStats.highestExponent >= 100000; } },
+  { id: "pt_e1m", name: "Heat Death", desc: "Reach e1,000,000", check: function() { return gameStats.highestExponent >= 1000000; } },
+  { id: "pt_e10m", name: "Googolplex", desc: "Reach e10,000,000", check: function() { return gameStats.highestExponent >= 10000000; } },
+  { id: "pt_e100m", name: "Beyond Counting", desc: "Reach e100,000,000", check: function() { return gameStats.highestExponent >= 100000000; } },
+  { id: "pt_e1b", name: "Universe Overflow", desc: "Reach e1,000,000,000", check: function() { return gameStats.highestExponent >= 1000000000; } }
+]},
 
-{ id: "e10", name: "Getting Started", desc: "Reach 1e10 points", check: function() { return gameStats.highestExponent >= 10; } },
+{ id: "prestige", name: "Prestige", achievements: [
+  { id: "pr_1", name: "Reset!", desc: "Prestige for the first time", check: function() { return gameStats.totalPrestiges >= 1; } },
+  { id: "pr_10", name: "Prestige Veteran", desc: "Prestige 10 times", check: function() { return gameStats.totalPrestiges >= 10; } },
+  { id: "pr_50", name: "Rapid Fire", desc: "Prestige 50 times", check: function() { return gameStats.totalPrestiges >= 50; } },
+  { id: "pr_100", name: "Prestige Master", desc: "Prestige 100 times", check: function() { return gameStats.totalPrestiges >= 100; } },
+  { id: "pr_1000", name: "Prestige Legend", desc: "Prestige 1,000 times", check: function() { return gameStats.totalPrestiges >= 1000; } },
+  { id: "pr_10000", name: "Prestige Addict", desc: "Prestige 10,000 times", check: function() { return gameStats.totalPrestiges >= 10000; } },
+  { id: "pr_s30", name: "Speed Demon", desc: "Prestige in under 30 seconds", check: function() { return gameStats.fastestPrestige > 0 && gameStats.fastestPrestige < 30; } },
+  { id: "pr_s10", name: "Lightning", desc: "Prestige in under 10 seconds", check: function() { return gameStats.fastestPrestige > 0 && gameStats.fastestPrestige < 10; } },
+  { id: "pr_s3", name: "Blink", desc: "Prestige in under 3 seconds", check: function() { return gameStats.fastestPrestige > 0 && gameStats.fastestPrestige < 3; } },
+  { id: "pr_s1", name: "Instant", desc: "Prestige in under 1 second", check: function() { return gameStats.fastestPrestige > 0 && gameStats.fastestPrestige < 1; } }
+]},
 
-{ id: "cascade", name: "Cascade", desc: "Buy Generator 2", check: function() { var d = D(); return d.generators.length >= 2 && d.generators[1].bought > 0; } },
+{ id: "pp", name: "Prestige Points", achievements: [
+  { id: "pp_10", name: "Big Spender", desc: "Earn 10 PP total", check: function() { return gameStats.totalPPEarned >= 10; } },
+  { id: "pp_100", name: "PP Hoarder", desc: "Earn 100 PP total", check: function() { return gameStats.totalPPEarned >= 100; } },
+  { id: "pp_1m", name: "PP Millionaire", desc: "Earn 1,000,000 PP total", check: function() { return gameStats.totalPPEarned >= 1000000; } },
+  { id: "pp_1b", name: "PP Billionaire", desc: "Earn 1,000,000,000 PP total", check: function() { return gameStats.totalPPEarned >= 1000000000; } },
+  { id: "pp_h200", name: "Hoarder", desc: "Accumulate 200 PP without spending", check: function() { return hardAchievements.maxPPHoarded >= 200; } },
+  { id: "pp_h1000", name: "Dragon's Hoard", desc: "Accumulate 1,000 PP without spending", check: function() { return hardAchievements.maxPPHoarded >= 1000; } }
+]},
 
-{ id: "e100", name: "Climbing", desc: "Reach 1e100 points", check: function() { return gameStats.highestExponent >= 100; } },
+{ id: "upgrades", name: "Upgrades", achievements: [
+  { id: "upg_loaded", name: "Loaded", desc: "Fill all upgrade slots", check: function() { return getFilledSlotCount() >= getMaxUpgradeSlots() && getMaxUpgradeSlots() >= 5; } },
+  { id: "upg_slot15", name: "Slot Machine", desc: "Reach 15 upgrade slots", check: function() { return getMaxUpgradeSlots() >= 15; } },
+  { id: "upg_allin", name: "All In", desc: "Fill all 20 slots", check: function() { return getMaxUpgradeSlots() >= 20 && getFilledSlotCount() >= 20; } },
+  { id: "upg_collector", name: "Collector", desc: "Own one of every rollable upgrade type", check: function() { var t = {}; var d = D(); for (var i = 0; i < d.upgradeSlots.length; i++) { if (d.upgradeSlots[i]) t[d.upgradeSlots[i].id] = true; } return Object.keys(t).length >= 16; } },
+  { id: "upg_stack5", name: "Stacked", desc: "Have 5 copies of the same upgrade", check: function() { var c = {}; var d = D(); for (var i = 0; i < d.upgradeSlots.length; i++) { var s = d.upgradeSlots[i]; if (s) { c[s.id] = (c[s.id] || 0) + 1; if (c[s.id] >= 5) return true; } } return false; } },
+  { id: "upg_stack10", name: "All-In on One", desc: "Have 10 copies of the same upgrade", check: function() { var c = {}; var d = D(); for (var i = 0; i < d.upgradeSlots.length; i++) { var s = d.upgradeSlots[i]; if (s) { c[s.id] = (c[s.id] || 0) + 1; if (c[s.id] >= 10) return true; } } return false; } },
+  { id: "upg_maxlvl", name: "Level Max", desc: "Have any upgrade at the maximum level", check: function() { var ml = getMaxLevel(); var d = D(); for (var i = 0; i < d.upgradeSlots.length; i++) { if (d.upgradeSlots[i] && d.upgradeSlots[i].level >= ml) return true; } return false; } },
+  { id: "upg_fullpow", name: "Full Power", desc: "All 20 slots at max level", check: function() { var ml = getMaxLevel(); if (getMaxUpgradeSlots() < 20 || getFilledSlotCount() < 20) return false; var d = D(); for (var i = 0; i < d.upgradeSlots.length; i++) { if (d.upgradeSlots[i] && d.upgradeSlots[i].level < ml) return false; } return true; } },
+  { id: "upg_bi", name: "No Ceiling", desc: "Obtain Break Infinity", check: function() { return hasBreakInfinity(); } },
+  { id: "upg_disc", name: "Discount Hunter", desc: "Cost multiplier below 0.15x", check: function() { return Math.pow(0.8, getUpgradeSum("discount")) < 0.15; } },
+  { id: "upg_down", name: "Downgrade", desc: "Replace an upgrade with a lower level", check: function() { return hardAchievements.everDowngraded; } },
+  { id: "upg_versatile", name: "Versatile", desc: "Have 10+ different upgrade types in one dimension", check: function() { var t = {}; var d = D(); for (var i = 0; i < d.upgradeSlots.length; i++) { if (d.upgradeSlots[i]) t[d.upgradeSlots[i].id] = true; } return Object.keys(t).length >= 10; } }
+]},
 
-{ id: "e308", name: "The Wall", desc: "Hit the 1e308 cap", check: function() { return gameStats.highestExponent >= 308; } },
+{ id: "momentum", name: "Momentum", achievements: [
+  { id: "mom_1m", name: "Momentum Builder", desc: "Momentum exceeds x1,000,000", check: function() { return getMomentumMult() >= 1000000; } },
+  { id: "mom_e100", name: "Overflow", desc: "Momentum exceeds e100", check: function() { var mm = getMomentumMult(); return mm > 0 && Math.log10(mm) >= 100; } },
+  { id: "mom_e1000", name: "Momentum Singularity", desc: "Momentum exceeds e1,000", check: function() { var mm = getMomentumMult(); return mm > 0 && Math.log10(mm) >= 1000; } },
+  { id: "mom_e10000", name: "Momentum Infinity", desc: "Momentum exceeds e10,000", check: function() { var mm = getMomentumMult(); return mm > 0 && Math.log10(mm) >= 10000; } }
+]},
 
-{ id: "first_prestige", name: "Reset!", desc: "Prestige for the first time", check: function() { return gameStats.totalPrestiges >= 1; } },
+{ id: "challenges", name: "Challenges", achievements: [
+  { id: "ch_1", name: "Challenger", desc: "Complete your first challenge", check: function() { return gameStats.challengesCompleted >= 1; } },
+  { id: "ch_50", name: "Masochist", desc: "Complete 50 challenges total", check: function() { return gameStats.challengesCompleted >= 50; } },
+  { id: "ch_200", name: "Glutton for Punishment", desc: "Complete 200 challenges total", check: function() { return gameStats.challengesCompleted >= 200; } },
+  { id: "ch_500", name: "Marathon", desc: "Complete 500 challenges total", check: function() { return gameStats.challengesCompleted >= 500; } },
+  { id: "ch_5def", name: "Handicapped", desc: "Complete Challenge 5 (5 defects)", check: function() { var d = D(); return d.challenges && d.challenges.length >= 5 && d.challenges[4] && d.challenges[4].completed; } },
+  { id: "ch_all5", name: "Unstoppable", desc: "Complete all 5 challenges in one dimension", check: function() { var d = D(); return d.challenges && d.challenges.filter(function(c) { return c.completed; }).length >= 5; } },
+  { id: "ch_min", name: "Minimalist", desc: "Complete a challenge with 3 or fewer upgrades", check: function() { return hardAchievements.minimalistChallenge; } },
+  { id: "ch_naked", name: "Naked", desc: "Complete a challenge with 0 upgrades", check: function() { return hardAchievements.nakedChallenge; } },
+  { id: "ch_flawless", name: "Flawless", desc: "Complete all 5 challenges without failing any", check: function() { return hardAchievements.flawlessRun; } }
+]},
 
-{ id: "big_spender", name: "Big Spender", desc: "Earn 10 PP total", check: function() { return gameStats.totalPPEarned >= 10; } },
+{ id: "dimensions", name: "Dimensions", achievements: [
+  { id: "dim_2", name: "New Horizons", desc: "Unlock Dimension 2", check: function() { return unlockedDims >= 2; } },
+  { id: "dim_5", name: "Deep Strata", desc: "Reach Dimension 5", check: function() { return unlockedDims >= 5; } },
+  { id: "dim_10", name: "The Bottom", desc: "Reach Dimension 10", check: function() { return unlockedDims >= 10; } },
+  { id: "dim_20", name: "Dimension 20", desc: "Reach Dimension 20 in endless", check: function() { return unlockedDims >= 20; } },
+  { id: "dim_50", name: "Dimension 50", desc: "Reach Dimension 50 in endless", check: function() { return unlockedDims >= 50; } },
+  { id: "dim_100", name: "Dimension 100", desc: "Reach Dimension 100 in endless", check: function() { return unlockedDims >= 100; } },
+  { id: "dim_stubborn", name: "Stubborn", desc: "Restart the same dimension 10 times", check: function() { return (D().restartCount || 0) >= 10; } },
+  { id: "dim_perfect", name: "Perfectionist", desc: "Restart the same dimension 50 times", check: function() { return (D().restartCount || 0) >= 50; } }
+]},
 
-{ id: "fully_loaded", name: "Fully Loaded", desc: "Fill all upgrade slots", check: function() { return getFilledSlotCount() >= getMaxUpgradeSlots() && getMaxUpgradeSlots() >= 5; } },
+{ id: "globalboost", name: "Global Boost", achievements: [
+  { id: "gb_2", name: "Boosted", desc: "Global boost exceeds x2", check: function() { return getGlobalBoostTotal() > 2; } },
+  { id: "gb_5", name: "Rising Tide", desc: "Global boost exceeds x5", check: function() { return getGlobalBoostTotal() > 5; } },
+  { id: "gb_10", name: "Amplified", desc: "Global boost exceeds x10", check: function() { return getGlobalBoostTotal() > 10; } },
+  { id: "gb_50", name: "Supercharged", desc: "Global boost exceeds x50", check: function() { return getGlobalBoostTotal() > 50; } },
+  { id: "gb_100", name: "Overdrive", desc: "Global boost exceeds x100", check: function() { return getGlobalBoostTotal() > 100; } },
+  { id: "gb_500", name: "Transcendent", desc: "Global boost exceeds x500", check: function() { return getGlobalBoostTotal() > 500; } },
+  { id: "gb_10k", name: "Cosmic", desc: "Global boost exceeds x10,000", check: function() { return getGlobalBoostTotal() > 10000; } },
+  { id: "gb_1m", name: "Incomprehensible", desc: "Global boost exceeds x1,000,000", check: function() { return getGlobalBoostTotal() > 1000000; } }
+]},
 
-// Mid Game
+{ id: "permbuffs", name: "Permanent Buffs", achievements: [
+  { id: "pb_1", name: "Permanent", desc: "Earn your first permanent buff", check: function() { return permBuffs.length >= 1; } },
+  { id: "pb_5", name: "Collector of Relics", desc: "Earn 5 permanent buffs", check: function() { return permBuffs.length >= 5; } },
+  { id: "pb_all", name: "Fully Ascended", desc: "Earn all 13 permanent buffs", check: function() { return permBuffs.length >= 13; } }
+]},
 
-{ id: "prestige10", name: "Prestige Veteran", desc: "Prestige 10 times", check: function() { return gameStats.totalPrestiges >= 10; } },
+{ id: "time", name: "Time", achievements: [
+  { id: "tm_1h", name: "Dedicated", desc: "Play for 1 hour", check: function() { return gameStats.realTime >= 3600; } },
+  { id: "tm_10h", name: "Committed", desc: "Play for 10 hours", check: function() { return gameStats.realTime >= 36000; } },
+  { id: "tm_100h", name: "Obsessed", desc: "Play for 100 hours", check: function() { return gameStats.realTime >= 360000; } },
+  { id: "tm_1000h", name: "No Life", desc: "Play for 1,000 hours", check: function() { return gameStats.realTime >= 3600000; } },
+  { id: "tm_bank1h", name: "Time Lord", desc: "Spend 1 hour of banked time", check: function() { return gameStats.gameTime - gameStats.realTime >= 3600; } },
+  { id: "tm_bank24h", name: "Patience", desc: "Accumulate 24 hours of banked time", check: function() { return typeof bankedTime !== "undefined" && bankedTime >= 86400; } },
+  { id: "tm_bank72h", name: "Time Vault", desc: "Accumulate 72 hours of banked time", check: function() { return typeof bankedTime !== "undefined" && bankedTime >= 259200; } }
+]},
 
-{ id: "no_ceiling", name: "No Ceiling", desc: "Obtain Break Infinity", check: function() { return hasBreakInfinity(); } },
+{ id: "skill", name: "Skill", achievements: [
+  { id: "sk_glass", name: "Glass Cannon", desc: "Reach e10,000 with 3 or fewer upgrade slots", check: function() { return hardAchievements.glassCannon; } },
+  { id: "sk_razor", name: "Razor's Edge", desc: "Reach e100,000 with only 1 upgrade slot", check: function() { return hardAchievements.razorsEdge; } },
+  { id: "sk_iron", name: "Ironman", desc: "Restart keeping 0 upgrades, then reach e308", check: function() { return hardAchievements.hasRestartedWithZero && getFilledSlotCount() === 0 && bnLog10(D().points) >= 308; } },
+  { id: "sk_purist", name: "Purist Run", desc: "Complete a dimension without Auto Buy", check: function() { return gameStats.dimensionsCompleted > 0 && !hardAchievements.usedAutoBuyThisDim; } },
+  { id: "sk_sub60", name: "Sub-60", desc: "Complete a dimension in under 60 seconds", check: function() { return hardAchievements.dimCompletionTime !== null && hardAchievements.dimCompletionTime < 60; } },
+  { id: "sk_arch2h", name: "Architect's Favorite", desc: "Complete the game in under 2 hours", check: function() { return gameStats.dimensionsCompleted >= 10 && gameStats.gameTime < 7200; } },
+  { id: "sk_arch1h", name: "Speedster", desc: "Complete the game in under 1 hour", check: function() { return gameStats.dimensionsCompleted >= 10 && gameStats.gameTime < 3600; } }
+]},
 
-{ id: "pp100", name: "PP Hoarder", desc: "Earn 100 total PP", check: function() { return gameStats.totalPPEarned >= 100; } },
+{ id: "completion", name: "Completion", achievements: [
+  { id: "comp_game", name: "The Architect Smiles", desc: "Complete the game", check: function() { return gameStats.dimensionsCompleted >= 10; } },
+  { id: "comp_true", name: "True Bottom", desc: "Every dimension has all 5 challenges complete", check: function() { for (var i = 0; i < dimensions.length; i++) { var ch = dimensions[i].challenges; if (!ch || ch.length < 5) return false; for (var j = 0; j < 5; j++) { if (!ch[j] || !ch[j].completed) return false; } } return dimensions.length >= 10; } },
+  { id: "comp_endless", name: "Endless", desc: "Choose endless mode", check: function() { return unlockedDims > 10; } },
+  { id: "comp_retired", name: "Retired", desc: "Choose to retire", check: function() { return gameRetired; } },
+  { id: "comp_alldiff", name: "All Difficulties", desc: "Beat Easy, Normal, Hard, and Insane", check: function() { return hasBeatenDifficulty("easy") && hasBeatenDifficulty("normal") && hasBeatenDifficulty("hard") && hasBeatenDifficulty("insane"); } }
+]},
 
-{ id: "e1000", name: "Infinity+1", desc: "Reach 1e1000 points", check: function() { return gameStats.highestExponent >= 1000; } },
+{ id: "modifiers", name: "Modifiers", achievements: [
+  { id: "mod_any", name: "Modified", desc: "Complete a run with any modifier", check: function() { for (var d in completionHistory) { var ch = completionHistory[d]; if (ch && ch.mods) { for (var m in ch.mods) { if (ch.mods[m]) return true; } } } return false; } },
+  { id: "mod_2", name: "Double Down", desc: "Complete with 2+ modifiers", check: function() { for (var d in completionHistory) { if (completionHistory[d] && completionHistory[d].combos && completionHistory[d].combos[2]) return true; } return false; } },
+  { id: "mod_3", name: "Tripled", desc: "Complete with 3+ modifiers", check: function() { for (var d in completionHistory) { if (completionHistory[d] && completionHistory[d].combos && completionHistory[d].combos[3]) return true; } return false; } },
+  { id: "mod_4", name: "Quadra", desc: "Complete with 4+ modifiers", check: function() { for (var d in completionHistory) { if (completionHistory[d] && completionHistory[d].combos && completionHistory[d].combos[4]) return true; } return false; } },
+  { id: "mod_5", name: "Penta", desc: "Complete with 5+ modifiers", check: function() { for (var d in completionHistory) { if (completionHistory[d] && completionHistory[d].combos && completionHistory[d].combos[5]) return true; } return false; } },
+  { id: "mod_all", name: "Perfection", desc: "Complete with all 6 modifiers", check: function() { for (var d in completionHistory) { if (completionHistory[d] && completionHistory[d].combos && completionHistory[d].combos["all"]) return true; } return false; } },
+  { id: "mod_blind", name: "Blind Faith", desc: "Complete with Blind modifier", check: function() { for (var d in completionHistory) { if (completionHistory[d] && completionHistory[d].mods && completionHistory[d].mods["blind"]) return true; } return false; } },
+  { id: "mod_drought", name: "Drought Survivor", desc: "Complete with Drought modifier", check: function() { for (var d in completionHistory) { if (completionHistory[d] && completionHistory[d].mods && completionHistory[d].mods["drought"]) return true; } return false; } },
+  { id: "mod_fragile", name: "Fragile Victory", desc: "Complete with Fragile modifier", check: function() { for (var d in completionHistory) { if (completionHistory[d] && completionHistory[d].mods && completionHistory[d].mods["fragile"]) return true; } return false; } },
+  { id: "mod_iso", name: "Lone Wolf", desc: "Complete with Isolated modifier", check: function() { for (var d in completionHistory) { if (completionHistory[d] && completionHistory[d].mods && completionHistory[d].mods["isolated"]) return true; } return false; } },
+  { id: "mod_nopres", name: "No Prestige, No Problem", desc: "Complete with No Prestige modifier", check: function() { for (var d in completionHistory) { if (completionHistory[d] && completionHistory[d].mods && completionHistory[d].mods["no_prestige"]) return true; } return false; } },
+  { id: "mod_speed", name: "Against the Clock", desc: "Complete with Speedrun modifier", check: function() { for (var d in completionHistory) { if (completionHistory[d] && completionHistory[d].mods && completionHistory[d].mods["speedrun_mod"]) return true; } return false; } },
+  { id: "mod_insane_all", name: "Insane Perfection", desc: "Complete Insane with all 6 modifiers", check: function() { return completionHistory.insane && completionHistory.insane.combos && completionHistory.insane.combos["all"]; } }
+]},
 
-{ id: "discount_hunter", name: "Discount Hunter", desc: "Get cost multiplier below 0.15x", check: function() { return Math.pow(0.8, getUpgradeSum('discount')) < 0.15; } },
+{ id: "secret", name: "Secret", isSecret: true, achievements: [
+  { id: "sec_308hold", name: "Patience is a Virtue", desc: "Stay at exactly e308 for 60 seconds", check: function() { return hardAchievements.held308for60; } },
+  { id: "sec_alllv1", name: "Rock Bottom", desc: "Fill all 20 slots with level 1 upgrades", check: function() { if (getFilledSlotCount() < 20) return false; var d = D(); for (var i = 0; i < d.upgradeSlots.length; i++) { if (!d.upgradeSlots[i] || d.upgradeSlots[i].level !== 1) return false; } return true; } },
+  { id: "sec_restart100", name: "Insanity", desc: "Restart the same dimension 100 times", check: function() { return (D().restartCount || 0) >= 100; } },
+  { id: "sec_dim42", name: "The Answer", desc: "Reach Dimension 42", check: function() { return unlockedDims >= 42; } },
+  { id: "sec_newyear", name: "New Year, New Strata", desc: "Play on New Year's Day", check: function() { var d = new Date(); return d.getMonth() === 0 && d.getDate() === 1; } },
+  { id: "sec_24h", name: "Marathon Session", desc: "Play for 24 hours in one session", check: function() { return gameStats.realTime >= 86400 && !hardAchievements._sessionBreak; } }
+]}
 
-{ id: "momentum_builder", name: "Momentum Builder", desc: "Reach x1M momentum", check: function() { return getMomentumMult() >= 1000000; } },
-
-{ id: "slot_machine", name: "Slot Machine", desc: "Reach 15 upgrade slots", check: function() { return getMaxUpgradeSlots() >= 15; } },
-
-{ id: "gen50", name: "Full House", desc: "Buy 50 generators total", check: function() { return gameStats.totalGeneratorsBought >= 50; } },
-
-{ id: "speed_demon", name: "Speed Demon", desc: "Prestige in under 30 seconds", check: function() { return gameStats.fastestPrestige < 30; } },
-
-{ id: "rapid_fire", name: "Rapid Fire", desc: "Prestige 50 times", check: function() { return gameStats.totalPrestiges >= 50; } },
-
-// Challenges
-
-{ id: "challenge1", name: "Challenger", desc: "Complete your first challenge", check: function() { return gameStats.challengesCompleted >= 1; } },
-
-{ id: "challenge5", name: "Unstoppable", desc: "Complete all 5 challenges in one dimension", check: function() { var d = D(); return d.challenges && d.challenges.filter(function(c) { return c.completed; }).length >= 5; } },
-
-// Late Game
-
-{ id: "dim2", name: "New Horizons", desc: "Unlock Dimension 2", check: function() { return unlockedDims >= 2; } },
-
-{ id: "dim5", name: "Deep Strata", desc: "Reach Dimension 5", check: function() { return unlockedDims >= 5; } },
-
-{ id: "dim10", name: "The Bottom", desc: "Reach Dimension 10", check: function() { return unlockedDims >= 10; } },
-
-{ id: "prestige100", name: "Prestige Master", desc: "Prestige 100 times", check: function() { return gameStats.totalPrestiges >= 100; } },
-
-{ id: "e10000", name: "Exponential", desc: "Reach 1e10000 points", check: function() { return gameStats.highestExponent >= 10000; } },
-
-{ id: "e100000", name: "Astronomical", desc: "Reach 1e100000 points", check: function() { return gameStats.highestExponent >= 100000; } },
-
-{ id: "time_lord", name: "Time Lord", desc: "Spend 1 hour of banked time", check: function() { return gameStats.gameTime - gameStats.realTime >= 3600; } },
-
-{ id: "speed_demon2", name: "Lightning", desc: "Prestige in under 10 seconds", check: function() { return gameStats.fastestPrestige < 10; } },
-
-{ id: "pp_million", name: "PP Millionaire", desc: "Earn 1,000,000 total PP", check: function() { return gameStats.totalPPEarned >= 1000000; } },
-
-{ id: "all_slots", name: "All In", desc: "Reach and fill all 20 slots", check: function() { return getMaxUpgradeSlots() >= 20 && getFilledSlotCount() >= 20; } },
-
-// Secret/Fun
-
-{ id: "collector", name: "Collector", desc: "Own one of every base upgrade type", check: function() { var types = {}; var d = D(); for (var i = 0; i < d.upgradeSlots.length; i++) { if (d.upgradeSlots[i]) types[d.upgradeSlots[i].id] = true; } return Object.keys(types).length >= 12; } },
-
-{ id: "architect_smiles", name: "The Architect Smiles", desc: "Complete the game", check: function() { return unlockedDims >= 10 && gameStats.dimensionsCompleted >= 10; } },
-
-// ═══ HARD ACHIEVEMENTS ═══
-
-{ id: "sub60", name: "Sub-60", desc: "Complete a dimension in under 60 seconds game time", check: function() { return hardAchievements.dimCompletionTime < 60; } },
-
-{ id: "no_auto", name: "Purist Run", desc: "Complete a dimension without Auto Buy", check: function() { return gameStats.dimensionsCompleted > 0 && !hardAchievements.usedAutoBuyThisDim; } },
-
-{ id: "ironman", name: "Ironman", desc: "Restart keeping 0 upgrades, then reach e308", check: function() { return hardAchievements.hasRestartedWithZero && getFilledSlotCount() === 0 && bnLog10(D().points) >= 308; } },
-
-{ id: "glass_cannon", name: "Glass Cannon", desc: "Reach e10000 with only 3 filled upgrade slots", check: function() { return hardAchievements.glassCannon; } },
-
-{ id: "hoarder", name: "Hoarder", desc: "Accumulate 200 PP without spending", check: function() { return hardAchievements.maxPPHoarded >= 200; } },
-
-{ id: "downgrade", name: "Downgrade", desc: "Replace an upgrade with a lower level of the same type", check: function() { return hardAchievements.everDowngraded; } },
-
-{ id: "patience", name: "Patience", desc: "Accumulate 24 hours of banked time", check: function() { return typeof bankedTime !== 'undefined' && bankedTime >= 86400; } },
-
-{ id: "heat_death", name: "Heat Death", desc: "Reach e1,000,000 exponent", check: function() { return gameStats.highestExponent >= 1000000; } },
-
-{ id: "googolplex", name: "Googolplex", desc: "Reach e10,000,000 exponent", check: function() { return gameStats.highestExponent >= 10000000; } },
-
-{ id: "stacked", name: "Stacked", desc: "Have 5 copies of the same upgrade type", check: function() { var d = D(); var counts = {}; for (var i = 0; i < d.upgradeSlots.length; i++) { var s = d.upgradeSlots[i]; if (s) { counts[s.id] = (counts[s.id] || 0) + 1; } } for (var k in counts) { if (counts[k] >= 5) return true; } return false; } },
-
-{ id: "minimalist", name: "Minimalist", desc: "Complete a challenge with 3 or fewer upgrades", check: function() { return hardAchievements.minimalistChallenge; } },
-
-{ id: "handicapped", name: "Handicapped", desc: "Complete Challenge 5 (5 defects)", check: function() { var d = D(); return d.challenges.length >= 5 && d.challenges[4] && d.challenges[4].completed; } },
-
-{ id: "true_bottom", name: "True Bottom", desc: "Every dimension has all 5 challenges complete", check: function() { for (var i = 0; i < dimensions.length; i++) { var ch = dimensions[i].challenges; if (!ch || ch.length < 5) return false; for (var j = 0; j < 5; j++) { if (!ch[j] || !ch[j].completed) return false; } } return dimensions.length >= 10; } },
-
-{ id: "architects_fav", name: "Architect's Favorite", desc: "Complete the game in under 2 hours game time", check: function() { return gameStats.dimensionsCompleted >= 10 && gameStats.gameTime < 7200; } },
-
-{ id: "overflow", name: "Overflow", desc: "Momentum multiplier exceeds e100", check: function() { var mm = getMomentumMult(); return mm > 0 && Math.log10(mm) >= 100; } },
-
-{ id: "prestige1000", name: "Prestige Legend", desc: "Prestige 1,000 times", check: function() { return gameStats.totalPrestiges >= 1000; } },
-
-{ id: "speed_demon3", name: "Blink", desc: "Prestige in under 3 seconds", check: function() { return gameStats.fastestPrestige < 3; } },
-
-{ id: "full_spectrum", name: "Full Spectrum", desc: "Own 15+ different upgrade types across all dimensions", check: function() { var types = {}; for (var di = 0; di < dimensions.length; di++) { for (var i = 0; i < dimensions[di].upgradeSlots.length; i++) { var s = dimensions[di].upgradeSlots[i]; if (s) types[s.id] = true; } } return Object.keys(types).length >= 15; } }
-
-]
-
+];
 var unlockedMilestones = {};
 
-function loadMilestones() {
-  // Legacy — milestones are exclusively in the save blob now
+
+// Legacy stubs
+function loadMilestones() {}
+function saveMilestones() {}
+
+// Achievement tracking state
+var unlockedAchievementCategories = {};
+var unlockedAchievements = {};
+
+function checkAchievements() {
+  var anyNew = false;
+  for (var ci = 0; ci < ACHIEVEMENT_CATEGORIES.length; ci++) {
+    var cat = ACHIEVEMENT_CATEGORIES[ci];
+    var achs = cat.achievements;
+    for (var ai = 0; ai < achs.length; ai++) {
+      var a = achs[ai];
+      if (unlockedAchievements[a.id]) continue;
+      try {
+        if (a.check()) {
+          unlockedAchievements[a.id] = Date.now();
+          // Unlock the category
+          if (!unlockedAchievementCategories[cat.id]) {
+            unlockedAchievementCategories[cat.id] = true;
+          }
+          anyNew = true;
+          showAchievementPopup(a);
+        }
+      } catch(e) {}
+    }
+  }
+  return anyNew;
 }
 
-function saveMilestones() {
-
-// milestones saved via saveGame blob, not global localStorage
-
+function showAchievementPopup(achievement) {
+  spawnStarBurst(window.innerWidth / 2, window.innerHeight / 2);
+  var container = document.getElementById("discoveryContainer");
+  if (!container) return;
+  var popup = document.createElement("div");
+  popup.className = "discovery-popup milestone-popup";
+  popup.innerHTML = '<div class="discovery-title" style="color:var(--amber);">\u2605 ' + achievement.name + '</div>' +
+    '<div class="discovery-text">' + achievement.desc + '</div>' +
+    '<button class="discovery-dismiss" onclick="dismissDiscovery(this)">Nice!</button>';
+  container.appendChild(popup);
 }
 
-function checkMilestones() {
+// Alias for backward compat
+function checkMilestones() { checkAchievements(); }
+var showMilestonePopup = showAchievementPopup;
 
-for (var i = 0; i < MILESTONES.length; i++) {
-
-var m = MILESTONES[i];
-
-if (unlockedMilestones[m.id]) continue;
-
-try {
-
-if (m.check()) {
-
-unlockedMilestones[m.id] = Date.now();
-
-saveMilestones();
-
-showMilestonePopup(m);
-
-}
-
-} catch(e) {}
-
-}
-
-}
-
-function showMilestonePopup(milestone) {
-
-spawnStarBurst(window.innerWidth / 2, window.innerHeight / 2);
-
-var container = document.getElementById("discoveryContainer");
-
-if (!container) return;
-
-var popup = document.createElement("div");
-
-popup.className = "discovery-popup milestone-popup";
-
-popup.innerHTML = '<div class="discovery-title" style="color:var(--amber);">\u2605 ' + milestone.name + '</div>' +
-
-'<div class="discovery-text">' + milestone.desc + '</div>' +
-
-'<button class="discovery-dismiss" onclick="dismissDiscovery(this)">Nice!</button>';
-
-container.appendChild(popup);
-
-setTimeout(function() { dismissDiscovery(popup.querySelector(".discovery-dismiss")); }, 6000);
-
-}
 
 // ============================================================
 
