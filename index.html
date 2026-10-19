@@ -10209,6 +10209,19 @@ function globalHardReset() {
     "This will delete ALL saves and local data. This cannot be undone.",
     "Delete Everything", "Cancel",
     function() {
+        for (var i = 0; i < 100; i++) {
+    if (localStorage.getItem("strata_slot_" + i)) before.push(i);
+}
+for (var i = 0; i < 100; i++) {
+    localStorage.removeItem("strata_slot_" + i);
+}
+localStorage.removeItem("nestedIdleSave2");
+localStorage.removeItem("strata_active_slot");
+
+var after = [];
+for (var i = 0; i < 100; i++) {
+    if (localStorage.getItem("strata_slot_" + i)) after.push(i);
+}
       gameStarted = false;
       for (var i = 0; i < 100; i++) { localStorage.removeItem("strata_slot_" + i); }
       localStorage.removeItem("nestedIdleSave2");
