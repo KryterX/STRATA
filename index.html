@@ -2768,7 +2768,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.30</div>
+<div class="start-version" id="startVersion">v1.9.31</div>
 
 </div>
 
@@ -2803,7 +2803,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.30</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.31</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3326,7 +3326,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.30";
+var STRATA_VERSION = "v1.9.31";
 
 // ============================================================
 
@@ -3500,40 +3500,40 @@ var BASE_MAX_LEVEL = 5;
 
 var UPGRADE_DEFS = [
 
-{ id: "upgrade_boost",  name: "Upgrade Boost",  icon: "Σ", descFn: function(l) { return "+0.2 buy base (" + (2 + 0.2*l).toFixed(1) + "x base)"; } },
+{ id: "upgrade_boost",  name: "Upgrade Boost",  icon: "\u03a3", descFn: function(l) { var s = getUpgradeSum("upgrade_boost"); return "+" + (0.2*l).toFixed(1) + " buy base (" + (2 + s*0.2).toFixed(1) + "x total)"; } },
 
-{ id: "prestige_boost", name: "Prestige Boost", icon: "Ω", descFn: function(l) { return "x" + (2*l) + " prestige points"; } },
+{ id: "prestige_boost", name: "Prestige Boost", icon: "\u03a9", descFn: function(l) { var s = getUpgradeSum("prestige_boost"); return "x" + (2*l) + " PP earned (x" + (2*s) + " total)"; } },
 
-{ id: "discount",       name: "Discount",       icon: "Δ", descFn: function(l) { return "cost base " + (10*Math.pow(0.8,l)).toFixed(1) + "x per buy"; } },
+{ id: "discount",       name: "Discount",       icon: "\u0394", descFn: function(l) { var s = getUpgradeSum("discount"); return (10*Math.pow(0.8,l)).toFixed(1) + "x gen cost (" + (10*Math.pow(0.8,s)).toFixed(2) + "x total)"; } },
 
-{ id: "gen_expansion",  name: "Gen Expansion",  icon: "∞", descFn: function(l) { var curSum = getUpgradeSum("gen_expansion"); var withThis = curSum + l; var gain = withThis > 0 ? Math.max(1, 250*(1 - 1/(1 + withThis/50))) : 0; return "more gens (" + Math.floor(50 + gain) + " total)"; } },
+{ id: "gen_expansion",  name: "Gen Expansion",  icon: "\u221e", descFn: function(l) { var s = getUpgradeSum("gen_expansion"); var total = s > 0 ? Math.floor(50 + Math.max(1, 250*(1 - 1/(1 + s/50)))) : 50; var without = (s-l) > 0 ? Math.floor(50 + Math.max(1, 250*(1 - 1/(1 + (s-l)/50)))) : 50; var delta = total - without; return "+" + delta + " gen tiers (" + total + " total)"; } },
 
-{ id: "auto_buy",       name: "Auto Buy",       icon: "α", descFn: function(l) { return "auto-buy " + l + "/sec"; } },
+{ id: "auto_buy",       name: "Auto Buy",       icon: "\u03b1", descFn: function(l) { var s = getUpgradeSum("auto_buy"); return "+" + l + " auto-buys/sec (" + s + " total)"; } },
 
-{ id: "break_infinity", name: "Break Infinity",  icon: "∅", descFn: function(l) { return "remove point cap"; } },
+{ id: "break_infinity", name: "Break Infinity",  icon: "\u2205", descFn: function(l) { return "removes point cap"; } },
 
-{ id: "gen_boost",      name: "Generator Boost", icon: "μ", descFn: function(l) { return "x" + (10*l) + " all output"; } },
+{ id: "gen_boost",      name: "Generator Boost", icon: "\u03bc", descFn: function(l) { var s = getUpgradeSum("gen_boost"); return "x" + (10*l) + " gen output (x" + (10*s) + " total)"; } },
 
-{ id: "fast_start",     name: "Fast Start",      icon: "λ", descFn: function(l) { return "keep 1e" + (3*l) + " on prestige"; } },
+{ id: "fast_start",     name: "Fast Start",      icon: "\u03bb", descFn: function(l) { var s = getUpgradeSum("fast_start"); return "keep 1e" + (3*l) + " on prestige (1e" + (3*s) + " total)"; } },
 
-{ id: "upgrade_count",  name: "Upgrade Count",   icon: "π", descFn: function(l) { return "+" + Math.floor(2*Math.pow(l,0.6)) + " slots (max 20)"; } },
+{ id: "upgrade_count",  name: "Upgrade Count",   icon: "\u03c0", descFn: function(l) { var total = getMaxUpgradeSlots(); var s = getUpgradeSum("upgrade_count"); var without = (s-l) > 0 ? Math.floor(2*Math.pow(s-l, 0.6)) : 0; var withThis = Math.floor(2*Math.pow(s, 0.6)); var delta = withThis - without; return "+" + delta + " upgrade slots (" + total + " total)"; } },
 
-{ id: "luck",           name: "Luck",            icon: "ψ", descFn: function(l) { return "better roll odds"; } },
+{ id: "luck",           name: "Luck",            icon: "\u03c8", descFn: function(l) { var base = getLuckBase(); var quality = Math.round((1 - 1/base) * 100); return "+" + Math.max(1, Math.round(l/(1+getUpgradeSum("luck"))*quality)) + "% roll quality (" + quality + "% total)"; } },
 
-{ id: "ascend",         name: "Ascend",          icon: "Ξ", descFn: function(l) { return "higher max upgrade lv (max 25)"; } },
+{ id: "ascend",         name: "Ascend",          icon: "\u039e", descFn: function(l) { var total = getMaxLevel(); return "+Lv (" + total + " max)"; } },
 
-{ id: "overclock",      name: "Overclock",       icon: "θ", descFn: function(l) { return "more max gen buys (max 500)"; } },
+{ id: "overclock",      name: "Overclock",       icon: "\u03b8", descFn: function(l) { var total = getMaxBuy(); var s = getUpgradeSum("overclock"); var withoutGain = (s-l) > 0 ? Math.floor(400*(1 - 1/(1 + (s-l)/50))) : 0; var withGain = s > 0 ? Math.floor(400*(1 - 1/(1 + s/50))) : 0; var delta = withGain - withoutGain; return "+" + delta + " max buys (" + total + " total)"; } },
 
-{ id: "momentum",       name: "Momentum",        icon: "χ", descFn: function(l) { return "x" + (l+1) + "^sqrt(tier) output"; } },
+{ id: "momentum",       name: "Momentum",        icon: "\u03c7", descFn: function(l) { var s = getUpgradeSum("momentum"); var tiers = typeof getHighestGenTierBought === "function" ? getHighestGenTierBought() : (D().generators ? D().generators.length : 1); var mult = tiers > 0 && s > 0 ? Math.pow(s+1, Math.sqrt(tiers)) : 1; return "+" + l + " momentum (x" + compactNum(mult) + " output)"; } },
 
-{ id: "wide_selection",  name: "Wide Selection",   icon: "Π", descFn: function(l) { return "more upgrade choices (max 15)"; } }
+{ id: "wide_selection",  name: "Wide Selection",   icon: "\u03a0", descFn: function(l) { var total = getSelectionCount(); var s = getUpgradeSum("wide_selection"); var withoutGain = (s-l) > 0 ? Math.max(1, Math.floor(10*(1 - 1/(1 + (s-l)/10)))) : 0; var withGain = s > 0 ? Math.max(1, Math.floor(10*(1 - 1/(1 + s/10)))) : 0; var delta = withGain - withoutGain; return "+" + delta + " choices (" + total + " total)"; } }
 
-,{ id: "echo",             name: "Echo",              icon: "∂", descFn: function(l) { return "copy owned upgrade at lv." + l; } }
+,{ id: "echo",             name: "Echo",              icon: "\u2202", descFn: function(l) { return "copy at lv." + l; } }
 
-,{ id: "passive_prestige", name: "Passive Prestige", icon: "\u2248", descFn: function(l) { return "earn " + l + "% of prestige PP per second"; } }
-,{ id: "transcendence", name: "Transcendence", icon: "\u039E\u2298", descFn: function(l) { return "max upgrade level +5, challenge defects -5 (all dims)"; } },{ id: "carry_weight", name: "Carry Weight", icon: "\u03c9", descFn: function(l) { return "+" + l + " upgrades kept on dim restart"; } }
-,{ id: "foundation", name: "Foundation", icon: "\u03c6", descFn: function(l) { return l > 0 ? "1 of each gen pre-bought on restart" : "no effect"; } }
-,{ id: "wide_reward", name: "Wide Reward", icon: "\u03c4", descFn: function(l) { return "+" + Math.ceil(l * 0.7) + " extra challenge reward picks"; } }
+,{ id: "passive_prestige", name: "Passive Prestige", icon: "\u2248", descFn: function(l) { var s = getUpgradeSum("passive_prestige"); return "+" + l + "% PP/sec (" + s + "% total)"; } }
+,{ id: "transcendence", name: "Transcendence", icon: "\u039e\u2298", descFn: function(l) { return "+5 max level, -5 defects"; } },{ id: "carry_weight", name: "Carry Weight", icon: "\u03c9", descFn: function(l) { var s = getUpgradeSum("carry_weight"); return "+" + l + " restart keeps (" + s + " total)"; } }
+,{ id: "foundation", name: "Foundation", icon: "\u03c6", descFn: function(l) { return "pre-buys all gens"; } }
+,{ id: "wide_reward", name: "Wide Reward", icon: "\u03c4", descFn: function(l) { var s = getUpgradeSum("wide_reward"); var myPicks = Math.ceil(l * 0.7); var totalPicks = Math.ceil(s * 0.7); return "+" + myPicks + " reward picks (" + totalPicks + " total)"; } }
 ];
 
 var DEFECT_POOL = ["upgrade_boost","discount","gen_expansion","gen_boost","overclock","momentum"];
@@ -11450,7 +11450,8 @@ defect_resist: "Challenge defects in lower dims are weakened by this many levels
 wide_reward: "Challenge rewards in lower dims offer extra choices.",
 
 passive_prestige: "Passively earns a percentage of your prestige-able PP every second. 1% per level. No manual prestige needed.",
-
+echo: "Copies one of your existing upgrades at this card\'s level. The copy replaces Echo in your slot.",
+transcendence: "Permanent buff: raises max upgrade level by 5 and reduces challenge defect levels by 5 across all dimensions.",
 
 };
 
