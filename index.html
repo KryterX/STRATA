@@ -2768,7 +2768,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.32</div>
+<div class="start-version" id="startVersion">v1.9.33</div>
 
 </div>
 
@@ -2803,7 +2803,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.32</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.33</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3326,7 +3326,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.32";
+var STRATA_VERSION = "v1.9.33";
 
 // ============================================================
 
@@ -3553,6 +3553,7 @@ var unlockedDims = 1;
 var multiDimUnlocked = false; var permBuffs = []; var dimCompletionCount = 0;
 var gameDifficulty = "normal"; var speedrunMode = false;
 var activeModifiers = [];
+var completionHistory = {};
 
 // permBuffs = permanent upgrades earned by completing dimensions (levels in PERM_BUFF_LEVELS)
 
@@ -12823,7 +12824,7 @@ var DIFFICULTIES_ORDER = ["easy", "normal", "hard", "insane"];
 
 // Completion history — persisted in localStorage, NOT per-save
 // Structure: { easy: { base: true, mods: { speedrun_mod: true, ... }, combos: { 2: true, 3: true, ... } }, ... }
-var completionHistory = {};
+// NOTE: var completionHistory declared early in script (near activeModifiers) to prevent overwrite after load
 
 function loadCompletionHistory() {
   try {
