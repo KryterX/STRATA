@@ -923,6 +923,22 @@ letter-spacing: 0.05em;
 
 /* Dimension nav */
 
+
+.global-boost-bar {
+  width: 100%; background: var(--bg-main); border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 6px 16px; flex-shrink: 0;
+}
+.global-boost-bar.hidden { display: none; }
+.global-boost-label {
+  font-family: var(--font-mono); font-size: 0.55rem; color: var(--text-dim);
+  letter-spacing: 0.1em; text-transform: uppercase;
+}
+.global-boost-value {
+  font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700;
+  color: var(--green); text-shadow: 0 0 8px var(--green);
+}
+
 .dim-nav {
 
 width: 100%; background: var(--bg-main);
@@ -2768,7 +2784,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.33</div>
+<div class="start-version" id="startVersion">v1.9.36</div>
 
 </div>
 
@@ -2803,7 +2819,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.33</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.36</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3291,6 +3307,12 @@ Buy Upgrade (1 PP)
 
 </div>
 
+
+<div class="global-boost-bar hidden" id="globalBoostBar">
+<span class="global-boost-label">global boost</span>
+<span class="global-boost-value" id="globalBoostValue">x1.00</span>
+</div>
+
 <div class="tab-bar hidden" id="tabBar">
 
 <button class="tab-btn active" id="btnTabGen" onclick="switchTab('generators')">Generators</button>
@@ -3326,7 +3348,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.33";
+var STRATA_VERSION = "v1.9.36";
 
 // ============================================================
 
@@ -3518,9 +3540,9 @@ var UPGRADE_DEFS = [
 
 { id: "upgrade_count",  name: "Upgrade Count",   icon: "\u03c0", descFn: function(l) { var total = getMaxUpgradeSlots(); var s = getUpgradeSum("upgrade_count"); var without = (s-l) > 0 ? Math.floor(2*Math.pow(s-l, 0.6)) : 0; var withThis = Math.floor(2*Math.pow(s, 0.6)); var delta = withThis - without; return "+" + delta + " upgrade slots (" + total + " total)"; } },
 
-{ id: "luck",           name: "Luck",            icon: "\u03c8", descFn: function(l) { var base = getLuckBase(); var quality = Math.round((1 - 1/base) * 100); return "+" + Math.max(1, Math.round(l/(1+getUpgradeSum("luck"))*quality)) + "% roll quality (" + quality + "% total)"; } },
+{ id: "luck",           name: "Luck",            icon: "\u03c8", descFn: function(l) { var s = getUpgradeSum("luck"); var base = getLuckBase(); var quality = Math.round((1 - 1/base) * 100); var baseWithout = 1 + 1/(1 + (s - l)); var qualWithout = Math.round((1 - 1/baseWithout) * 100); var delta = Math.max(1, quality - qualWithout); return "+" + delta + "% roll quality (" + quality + "% total)"; } },
 
-{ id: "ascend",         name: "Ascend",          icon: "\u039e", descFn: function(l) { var total = getMaxLevel(); return "+Lv (" + total + " max)"; } },
+{ id: "ascend",         name: "Ascend",          icon: "\u039e", descFn: function(l) { var total = getMaxLevel(); var baseNoThis = total; try { var simSum = getUpgradeSum("ascend") - l; var simGain = simSum > 0 ? Math.max(1, 20*(1-1/(1+simSum/20))) : 0; var _aP = getPermBuffSum("ascend"); var _aPB = _aP > 0 ? Math.min(20,Math.max(1,Math.floor(20*(1-1/(1+_aP/20))))) : 0; var _tF = getPermBuffSum("transcendence") > 0 ? 5 : 0; baseNoThis = Math.max(1,Math.floor(5+simGain))+_aPB+_tF; } catch(e){} var delta = total - baseNoThis; return "+" + Math.max(1,delta) + " max level (" + total + " total)"; } },
 
 { id: "overclock",      name: "Overclock",       icon: "\u03b8", descFn: function(l) { var total = getMaxBuy(); var s = getUpgradeSum("overclock"); var withoutGain = (s-l) > 0 ? Math.floor(400*(1 - 1/(1 + (s-l)/50))) : 0; var withGain = s > 0 ? Math.floor(400*(1 - 1/(1 + s/50))) : 0; var delta = withGain - withoutGain; return "+" + delta + " max buys (" + total + " total)"; } },
 
@@ -6106,19 +6128,19 @@ return indices;
 
 function getUpgradePlainDesc(id) {
 
-switch(id) {
+switch (id) {
 
-case "upgrade_boost": return "Increases buy multiplier per purchase";
+case "upgrade_boost": return "Adds to buy multiplier base";
 
-case "prestige_boost": return "Earns more prestige points";
+case "prestige_boost": return "Multiplies PP earned per prestige";
 
-case "discount": return "Reduces generator costs";
+case "discount": return "Reduces cost per generator purchase";
 
 case "gen_expansion": return "Unlocks more generator tiers";
 
-case "auto_buy": return "Auto-buys cheapest generator each second";
+case "auto_buy": return "Auto-buys generators each second";
 
-case "break_infinity": return "Removes the point cap";
+case "break_infinity": return "Removes the 1e308 point cap";
 
 case "gen_boost": return "Multiplies all generator output";
 
@@ -6126,31 +6148,28 @@ case "fast_start": return "Keep points after prestige";
 
 case "upgrade_count": return "Adds more upgrade slots";
 
-case "luck": return "Better odds on upgrade rolls";
+case "luck": return "Higher chance of max-level rolls";
 
 case "ascend": return "Raises the max upgrade level";
 
 case "overclock": return "Increases max generator purchases";
 
-case "momentum": return "Output scales with highest gen tier";
+case "momentum": return "Output scales with generator tier count";
 
 case "wide_selection": return "More choices when buying upgrades";
 
-case "auto_prestige": return "Auto-prestiges when PP threshold is reached";
-
-case "echo": return "Copies one of your existing upgrades";
-
-case "carry_weight": return "Lower dims keep more upgrades on restart";
-
-case "foundation": return "Lower dims start with generators pre-bought";
-
-case "defect_resist": return "Weakens challenge defects in lower dims";
-
-case "wide_reward": return "More challenge reward choices in lower dims";
+case "echo": return "Copies one of your owned upgrades";
 
 case "passive_prestige": return "Passively earn PP over time";
 
-case "transcendence": return "Max level +5, challenge defects -5 (all dims)";
+case "transcendence": return "Flat +5 max level, -5 defect levels";
+
+case "carry_weight": return "Keep more upgrades on dim restart";
+
+case "foundation": return "Pre-buy 1 of each gen on restart";
+
+case "wide_reward": return "More challenge reward picks";
+
 default: return "";
 
 }
@@ -6244,14 +6263,9 @@ var afterSlots = Math.min(20, BASE_UPGRADE_SLOTS + Math.floor(2 * Math.pow(after
 return curSlots + " \u2192 " + afterSlots + " slots";
 
 case "luck":
-
-var _lkPerm = getPermBuffSum("luck"); var _luckPermBonus = _lkPerm > 0 ? _lkPerm * (0.95 / 15) : 0;
-
-var curBase = Math.max(1.01, (1 + 1 / (1 + curSum)) - _luckPermBonus).toFixed(2);
-
-var afterBase = Math.max(1.01, (1 + 1 / (1 + afterSum)) - _luckPermBonus).toFixed(2);
-
-return curBase + " \u2192 " + afterBase + " luck base";
+var curQ = Math.round((1 - 1/(1 + 1/(1 + curSum))) * 100);
+var aftQ = Math.round((1 - 1/(1 + 1/(1 + afterSum))) * 100);
+return curQ + "% \u2192 " + aftQ + "% roll quality";
 
 case "ascend":
 
@@ -6259,8 +6273,9 @@ var curMax = getMaxLevel();
 
 var afterGainA = afterSum > 0 ? Math.max(1, 20 * (1 - 1 / (1 + afterSum / 20))) : 0;
 
-var _trPLvl = getPermBuffSum("transcendence"); var _asPLvl = getPermBuffSum("ascend"); var _ascPTotal = _trPLvl + _asPLvl; var _ascPermBonus = _ascPTotal > 0 ? Math.min(20, Math.floor(20 * (1 - 1 / (1 + _ascPTotal / 20)))) : 0;
-var afterMax = Math.floor(BASE_MAX_LEVEL + afterGainA) + _ascPermBonus;
+var _asPLvl = getPermBuffSum("ascend"); var _ascPermBonus = _asPLvl > 0 ? Math.min(20, Math.max(1, Math.floor(20 * (1 - 1 / (1 + _asPLvl / 20))))) : 0;
+var _trFlat = getPermBuffSum("transcendence") > 0 ? 5 : 0;
+var afterMax = Math.max(1, Math.floor(BASE_MAX_LEVEL + afterGainA)) + _ascPermBonus + _trFlat;
 
 return "Lv." + curMax + " \u2192 Lv." + afterMax + " max";
 
@@ -6296,25 +6311,17 @@ var curSel = 3 + curSum; var afterSel = Math.min(15, 3 + afterSum);
 
 return curSel + " \u2192 " + afterSel + " choices";
 
-case "auto_prestige":
-
-return "auto at ≤" + curSum + " PP → ≤" + afterSum + " base PP";
-
 case "echo":
 
 return "copies at Lv." + newLevel;
 
 case "carry_weight":
 
-return "+" + curSum + " \u2192 +" + afterSum + " extra keeps for lower dims";
+return "+" + curSum + " \u2192 +" + afterSum + " restart keeps";
 
 case "foundation":
 
 return (curSum > 0 ? "active" : "off") + " \u2192 " + (afterSum > 0 ? "active" : "off") + " (1 of each gen pre-bought)";
-
-case "defect_resist":
-
-return "-" + curSum + " \u2192 -" + afterSum + " defect levels in lower dims";
 
 case "wide_reward":
 
@@ -6322,7 +6329,7 @@ var _wrCur = curSum > 0 ? Math.min(7, Math.ceil(curSum * 0.7)) : 0;
 
 var _wrAft = afterSum > 0 ? Math.min(7, Math.ceil(afterSum * 0.7)) : 0;
 
-return "+" + _wrCur + " \u2192 +" + _wrAft + " reward choices in lower dims";
+return "+" + _wrCur + " \u2192 +" + _wrAft + " reward picks";
 
 case "passive_prestige":
 
@@ -6408,7 +6415,7 @@ case "fast_start": return "1e" + (3 * sum) + " kept";
 
 case "upgrade_count": return getMaxUpgradeSlots() + " slots";
 
-case "luck": return getLuckBase().toFixed(2) + " luck";
+case "luck": var _lkB = getLuckBase(); return Math.round((1 - 1/_lkB) * 100) + "% quality";
 
 case "ascend": return "Lv." + getMaxLevel() + " max";
 
@@ -6444,6 +6451,7 @@ function getNetEffectAtSum(id, sum) {
 
 switch(id) {
 
+case "transcendence": return "+5 Lv, -5 def";
 case "upgrade_boost": return (2 + sum * 0.2).toFixed(1) + "x buy";
 
 case "prestige_boost": return "x" + Math.max(1, sum * 2) + " PP";
@@ -7495,6 +7503,28 @@ if (d.hasPrestigedOnce && currentTab === "generators" && !isInChallenge() && act
   // Non-generator tabs: hide prestige btn (handled by inner branches for multi-dim, 
   // but need to handle for dim 1 too)
   prestigeBtn.classList.add("hidden");
+}
+
+
+// Global boost bar — show at bottom in dim2+
+var _gbb = document.getElementById("globalBoostBar");
+if (_gbb) {
+  if (multiDimUnlocked && unlockedDims >= 2) {
+    _gbb.classList.remove("hidden");
+    var _gbt = getGlobalBoostTotal();
+    var _gbEl = document.getElementById("globalBoostValue");
+    if (_gbEl) {
+      if (activeModifiers.indexOf("isolated") >= 0) {
+        _gbEl.textContent = "x1.00 (isolated)";
+        _gbEl.style.color = "var(--red)";
+      } else {
+        _gbEl.textContent = "x" + _gbt.toFixed(2);
+        _gbEl.style.color = "var(--green)";
+      }
+    }
+  } else {
+    _gbb.classList.add("hidden");
+  }
 }
 
 } // end updateTopBars
@@ -11449,13 +11479,13 @@ momentum: "Output multiplier that scales with your highest generator tier",
 
 wide_selection: "More choices when buying upgrades (more options per roll)",
 
-carry_weight: "Lower dims keep extra upgrades when restarting. Stacks.",
+carry_weight: "Keep more upgrades when restarting a dimension. Stacks.",
 
-foundation: "Lower dims start with generators pre-bought on restart.",
+foundation: "Pre-buys 1 of each generator on restart.",
 
 defect_resist: "Challenge defects in lower dims are weakened by this many levels.",
 
-wide_reward: "Challenge rewards in lower dims offer extra choices.",
+wide_reward: "Challenge rewards offer extra picks.",
 
 passive_prestige: "Passively earns a percentage of your prestige-able PP every second. 1% per level. No manual prestige needed.",
 echo: "Copies one of your existing upgrades at this card\'s level. The copy replaces Echo in your slot.",
