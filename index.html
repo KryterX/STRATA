@@ -2768,7 +2768,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.31</div>
+<div class="start-version" id="startVersion">v1.9.32</div>
 
 </div>
 
@@ -2803,7 +2803,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.31</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.32</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3326,7 +3326,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.31";
+var STRATA_VERSION = "v1.9.32";
 
 // ============================================================
 
@@ -5128,6 +5128,9 @@ setTimeout(function() {
 
 function chooseEndless() {
 
+// Ensure completion is saved (belt and suspenders)
+markCompletion(gameDifficulty, activeModifiers);
+
 document.getElementById("endingOverlay").classList.add("hidden");
 
 // Award dim 10 perm buff
@@ -5147,6 +5150,9 @@ showSaveMsg("endless mode unlocked.");
 }
 
 function chooseRetire() {
+
+// Ensure completion is saved
+markCompletion(gameDifficulty, activeModifiers);
 
 gameRetired = true;
 
@@ -9912,6 +9918,8 @@ unlockedDims = data.unlockedDims || 1;
 multiDimUnlocked = !!data.multiDimUnlocked;
 gameDifficulty = data.gameDifficulty || "normal";
 speedrunMode = data.speedrunMode || false;
+// Sync: if activeModifiers doesn't have speedrun_mod, clear speedrunMode
+if (activeModifiers.indexOf("speedrun_mod") < 0) speedrunMode = false;
 architectTipsEnabled = data.architectTipsEnabled !== false;
 activeModifiers = data.activeModifiers || [];
 
@@ -10841,9 +10849,8 @@ var l = letters[diff] || '?';
 var bg = bgs[diff] || 'var(--bg-card)';
 var bd = borders[diff] || 'var(--border)';
 var html = '<span style="font-size:0.5rem;font-weight:700;padding:0 4px;border-radius:3px;font-family:var(--font-mono);background:' + bg + ';color:' + c + ';border:1px solid ' + bd + ';margin-left:4px;">' + l + '</span>';
-// Show modifier symbols
+// Show modifier symbols (speedrun only shows if in mods array, not from old toggle)
 var _mods = mods || [];
-if (speedrun && _mods.indexOf("speedrun_mod") < 0) _mods = ["speedrun_mod"].concat(_mods);
 var modIcons = { speedrun_mod: "\u23f1", no_prestige: "\u2205", isolated: "\u25ce", fragile: "\u2662", blind: "?", drought: "\u2715" };
 var modColors = { speedrun_mod: "var(--amber)", no_prestige: "var(--magenta)", isolated: "var(--cyan)", fragile: "var(--red)", blind: "#b060ff", drought: "#888" };
 for (var mi = 0; mi < _mods.length; mi++) {
