@@ -2795,7 +2795,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.43</div>
+<div class="start-version" id="startVersion">v1.9.44</div>
 
 </div>
 
@@ -2830,7 +2830,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.43</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.44</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3356,7 +3356,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.43";
+var STRATA_VERSION = "v1.9.44";
 
 // ============================================================
 
@@ -7407,9 +7407,7 @@ var _netStr = _dnNet < 0.01 ? _dnNet.toFixed(4) : _dnNet < 1 ? _dnNet.toFixed(3)
 
 var _boostStr = _dnPerDim > 1.001 ? ' <span style="color:' + _boostColor + ';font-size:0.55rem">(x' + _dnPerDim.toFixed(2) + ')</span>' : "";
 
-if (activeDimIdx === 0) {
-
-// Dim 1: no penalty, just show global boost
+// Dim nav subtitle: boost + penalty for ALL dims
 
 var _dnsSub = document.getElementById("dimNavSub");
 var _dnsIso = activeModifiers.indexOf("isolated") >= 0;
@@ -7418,8 +7416,6 @@ if (activeDimIdx === 0) {
   _dnsSub.innerHTML = '<span style="color:' + _boostColor + '">x' + _dnPerDim.toFixed(3) + ' boost</span> | <span style="color:var(--text-dim)">no penalty</span>' + (_dnsIso ? ' <span style="color:var(--red)">(isolated)</span>' : '');
 } else {
   _dnsSub.innerHTML = '<span style="color:' + _boostColor + '">x' + _dnPerDim.toFixed(3) + ' boost</span> | <span style="color:' + _netColor + '">' + _dnsPenDec + 'x penalty</span>' + (_dnsIso ? ' <span style="color:var(--red)">(isolated)</span>' : '');
-}
-
 }
 
 } else {
