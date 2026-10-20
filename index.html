@@ -925,9 +925,20 @@ letter-spacing: 0.05em;
 
 
 .global-boost-bar {
-  width: 100%; background: var(--bg-main); border-top: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 6px 16px; flex-shrink: 0;
+  width: 100%; max-width: 500px; margin: 0 auto; background: var(--bg-main);
+  border-top: 1px solid var(--border);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 6px 16px; flex-shrink: 0; gap: 2px;
+}
+.global-boost-row {
+  display: flex; align-items: center; justify-content: center; width: 100%; gap: 4px;
+}
+.global-boost-sub { opacity: 0.7; }
+.global-boost-cell {
+  flex: 1; display: flex; align-items: baseline; justify-content: center; gap: 6px;
+}
+.global-boost-detail {
+  font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-dim); font-weight: 600;
 }
 .global-boost-bar.hidden { display: none; }
 .global-boost-label {
@@ -2784,7 +2795,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.37</div>
+<div class="start-version" id="startVersion">v1.9.39</div>
 
 </div>
 
@@ -2819,7 +2830,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.37</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.39</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3309,8 +3320,14 @@ Buy Upgrade (1 PP)
 
 
 <div class="global-boost-bar hidden" id="globalBoostBar">
-<span class="global-boost-label">global boost</span>
-<span class="global-boost-value" id="globalBoostValue">x1.00</span>
+<div class="global-boost-row">
+<div class="global-boost-cell"><span class="global-boost-label">net mult</span><span class="global-boost-value" id="gbNet">x1.00</span></div>
+<div class="global-boost-cell"><span class="global-boost-label">global boost</span><span class="global-boost-value" id="gbGlobal" style="color:var(--cyan);">x1.00</span></div>
+</div>
+<div class="global-boost-row global-boost-sub">
+<div class="global-boost-cell"><span class="global-boost-label">my boost</span><span class="global-boost-detail" id="gbMyBoost">x1.00</span></div>
+<div class="global-boost-cell"><span class="global-boost-label">penalty</span><span class="global-boost-detail" id="gbPenalty">1.0x</span></div>
+</div>
 </div>
 
 <div class="tab-bar hidden" id="tabBar">
@@ -3348,7 +3365,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.37";
+var STRATA_VERSION = "v1.9.39";
 
 // ============================================================
 
@@ -7502,21 +7519,37 @@ if (d.hasPrestigedOnce && currentTab === "generators" && !isInChallenge() && act
 }
 
 
-// Global boost bar — show at bottom in dim2+
+// Global boost bar — 2x2 grid: net mult | global boost / my boost | penalty
 var _gbb = document.getElementById("globalBoostBar");
 if (_gbb) {
   if (multiDimUnlocked && unlockedDims >= 2) {
     _gbb.classList.remove("hidden");
     var _gbt = getGlobalBoostTotal();
-    var _gbEl = document.getElementById("globalBoostValue");
-    if (_gbEl) {
-      if (activeModifiers.indexOf("isolated") >= 0) {
-        _gbEl.textContent = "x1.00 (isolated)";
-        _gbEl.style.color = "var(--red)";
-      } else {
-        _gbEl.textContent = "x" + _gbt.toFixed(2);
-        _gbEl.style.color = "var(--green)";
-      }
+    var _myBoost = getGlobalBoostPerDim(activeDimIdx);
+    var _myPenalty = getDimPenalty(activeDimIdx);
+    var _netMult = _myPenalty * _gbt;
+    var _isolated = activeModifiers.indexOf("isolated") >= 0;
+    // Top left: net mult
+    var _gbNetEl = document.getElementById("gbNet");
+    if (_gbNetEl) {
+      _gbNetEl.textContent = "x" + (_isolated ? _myPenalty : _netMult).toFixed(4);
+      _gbNetEl.style.color = _isolated ? "var(--red)" : "var(--green)";
+    }
+    // Top right: global boost
+    var _gbGlobalEl = document.getElementById("gbGlobal");
+    if (_gbGlobalEl) {
+      _gbGlobalEl.textContent = _isolated ? "x1.00" : "x" + _gbt.toFixed(2);
+      _gbGlobalEl.style.color = _isolated ? "var(--red)" : "var(--cyan)";
+    }
+    // Bottom left: my boost contribution
+    var _gbMyEl = document.getElementById("gbMyBoost");
+    if (_gbMyEl) {
+      _gbMyEl.textContent = "x" + _myBoost.toFixed(3);
+    }
+    // Bottom right: penalty
+    var _gbPenEl = document.getElementById("gbPenalty");
+    if (_gbPenEl) {
+      _gbPenEl.textContent = activeDimIdx === 0 ? "none" : (_myPenalty * 100).toFixed(1) + "%";
     }
   } else {
     _gbb.classList.add("hidden");
