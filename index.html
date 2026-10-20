@@ -940,7 +940,7 @@ letter-spacing: 0.05em;
 .global-boost-detail {
   font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-dim); font-weight: 600;
 }
-.global-boost-bar.hidden { display: none; }
+
 .global-boost-label {
   font-family: var(--font-mono); font-size: 0.55rem; color: var(--text-dim);
   letter-spacing: 0.1em; text-transform: uppercase;
@@ -2795,7 +2795,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.39</div>
+<div class="start-version" id="startVersion">v1.9.40</div>
 
 </div>
 
@@ -2830,7 +2830,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.39</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.40</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3319,16 +3319,7 @@ Buy Upgrade (1 PP)
 </div>
 
 
-<div class="global-boost-bar hidden" id="globalBoostBar">
-<div class="global-boost-row">
-<div class="global-boost-cell"><span class="global-boost-label">net mult</span><span class="global-boost-value" id="gbNet">x1.00</span></div>
-<div class="global-boost-cell"><span class="global-boost-label">global boost</span><span class="global-boost-value" id="gbGlobal" style="color:var(--cyan);">x1.00</span></div>
-</div>
-<div class="global-boost-row global-boost-sub">
-<div class="global-boost-cell"><span class="global-boost-label">my boost</span><span class="global-boost-detail" id="gbMyBoost">x1.00</span></div>
-<div class="global-boost-cell"><span class="global-boost-label">penalty</span><span class="global-boost-detail" id="gbPenalty">1.0x</span></div>
-</div>
-</div>
+
 
 <div class="tab-bar hidden" id="tabBar">
 
@@ -3365,7 +3356,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.39";
+var STRATA_VERSION = "v1.9.40";
 
 // ============================================================
 
@@ -7420,13 +7411,14 @@ if (activeDimIdx === 0) {
 
 // Dim 1: no penalty, just show global boost
 
-if (activeModifiers.indexOf("isolated") >= 0) {
-document.getElementById("dimNavSub").innerHTML = 'dim boost <span style="color:var(--red)">1.0x (isolated)</span>';
-} else if (activeDimIdx === 0) {
-document.getElementById("dimNavSub").innerHTML = 'dim boost <span style="color:' + _boostColor + '">x' + _dnPerDim.toFixed(2) + '</span>' + _boostStr;
+var _dnsSub = document.getElementById("dimNavSub");
+var _dnsIso = activeModifiers.indexOf("isolated") >= 0;
+var _dnsPenDec = _dnPenalty.toFixed(_dnPenalty < 0.01 ? 4 : _dnPenalty < 0.1 ? 3 : 2);
+if (activeDimIdx === 0) {
+  _dnsSub.innerHTML = '<span style="color:' + _boostColor + '">x' + _dnPerDim.toFixed(3) + ' boost</span> | <span style="color:var(--text-dim)">no penalty</span>' + (_dnsIso ? ' <span style="color:var(--red)">(isolated)</span>' : '');
 } else {
-
-document.getElementById("dimNavSub").innerHTML = 'dim boost <span style="color:' + _boostColor + '">x' + _dnPerDim.toFixed(2) + '</span> | penalty <span style="color:' + _netColor + '">x' + _dnPenalty.toFixed(_dnPenalty<0.01?4:_dnPenalty<0.1?3:2) + '</span>';
+  _dnsSub.innerHTML = '<span style="color:' + _boostColor + '">x' + _dnPerDim.toFixed(3) + ' boost</span> | <span style="color:' + _netColor + '">' + _dnsPenDec + 'x penalty</span>' + (_dnsIso ? ' <span style="color:var(--red)">(isolated)</span>' : '');
+}
 
 }
 
@@ -7458,13 +7450,17 @@ var _effG = Math.floor(255 * _effT * 0.53 + 50 * _effT);
 
 var _effB = Math.floor(34 * (1-_effT) + 136 * _effT);
 
+var _gbTotal = getGlobalBoostTotal();
+var _gbIso = activeModifiers.indexOf("isolated") >= 0;
+var _gbStr = _gbIso ? "1.00" : _gbTotal.toFixed(2);
+
 if (activeDimIdx === 0) {
 
-dimPenaltyEl.innerHTML = 'dim 1 \u2014 boost <span style="color:rgb(' + _effR + ',' + _effG + ',' + _effB + ')">x' + getGlobalBoostTotal().toFixed(2) + '</span>';
+dimPenaltyEl.innerHTML = 'dim 1 \u2014 <span style="color:rgb(' + _effR + ',' + _effG + ',' + _effB + ')">x' + _gbStr + '</span>' + (_gbIso ? ' <span style="color:var(--red);font-size:0.5rem">(isolated)</span>' : ' <span style="color:var(--text-dim);font-size:0.5rem">(global x' + _gbStr + ')</span>');
 
 } else {
 
-dimPenaltyEl.innerHTML = 'dim ' + (activeDimIdx+1) + ' \u2014 <span style="color:rgb(' + _effR + ',' + _effG + ',' + _effB + ')">x' + _effStr + '</span>';
+dimPenaltyEl.innerHTML = 'dim ' + (activeDimIdx+1) + ' \u2014 <span style="color:rgb(' + _effR + ',' + _effG + ',' + _effB + ')">x' + _effStr + '</span> <span style="color:var(--text-dim);font-size:0.5rem">(global x' + _gbStr + ')</span>';
 
 }
 
@@ -7518,45 +7514,6 @@ if (d.hasPrestigedOnce && currentTab === "generators" && !isInChallenge() && act
   prestigeBtn.classList.add("hidden");
 }
 
-
-// Global boost bar — 2x2 grid: net mult | global boost / my boost | penalty
-var _gbb = document.getElementById("globalBoostBar");
-if (_gbb) {
-  if (multiDimUnlocked && unlockedDims >= 2) {
-    _gbb.classList.remove("hidden");
-    var _gbt = getGlobalBoostTotal();
-    var _myBoost = getGlobalBoostPerDim(activeDimIdx);
-    var _myPenalty = getDimPenalty(activeDimIdx);
-    var _netMult = _myPenalty * _gbt;
-    var _isolated = activeModifiers.indexOf("isolated") >= 0;
-    // Top left: net mult
-    var _gbNetEl = document.getElementById("gbNet");
-    if (_gbNetEl) {
-      _gbNetEl.textContent = "x" + (_isolated ? _myPenalty : _netMult).toFixed(4);
-      _gbNetEl.style.color = _isolated ? "var(--red)" : "var(--green)";
-    }
-    // Top right: global boost
-    var _gbGlobalEl = document.getElementById("gbGlobal");
-    if (_gbGlobalEl) {
-      _gbGlobalEl.textContent = _isolated ? "x1.00" : "x" + _gbt.toFixed(2);
-      _gbGlobalEl.style.color = _isolated ? "var(--red)" : "var(--cyan)";
-    }
-    // Bottom left: my boost contribution
-    var _gbMyEl = document.getElementById("gbMyBoost");
-    if (_gbMyEl) {
-      _gbMyEl.textContent = "x" + _myBoost.toFixed(3);
-    }
-    // Bottom right: penalty
-    var _gbPenEl = document.getElementById("gbPenalty");
-    if (_gbPenEl) {
-      _gbPenEl.textContent = activeDimIdx === 0 ? "none" : (_myPenalty * 100).toFixed(1) + "%";
-    }
-  } else {
-    _gbb.classList.add("hidden");
-  }
-}
-
-} // end updateTopBars
 
 function updateUI() {
 
