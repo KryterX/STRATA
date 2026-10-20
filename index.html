@@ -2784,7 +2784,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.36</div>
+<div class="start-version" id="startVersion">v1.9.37</div>
 
 </div>
 
@@ -2819,7 +2819,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.36</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.37</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3348,7 +3348,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.36";
+var STRATA_VERSION = "v1.9.37";
 
 // ============================================================
 
@@ -6429,14 +6429,10 @@ case "auto_prestige": var _apSum = getUpgradeSum("auto_prestige"); return _apSum
 
 case "echo": return "";
 
-case "carry_weight": var _cwPerm = getPermBuffSum("carry_weight"); var _cwSlot = sum - _cwPerm; var _cwParts = []; if (_cwPerm > 0) _cwParts.push("+" + _cwPerm + " all"); if (_cwSlot > 0) _cwParts.push("+" + _cwSlot + " \u2193"); return _cwParts.join(", ") || "none";
-
-case "foundation": var _fnPerm = getPermBuffSum("foundation"); var _fnSlot = sum - _fnPerm; var _fnParts = []; if (_fnPerm > 0) _fnParts.push("all dims"); if (_fnSlot > 0) _fnParts.push("lower \u2193"); return _fnParts.length > 0 ? "1 each (" + _fnParts.join(" + ") + ")" : "none";
-
-case "defect_resist": var _drPerm = getPermBuffSum("defect_resist"); var _drSlot = sum - _drPerm; var _drParts = []; if (_drPerm > 0) _drParts.push("-" + _drPerm + " all"); if (_drSlot > 0) _drParts.push("-" + _drSlot + " \u2193"); return _drParts.join(", ") || "none";
-
-case "wide_reward": var _wrPerm = getPermBuffSum("wide_reward"); var _wrSlot = sum - _wrPerm; var _wrParts = []; if (_wrPerm > 0) { var _wrPV = Math.min(7, Math.ceil(_wrPerm * 0.7)); _wrParts.push("+" + _wrPV + " all"); } if (_wrSlot > 0) { var _wrSV = Math.min(7, Math.ceil(_wrSlot * 0.7)); _wrParts.push("+" + _wrSV + " \u2193"); } return _wrParts.join(", ") || "none";
-
+case "carry_weight": return "+" + sum + " keeps";
+case "foundation": return sum > 0 ? "active" : "";
+case "defect_resist": return sum > 0 ? "-" + sum + " defects" : "";
+case "wide_reward": return sum > 0 ? "+" + Math.ceil(sum * 0.7) + " picks" : "";
 case "passive_prestige": return sum > 0 ? sum + "%/sec" : "";
 
 default: return "";
@@ -7900,11 +7896,7 @@ var def = UPGRADE_DEFS.find(function(u) { return u.id === slot.id; });
 
 var desc = def ? def.descFn(slot.level) : "Unknown";
 
-// Show totals for stacking upgrades
-
-var _ts = getUpgradeSum(slot.id);
-
-desc = getUpgradePlainDesc(def ? def.id : ""); var _ne = getNetEffect(def ? def.id : ""); if (_ne) desc += " (" + _ne + ")";
+// descFn already shows individual + total dynamically
 
 var isAP = def && def.id === "auto_prestige";
 
