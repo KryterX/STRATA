@@ -2795,7 +2795,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.47</div>
+<div class="start-version" id="startVersion">v1.9.49</div>
 
 </div>
 
@@ -2830,7 +2830,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.47</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.49</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3356,7 +3356,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.47";
+var STRATA_VERSION = "v1.9.49";
 
 // ============================================================
 
@@ -3532,7 +3532,7 @@ var UPGRADE_DEFS = [
 
 { id: "upgrade_boost",  name: "Upgrade Boost",  icon: "\u03a3", descFn: function(l) { var s = getUpgradeSum("upgrade_boost"); return "+" + (0.2*l).toFixed(1) + " buy base (+" + (s*0.2).toFixed(1) + " total)"; } },
 
-{ id: "prestige_boost", name: "Prestige Boost", icon: "\u03a9", descFn: function(l) { var s = getUpgradeSum("prestige_boost"); return "x" + (2*l) + " PP earned (x" + (2*s) + " total)"; } },
+{ id: "prestige_boost", name: "Prestige Boost", icon: "\u03a9", descFn: function(l) { var s = getUpgradeSum("prestige_boost"); var slotSum = 0; var d = D(); for (var _i = 0; _i < d.upgradeSlots.length; _i++) { var _s = d.upgradeSlots[_i]; if (_s && _s.id === "prestige_boost") slotSum += _s.level; } var slotMult = Math.max(1, slotSum * 2); var _pbPerm = getPermBuffSum("prestige_boost"); var permMult = _pbPerm > 0 ? Math.max(1, _pbPerm * 2) : 1; var totalMult = slotMult * permMult; return "x" + (2*l) + " PP earned (x" + totalMult + " total)"; } },
 
 { id: "discount",       name: "Discount",       icon: "\u0394", descFn: function(l) { var s = getUpgradeSum("discount"); return "-" + Math.round((1 - Math.pow(0.8, l)) * 100) + "% gen cost (-" + Math.round((1 - Math.pow(0.8, s)) * 100) + "% total)"; } },
 
@@ -13009,11 +13009,9 @@ var _permLvl = (PERM_BUFF_LEVELS && PERM_BUFF_LEVELS[uid]) || 5;
 html += '<div class="' + cls + '" id="permOpt_' + uid + '"' + onclick + '>';
 html += '<div class="upgrade-icon">' + def.icon + '</div>';
 html += '<div class="upgrade-slot-info"><div class="upgrade-slot-name">' + def.name + takenBadge + '</div>';
-// Temporarily add this perm so descFn total includes it
-var _wasOwned = permBuffs.indexOf(uid) >= 0;
-if (!_wasOwned) permBuffs.push(uid);
-html += '<div class="upgrade-slot-desc">' + def.descFn(_permLvl) + '</div></div></div>';
-if (!_wasOwned) permBuffs.splice(permBuffs.indexOf(uid), 1);
+// Hardcoded perm descriptions — just what you get, no totals
+var _permDescs = {"prestige_boost":"x10 PP multiplier","discount":"-67% gen cost","auto_buy":"+10 auto-buys/sec","break_infinity":"removes point cap","fast_start":"keep 1e45 on prestige","upgrade_count":"+5 upgrade slots","luck":"x10.0 roll odds","wide_selection":"+3 upgrade choices","carry_weight":"+5 restart keeps","foundation":"pre-buys all gens","transcendence":"+5 max level, -5 defects","wide_reward":"+3 reward picks","passive_prestige":"+5% PP/sec"};
+html += '<div class="upgrade-slot-desc">' + (_permDescs[uid] || def.descFn(_permLvl)) + '</div></div></div>';
 }
 var storyComplete = (dimNum <= 10 && typeof STORY_COMPLETE !== 'undefined' && STORY_COMPLETE[dimNum]) ? STORY_COMPLETE[dimNum] : '';
 var subText = storyComplete ? storyComplete + '\n\nchoose ' + count + ' permanent buff' + (count > 1 ? 's' : '') + '.' : 'dimension ' + dimNum + ' complete. choose ' + count + ' permanent buff' + (count > 1 ? 's' : '') + '.';
