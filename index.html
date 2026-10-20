@@ -8007,7 +8007,7 @@ gap = Math.ceil(gap * 1.75);
 count += getCarryWeightBonus(activeDimIdx);
 
 // Fragile modifier: cap keep count at 1
-if (activeModifiers.indexOf("fragile") >= 0) return Math.min(1, count);
+if (activeModifiers.indexOf("fragile") >= 0) return Math.min(2, count);
 
 return count;
 
@@ -12838,7 +12838,7 @@ var MODIFIERS = [
   { id: "speedrun_mod", name: "Speedrun", icon: "⏱", color: "var(--amber)", desc: "Real-time limit. Banked time given." },
   { id: "no_prestige", name: "No Prestige", icon: "∅", color: "var(--magenta)", desc: "Can\u2019t prestige. Passive PP only." },
   { id: "isolated", name: "Isolated", icon: "◎", color: "var(--cyan)", desc: "Global boost locked at 1.0x." },
-  { id: "fragile", name: "Fragile", icon: "♢", color: "var(--red)", desc: "Dim restart keeps max 1 upgrade." },
+  { id: "fragile", name: "Fragile", icon: "♢", color: "var(--red)", desc: "Dim restart keeps max 2 upgrades." },
   { id: "blind", name: "Blind", icon: "?", color: "#b060ff", desc: "Upgrade levels hidden until picked." },
   { id: "drought", name: "Drought", icon: "✕", color: "#888", desc: "Challenges give zero rewards." }
 ];
