@@ -2795,7 +2795,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v1.9.49</div>
+<div class="start-version" id="startVersion">v1.9.51</div>
 
 </div>
 
@@ -2830,7 +2830,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.49</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v1.9.51</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3356,7 +3356,7 @@ Buy Upgrade (1 PP)
 
 <script>
 
-var STRATA_VERSION = "v1.9.49";
+var STRATA_VERSION = "v1.9.51";
 
 // ============================================================
 
@@ -10539,6 +10539,13 @@ hardAchievements = {
 bankedTime = speedrunMode ? 259200 : 0; gameSpeed = 1;
 // Cross-dim upgrades are perm-only now; passive_prestige is in base UPGRADE_DEFS
 initUpgradeSlots(); initGenerators();
+
+// No Prestige modifier: mark as prestiged so upgrade tab shows (0 PP — passive prestige earns it)
+if (activeModifiers.indexOf("no_prestige") >= 0) {
+  var _npDim = D();
+  _npDim.hasPrestigedOnce = true;
+}
+
 updateTimeBankUI();
 updateDifficultyBadge();
 currentTab = "generators";
@@ -12851,14 +12858,24 @@ function saveCompletionHistory() {
   try { localStorage.setItem("strata_completion", JSON.stringify(completionHistory)); } catch(e) {}
 }
 
-function markCompletion(difficulty, activeModifiers) {
+function markCompletion(difficulty, activeMods) {
   if (!completionHistory[difficulty]) completionHistory[difficulty] = { base: false, mods: {}, combos: {} };
   var ch = completionHistory[difficulty];
   
-  if (!activeModifiers || activeModifiers.length === 0) {
+  // Validate: only count modifiers that are in the MODIFIERS definition
+  var validMods = [];
+  if (activeMods && activeMods.length > 0) {
+    for (var _vm = 0; _vm < activeMods.length; _vm++) {
+      var _vmId = activeMods[_vm];
+      if (MODIFIERS.some(function(m) { return m.id === _vmId; })) validMods.push(_vmId);
+    }
+  }
+  
+  if (validMods.length === 0) {
     // Base completion
     ch.base = true;
   } else {
+    var activeModifiers = validMods;
     // Mark each individual modifier
     for (var i = 0; i < activeModifiers.length; i++) {
       ch.mods[activeModifiers[i]] = true;
