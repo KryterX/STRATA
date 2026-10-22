@@ -9574,13 +9574,13 @@ var _dripRate = _ppDripLvl * 0.01; // 1% per level
 
 var _dripBasePP = getBasePP(d);
 
-if (_dripBasePP > 1) {
+if (_dripBasePP >= 1) {
 
 var _dripMult = getPrestigeBoostMult(d);
 
 d.ppDripAccum = (d.ppDripAccum || 0) + _dripBasePP * _dripMult * _dripRate * bgDt;
 
-if (d.ppDripAccum >= 0.9) {
+if (d.ppDripAccum >= 1) {
 
 var _dripEarned = Math.floor(d.ppDripAccum);
 
