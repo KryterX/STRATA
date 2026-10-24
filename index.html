@@ -12930,10 +12930,10 @@ function speedrunTimesUp() {
 
 function getSpeedrunTimeLimit() {
   // Base 24h, +25% per additional active modifier, scaled by difficulty
-  var baseHours = { easy: 24, normal: 24, hard: 24, insane: 24 };
-  var base = (baseHours[gameDifficulty] || 24) * 3600; // in seconds
+  var baseHours = { easy: 1.5, normal: 1.5, hard: 1.5, insane: 1.5 };
+  var base = (baseHours[gameDifficulty]) * 3600; // in seconds
   var otherMods = activeModifiers.filter(function(m) { return m !== "speedrun_mod"; }).length;
-  return Math.floor(base * (1 + 0.25 * otherMods));
+  return Math.floor(base);
 }
 
 
