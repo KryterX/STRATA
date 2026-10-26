@@ -3846,7 +3846,17 @@ var _asLvl = getPermBuffSum("ascend"); var permBonus = _asLvl > 0 ? Math.min(20,
 // Transcendence: flat +5 max level (not asymptotic)
 var _trFlat = getPermBuffSum("transcendence") > 0 ? 5 : 0;
 
-return Math.max(1, Math.floor(5 + gain)) + permBonus + _trFlat;
+// Insane: ramp the base by +0.5 per dimension number (floored).
+// base = 5 + 0.5*dimNum  ->  dim1=5.5, dim2=6.0, ... dim10=10.0
+// Math.floor below rounds the .5 steps down: 5,6,6,7,7,8,8,9,9,10.
+var _base = 5;
+if (typeof gameDifficulty !== 'undefined' && gameDifficulty === 'insane') {
+  var _dimNum = dimensions.indexOf(_d) + 1; // 1-based; 0 if detached
+  if (_dimNum < 1) _dimNum = (activeDimIdx || 0) + 1;
+  _base = 5 + 0.5 * _dimNum;
+}
+
+return Math.max(1, Math.floor(_base + gain)) + permBonus + _trFlat;
 
 }
 
@@ -9932,11 +9942,12 @@ unlockedDims = data.unlockedDims || 1;
 
 multiDimUnlocked = !!data.multiDimUnlocked;
 gameDifficulty = data.gameDifficulty || "normal";
+// Restore active modifiers FIRST so the speedrun sync below reads saved values.
+activeModifiers = data.activeModifiers || [];
 speedrunMode = data.speedrunMode || false;
 // Sync: if activeModifiers doesn't have speedrun_mod, clear speedrunMode
 if (activeModifiers.indexOf("speedrun_mod") < 0) speedrunMode = false;
 architectTipsEnabled = data.architectTipsEnabled !== false;
-activeModifiers = data.activeModifiers || [];
 
 gameRetired = !!data.gameRetired;
 
@@ -10285,6 +10296,16 @@ unlockedAchievementCategories = {}; window._discoveryState = {};
 function showStartScreen() {
 
 var hasSave = !!safeGetItem("nestedIdleSave2");
+// Also treat the presence of ANY named save slot as "has save" so that
+// deleting the active file (which clears nestedIdleSave2) still shows "continue"
+// when other saved files remain.
+if (!hasSave) {
+  try {
+    for (var _hsi = 0; _hsi < 100; _hsi++) {
+      if (localStorage.getItem(getSaveSlotKey(_hsi))) { hasSave = true; break; }
+    }
+  } catch(e) {}
+}
 
 var html = "";
 
