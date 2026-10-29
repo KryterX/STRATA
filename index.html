@@ -3454,6 +3454,34 @@ confirmReset: "on"
 
 
 
+
+/* --- additional top-level state (render keys, theme, caches, sort toggles, overflow) carried from reference --- */
+var _confirmState = { resolve: null };
+var _globalBoostCache = 1;
+var _perDimBoostCache = [];
+var _selShowingOwned = false;
+var _slotOverflow = {
+  upgrades: [],       // array of {id, level} — the set user wants to keep
+  maxSlots: 0,        // how many they CAN keep
+  selected: [],       // indices into upgrades[] they've picked
+  callback: null,     // function(keptUpgrades) called on confirm
+  sortMode: "default",
+  sortLevelAsc: false
+};
+var chipAnimQueue = [];
+var chipAnimRunning = false;
+var currentUpgradeSub = "slots";
+var lastChRenderKey = "";
+var lastGenRenderKey = "";
+var lastUpgRenderKey = "";
+var pendingEchoContext = "normal";
+var pendingEchoLevel = 0;
+var restartSortLevelAsc = false;
+var selSortLevelAsc = false;
+var sortLevelAsc = false;
+var storageAvailable = false;
+var currentTheme = "default";
+
 /* ======================= [M1] BIGNUM =======================================*/
 /* Big-number {m,e} library + numeric formatters. Carried verbatim from reference. */
 
@@ -9424,6 +9452,41 @@ function showConfirmDialog(title, message, confirmText, cancelText, onConfirm, o
   overlay.classList.remove("hidden");
 }
 
+/* In-game text prompt (reuses the confirm-dialog overlay — no browser prompt()). */
+function showPromptDialog(title, defaultValue, confirmText, onConfirm) {
+  var overlay = document.getElementById("confirmDialogOverlay");
+  if (!overlay) return;
+  document.getElementById("confirmDialogTitle").textContent = title || "Enter";
+  var safe = String(defaultValue == null ? "" : defaultValue).replace(/"/g, "&quot;");
+  document.getElementById("confirmDialogMessage").innerHTML =
+    '<input id="promptDialogInput" type="text" value="' + safe + '" ' +
+    'style="width:100%;box-sizing:border-box;margin-top:6px;padding:8px 10px;' +
+    'background:var(--bg-card);border:1px solid var(--border-hover);border-radius:6px;' +
+    'color:var(--text-bright);font-family:var(--font-mono);font-size:0.9rem;" ' +
+    'maxlength="24" autocomplete="off" />';
+  var confirmBtn = document.getElementById("confirmDialogYes");
+  var cancelBtn = document.getElementById("confirmDialogNo");
+  confirmBtn.textContent = confirmText || "OK";
+  cancelBtn.textContent = "Cancel";
+  function finish() {
+    var inp = document.getElementById("promptDialogInput");
+    var val = inp ? inp.value : "";
+    overlay.classList.add("hidden");
+    if (onConfirm) onConfirm(val);
+  }
+  confirmBtn.onclick = finish;
+  cancelBtn.onclick = function() { overlay.classList.add("hidden"); };
+  overlay.classList.remove("hidden");
+  // focus + Enter-to-confirm
+  setTimeout(function() {
+    var inp = document.getElementById("promptDialogInput");
+    if (inp) {
+      inp.focus(); inp.select();
+      inp.onkeydown = function(e) { if (e.key === "Enter") { e.preventDefault(); finish(); } };
+    }
+  }, 30);
+}
+
 function showDiscovery(key) {
 
 if (!architectTipsEnabled) return; // tips disabled by player
@@ -11888,18 +11951,20 @@ function choosePlayer(id) {
   showStartScreen();
 }
 function addPlayerPrompt() {
-  var name = prompt("New player name:", "Player " + (PlayerStore.listPlayers().length + 1));
-  if (name === null) return;
-  PlayerStore.createPlayer(name);
-  // Re-render the player-select list so the new player appears immediately
-  showPlayerSelect();
+  var suggested = "Player " + (PlayerStore.listPlayers().length + 1);
+  showPromptDialog("New Player", suggested, "Create", function (name) {
+    if (!name || !name.trim()) return;
+    PlayerStore.createPlayer(name.trim());
+    showPlayerSelect(); // refresh list so the new player appears immediately
+  });
 }
 function renamePlayerPrompt(id) {
   var cur = PlayerStore.getPlayerName(id);
-  var name = prompt("Rename player:", cur || "");
-  if (name === null || !name.trim()) return;
-  PlayerStore.renamePlayer(id, name);
-  showPlayerSelect();
+  showPromptDialog("Rename Player", cur || "", "Rename", function (name) {
+    if (!name || !name.trim()) return;
+    PlayerStore.renamePlayer(id, name.trim());
+    showPlayerSelect();
+  });
 }
 function deletePlayerPrompt(id) {
   showConfirmDialog("Delete Player",
