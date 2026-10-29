@@ -11882,16 +11882,17 @@ function escapeHtmlLite(s) { return String(s).replace(/[&<>"']/g, function (c) {
 
 function choosePlayer(id) {
   PlayerStore.setActivePlayer(id);
-  loadSettings();   // per-player
-  loadTheme();      // per-player
-  document.getElementById("playerSelectScreen").classList.add("hidden");
+  try { loadSettings(); } catch (e) {}   // per-player
+  try { loadTheme(); } catch (e) {}      // per-player
+  var ps = document.getElementById("playerSelectScreen"); if (ps) ps.classList.add("hidden");
   showStartScreen();
 }
 function addPlayerPrompt() {
   var name = prompt("New player name:", "Player " + (PlayerStore.listPlayers().length + 1));
   if (name === null) return;
-  var id = PlayerStore.createPlayer(name);
-  choosePlayer(id);
+  PlayerStore.createPlayer(name);
+  // Re-render the player-select list so the new player appears immediately
+  showPlayerSelect();
 }
 function renamePlayerPrompt(id) {
   var cur = PlayerStore.getPlayerName(id);
@@ -11924,8 +11925,10 @@ function showStartScreen() {
   html += '<button class="start-btn start-back" onclick="showPlayerSelect()" style="margin-top:8px;font-size:0.6rem;opacity:0.5;">\u2190 switch player</button>';
   var btns = document.getElementById("startButtons"); if (btns) btns.innerHTML = html;
   var ver = document.getElementById("startVersion"); if (ver) ver.textContent = STRATA_VERSION;
+  // Show which player is active so picking a player is visibly reflected
   var pname = PlayerStore.getPlayerName();
   var sub = document.querySelector("#startScreen .start-sub");
+  if (sub && pname) sub.textContent = "playing as " + pname;
   var st = document.getElementById("startScreen"); if (st) st.classList.remove("hidden");
 }
 
@@ -12731,9 +12734,8 @@ if (confirmTog) confirmTog.checked = gameSettings.confirmReset === "on";
     // 4) version label
     var vl = document.getElementById("versionLabel"); if (vl) vl.textContent = STRATA_VERSION;
     try { recalcGlobalBoost(); } catch (e) {}
-    // 5) if multiple players, show player-select first; else straight to that player's title
-    if (PlayerStore.listPlayers().length > 1) { showPlayerSelect(); }
-    else { showStartScreen(); }
+    // 5) ALWAYS show player-select first (user picks before the title screen)
+    showPlayerSelect();
   }
   boot();
 })();
