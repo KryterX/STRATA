@@ -4193,10 +4193,10 @@ var ACHIEVEMENT_CATEGORIES = [
   { id: "gen_5000", name: "Legion", desc: "Buy 5,000 generators total", check: function() { return gameStats.totalGeneratorsBought >= 5000; } },
   { id: "gen_50000", name: "Swarm", desc: "Buy 50,000 generators total", check: function() { return gameStats.totalGeneratorsBought >= 50000; } },
   { id: "gen_500000", name: "Infinite Army", desc: "Buy 500,000 generators total", check: function() { return gameStats.totalGeneratorsBought >= 500000; } },
-  { id: "gen_t10", name: "Tenfold", desc: "Own 10 generator tiers", check: function() { return D().generators.length >= 10; } },
-  { id: "gen_t20", name: "Twenty Deep", desc: "Own 20 generator tiers", check: function() { return D().generators.length >= 20; } },
-  { id: "gen_t50", name: "Fifty Deep", desc: "Own 50 generator tiers", check: function() { return D().generators.length >= 50; } },
-  { id: "gen_t100", name: "Hundred Deep", desc: "Own 100 generator tiers", check: function() { return D().generators.length >= 100; } },
+  { id: "gen_t10", name: "Tenfold", desc: "Own 10 generator tiers", check: function() { var _d=D(); var _n=0; for(var _i=0;_i<_d.generators.length;_i++){ if(_d.generators[_i].bought>0) _n++; } return _n >= 10; } },
+  { id: "gen_t20", name: "Twenty Deep", desc: "Own 20 generator tiers", check: function() { var _d=D(); var _n=0; for(var _i=0;_i<_d.generators.length;_i++){ if(_d.generators[_i].bought>0) _n++; } return _n >= 20; } },
+  { id: "gen_t50", name: "Fifty Deep", desc: "Own 50 generator tiers", check: function() { var _d=D(); var _n=0; for(var _i=0;_i<_d.generators.length;_i++){ if(_d.generators[_i].bought>0) _n++; } return _n >= 50; } },
+  { id: "gen_t100", name: "Hundred Deep", desc: "Own 100 generator tiers", check: function() { var _d=D(); var _n=0; for(var _i=0;_i<_d.generators.length;_i++){ if(_d.generators[_i].bought>0) _n++; } return _n >= 100; } },
   { id: "gen_maxbuy", name: "Max Buys", desc: "Max out purchases on any generator", check: function() { var d = D(); var mb = getMaxBuy(); for (var i = 0; i < d.generators.length; i++) { if (d.generators[i].bought >= mb) return true; } return false; } },
   { id: "gen_allmaxed", name: "All Maxed", desc: "Max out purchases on every generator", check: function() { var d = D(); var mb = getMaxBuy(); if (d.generators.length === 0) return false; for (var i = 0; i < d.generators.length; i++) { if (d.generators[i].bought < mb) return false; } return true; } }
 ]},
@@ -4293,7 +4293,7 @@ var ACHIEVEMENT_CATEGORIES = [
 ]},
 
 { id: "permbuffs", name: "Permanent Buffs", achievements: [
-  { id: "pb_1", name: "Permanent", desc: "Earn your first permanent buff", check: function() { return permBuffs.length >= 1; } },
+  { id: "pb_1", name: "Permanent", desc: "Earn your first permanent buff", check: function() { return permBuffs.filter(function(p){ return !(p === "passive_prestige" && activeModifiers.indexOf("no_prestige") >= 0); }).length >= 1; } },
   { id: "pb_5", name: "Collector of Relics", desc: "Earn 5 permanent buffs", check: function() { return permBuffs.length >= 5; } },
   { id: "pb_all", name: "Fully Ascended", desc: "Earn all 13 permanent buffs", check: function() { return permBuffs.length >= 13; } }
 ]},
@@ -4304,8 +4304,8 @@ var ACHIEVEMENT_CATEGORIES = [
   { id: "tm_100h", name: "Obsessed", desc: "Play for 100 hours", check: function() { return gameStats.realTime >= 360000; } },
   { id: "tm_1000h", name: "No Life", desc: "Play for 1,000 hours", check: function() { return gameStats.realTime >= 3600000; } },
   { id: "tm_bank1h", name: "Time Lord", desc: "Spend 1 hour of banked time", check: function() { return gameStats.gameTime - gameStats.realTime >= 3600; } },
-  { id: "tm_bank24h", name: "Patience", desc: "Accumulate 24 hours of banked time", check: function() { return typeof bankedTime !== "undefined" && bankedTime >= 86400; } },
-  { id: "tm_bank72h", name: "Time Vault", desc: "Accumulate 72 hours of banked time", check: function() { return typeof bankedTime !== "undefined" && bankedTime >= 259200; } }
+  { id: "tm_bank24h", name: "Patience", desc: "Accumulate 24 hours of banked time", check: function() { var _bt = (typeof bankedTime !== "undefined" ? bankedTime : 0) - (speedrunMode ? 259200 : 0); return _bt >= 86400; } },
+  { id: "tm_bank72h", name: "Time Vault", desc: "Accumulate 72 hours of banked time", check: function() { var _bt = (typeof bankedTime !== "undefined" ? bankedTime : 0) - (speedrunMode ? 259200 : 0); return _bt >= 259200; } }
 ]},
 
 { id: "skill", name: "Skill", achievements: [
