@@ -2799,7 +2799,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v2.2.2-audiofix</div>
+<div class="start-version" id="startVersion">v2.2.3-watchdog</div>
 
 </div>
 
@@ -2834,7 +2834,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v2.2.2-audiofix</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v2.2.3-watchdog</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3694,10 +3694,10 @@ return sign + man.toFixed(0) + "e" + exp;
 
 /* ======================= [M2] GAMEDATA / DEFS ==============================*/
 /* Static game data + tunable constants. Carried verbatim from reference.
-   NOTE: STRATA_VERSION bumped to v2.2.2-audiofix (judgment call). GREEK_ALPHABET kept
+   NOTE: STRATA_VERSION bumped to v2.2.3-watchdog (judgment call). GREEK_ALPHABET kept
    (was slot-only; retained for possible player-roster labels). */
 
-var STRATA_VERSION = "v2.2.2-audiofix";
+var STRATA_VERSION = "v2.2.3-watchdog";
 
 var DEBUG_AUTO_BUY_ALL = false;
 
@@ -13052,7 +13052,54 @@ var AudioEngine = (function () {
     });
   })();
 
-  // Resume audio + restart music when the page becomes visible again (e.g. tab switch,
+  // ---- WATCHDOG: self-heal music if it ever stops while it should be on ----
+  // Covers every failure mode (missed first-gesture, Safari kill, suspended ctx,
+  // stale timer) without having to predict each one. Runs every 2s.
+  var _watchdog = null;
+  var _lastStatus = null;
+  function musicIsActuallyOn() {
+    // "on" = context running AND (a generative timer is scheduled OR a track element is playing)
+    if (!ctx || ctx.state !== 'running') return false;
+    if (_musicEl) return !_musicEl.paused;
+    return !!_musicTimer;
+  }
+  function status() {
+    return {
+      enabled: settingOn('music'),
+      ctxState: ctx ? ctx.state : 'none',
+      playing: musicIsActuallyOn(),
+      sfxEnabled: settingOn('sfx'),
+      nodes: _musicNodes.length
+    };
+  }
+  function startWatchdog() {
+    if (_watchdog) return;
+    _watchdog = setInterval(function () {
+      if (settingOn('music') && ctx && ctx.state === 'running' && !musicIsActuallyOn()) {
+        startMusic(); // heal
+      }
+      // optional on-screen indicator
+      if (_debugEl) {
+        var s = status();
+        _debugEl.textContent = '♪ ' + (s.enabled ? (s.playing ? 'playing' : 'ENABLED-but-SILENT') : 'off') + ' | ctx:' + s.ctxState;
+        _debugEl.style.color = (!s.enabled) ? '#888' : (s.playing ? 'var(--green)' : 'var(--red)');
+      }
+    }, 2000);
+  }
+  // Debug indicator (off by default; toggle via AudioEngine.debug(true))
+  var _debugEl = null;
+  function debug(on) {
+    if (on && !_debugEl) {
+      _debugEl = document.createElement('div');
+      _debugEl.style.cssText = 'position:fixed;bottom:4px;right:6px;z-index:99999;font:10px monospace;background:rgba(0,0,0,0.6);padding:2px 6px;border-radius:4px;pointer-events:none;';
+      document.body.appendChild(_debugEl);
+    } else if (!on && _debugEl) {
+      try { _debugEl.remove(); } catch (e) {}
+      _debugEl = null;
+    }
+  }
+
+    // Resume audio + restart music when the page becomes visible again (e.g. tab switch,
   // navigate away and back). Browsers suspend the AudioContext on hide; we resume on show.
   (function registerVisibility() {
     function onShow() {
@@ -13074,12 +13121,16 @@ var AudioEngine = (function () {
     window.addEventListener('blur', function(){ /* keep playing on mere blur; only hide stops */ });
   })();
 
+  startWatchdog();
+
   return {
     sfx: sfx,
     autoBuyCascade: autoBuyCascade,
     music: { start: startMusic, stop: stopMusic, setTrackUrl: function (u) { _musicTrackUrl = u; } },
     applySettings: applyAudioSettings,
-    unlock: unlock
+    unlock: unlock,
+    status: status,
+    debug: debug
   };
 })();
 
@@ -13104,6 +13155,16 @@ var AudioEngine = (function () {
     try { recalcGlobalBoost(); } catch (e) {}
     // 5) ALWAYS show player-select first (user picks before the title screen)
     showPlayerSelect();
+    // Debug: Shift+M toggles a tiny on-screen music-status indicator (playing / enabled-but-silent / off).
+    (function(){
+      var _dbgOn = false;
+      window.addEventListener('keydown', function(e){
+        if (e.shiftKey && (e.key === 'M' || e.key === 'm')) {
+          _dbgOn = !_dbgOn;
+          try { AudioEngine.debug(_dbgOn); } catch(ex){}
+        }
+      });
+    })();
   }
   boot();
 })();
