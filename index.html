@@ -2799,7 +2799,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v2.2.1-audiofix</div>
+<div class="start-version" id="startVersion">v2.2.2-audiofix</div>
 
 </div>
 
@@ -2834,7 +2834,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v2.2.1-audiofix</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v2.2.2-audiofix</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3694,10 +3694,10 @@ return sign + man.toFixed(0) + "e" + exp;
 
 /* ======================= [M2] GAMEDATA / DEFS ==============================*/
 /* Static game data + tunable constants. Carried verbatim from reference.
-   NOTE: STRATA_VERSION bumped to v2.2.1-audiofix (judgment call). GREEK_ALPHABET kept
+   NOTE: STRATA_VERSION bumped to v2.2.2-audiofix (judgment call). GREEK_ALPHABET kept
    (was slot-only; retained for possible player-roster labels). */
 
-var STRATA_VERSION = "v2.2.1-audiofix";
+var STRATA_VERSION = "v2.2.2-audiofix";
 
 var DEBUG_AUTO_BUY_ALL = false;
 
@@ -13031,13 +13031,25 @@ var AudioEngine = (function () {
 
   // Register the one-time unlock on first interaction.
   (function registerUnlock() {
-    function once() {
-      unlock();
-      window.removeEventListener('pointerdown', once, true);
-      window.removeEventListener('keydown', once, true);
+    // Start/resume audio on the FIRST real user gesture, on ANY screen (incl. player-select).
+    // iOS Safari requires resume()+node start synchronously inside the gesture — so we do it
+    // directly in the handler. We only detach once the context is actually running AND music
+    // (if enabled) has started, so an early/partial gesture can't permanently consume the hook.
+    function kick() {
+      ensureCtx();
+      if (ctx) { try { ctx.resume(); } catch (e) {} }
+      if (settingOn('music')) startMusic();
+      var running = ctx && ctx.state === 'running';
+      var musicOk = !settingOn('music') || !!_musicTimer || !!_musicEl;
+      if (running && musicOk) {
+        ['pointerdown','touchstart','mousedown','click','keydown'].forEach(function (ev) {
+          window.removeEventListener(ev, kick, true);
+        });
+      }
     }
-    window.addEventListener('pointerdown', once, true);
-    window.addEventListener('keydown', once, true);
+    ['pointerdown','touchstart','mousedown','click','keydown'].forEach(function (ev) {
+      window.addEventListener(ev, kick, true);
+    });
   })();
 
   // Resume audio + restart music when the page becomes visible again (e.g. tab switch,
