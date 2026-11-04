@@ -2799,7 +2799,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v2.2.3-watchdog</div>
+<div class="start-version" id="startVersion">v2.3.0-electron</div>
 
 </div>
 
@@ -2834,7 +2834,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v2.2.3-watchdog</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v2.3.0-electron</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3694,10 +3694,10 @@ return sign + man.toFixed(0) + "e" + exp;
 
 /* ======================= [M2] GAMEDATA / DEFS ==============================*/
 /* Static game data + tunable constants. Carried verbatim from reference.
-   NOTE: STRATA_VERSION bumped to v2.2.3-watchdog (judgment call). GREEK_ALPHABET kept
+   NOTE: STRATA_VERSION bumped to v2.3.0-electron (judgment call). GREEK_ALPHABET kept
    (was slot-only; retained for possible player-roster labels). */
 
-var STRATA_VERSION = "v2.2.3-watchdog";
+var STRATA_VERSION = "v2.3.0-electron";
 
 var DEBUG_AUTO_BUY_ALL = false;
 
@@ -13119,6 +13119,31 @@ var AudioEngine = (function () {
     window.addEventListener('focus', onShow);
     window.addEventListener('pagehide', stopMusic);
     window.addEventListener('blur', function(){ /* keep playing on mere blur; only hide stops */ });
+  })();
+
+  // ---- Electron auto-start: in a packaged Electron app the autoplay policy is
+  // disabled (webPreferences.autoplayPolicy), so audio can start WITHOUT a user
+  // gesture. Detect Electron and start music on load. Browser builds are
+  // unaffected (they still wait for the first tap via registerUnlock).
+  (function electronAutoStart() {
+    var isElectron = (typeof navigator !== 'undefined' &&
+                      /electron/i.test(navigator.userAgent || '')) ||
+                     (typeof process !== 'undefined' && process.versions && !!process.versions.electron);
+    if (!isElectron) return;
+    function go() {
+      ensureCtx();
+      if (ctx) { try { ctx.resume(); } catch (e) {} }
+      if (settingOn('music')) startMusic();
+      // retry briefly in case ctx wasn't ready on the very first frame
+      var tries = 0;
+      var iv = setInterval(function () {
+        tries++;
+        if (settingOn('music') && ctx && ctx.state === 'running' && !musicIsActuallyOn()) startMusic();
+        if ((ctx && ctx.state === 'running') || tries > 10) clearInterval(iv);
+      }, 300);
+    }
+    if (document.readyState === 'complete' || document.readyState === 'interactive') go();
+    else window.addEventListener('DOMContentLoaded', go);
   })();
 
   startWatchdog();
