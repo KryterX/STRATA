@@ -2799,7 +2799,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v2.1.0-audio</div>
+<div class="start-version" id="startVersion">v2.2.0-music</div>
 
 </div>
 
@@ -2834,7 +2834,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v2.1.0-audio</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v2.2.0-music</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3141,6 +3141,7 @@ Buy Upgrade (1 PP)
 
 
 <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);"><button id="btnResetSave" class="ctrl-btn" style="width:100%;background:var(--bg-card);border-color:var(--red-dim);color:var(--red);" onclick="resetGame()">Reset This Save</button><button id="btnResetAll" class="ctrl-btn" style="width:100%;background:var(--bg-card);border-color:var(--red-dim);color:var(--red);display:none;margin-top:6px;" onclick="globalHardReset()">Reset All Data</button></div>
+<button id="settingsReturnBtn" class="settings-close-btn" style="background:var(--bg-card);border-color:var(--cyan-dim);color:var(--cyan);margin-top:6px;" onclick="returnToTitle()">Save &amp; Return to Title</button>
 <button class="settings-close-btn" onclick="closeSettings()">Close</button>
 
 </div>
@@ -3693,10 +3694,10 @@ return sign + man.toFixed(0) + "e" + exp;
 
 /* ======================= [M2] GAMEDATA / DEFS ==============================*/
 /* Static game data + tunable constants. Carried verbatim from reference.
-   NOTE: STRATA_VERSION bumped to v2.1.0-audio (judgment call). GREEK_ALPHABET kept
+   NOTE: STRATA_VERSION bumped to v2.2.0-music (judgment call). GREEK_ALPHABET kept
    (was slot-only; retained for possible player-roster labels). */
 
-var STRATA_VERSION = "v2.1.0-audio";
+var STRATA_VERSION = "v2.2.0-music";
 
 var DEBUG_AUTO_BUY_ALL = false;
 
@@ -12941,7 +12942,7 @@ var AudioEngine = (function () {
     if (ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
     stopMusic(); // idempotent
 
-    if (_musicTrackUrl) { // real track hook
+    if (_musicTrackUrl) { // real track hook (unchanged)
       try {
         _musicEl = new Audio(_musicTrackUrl);
         _musicEl.loop = true; _musicEl.volume = 0.5;
@@ -12950,35 +12951,65 @@ var AudioEngine = (function () {
       return;
     }
 
-    // Generative ambient: a slow evolving pad + sparse arpeggio on the pentatonic.
-    function scheduleNote() {
-      if (!settingOn('music') || !ctx) return;
-      var now = ctx.currentTime;
-      // soft pad
-      var f = PENTA[Math.floor(Math.random() * 5)];
+    // ---- FULLER generative music: tempo-locked bass + chord progression + pad
+    //      + arpeggio layer + sparse melody. Ambient but with a gentle groove. ----
+    // A minor: chord progression i - VI - III - VII  [Am - F - C - G feel], pentatonic-safe.
+    // Root frequencies (low octave) for each chord, plus the chord's note set (mid octave).
+    var PROG = [
+      { bass: 110.00, notes: [220.00, 261.63, 329.63] },   // Am (A, C, E)
+      { bass: 87.31,  notes: [174.61, 220.00, 261.63] },   // F (F, A, C)
+      { bass: 130.81, notes: [261.63, 329.63, 392.00] },   // C (C, E, G)
+      { bass: 98.00,  notes: [196.00, 246.94, 293.66] }    // G (G, B, D)
+    ];
+    var BPM = 76;
+    var beat = 60 / BPM;            // seconds per beat
+    var barLen = beat * 4;          // 4/4 bar per chord
+    var chordIdx = 0;
+
+    function voice(freq, t, dur, type, peak, dest) {
       var osc = ctx.createOscillator(); var g = ctx.createGain();
-      osc.type = 'sine'; osc.frequency.value = f;
-      g.gain.setValueAtTime(0.0001, now);
-      g.gain.exponentialRampToValueAtTime(0.14, now + 1.2);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + 3.5);
-      osc.connect(g); g.connect(musicGain);
-      osc.start(now); osc.stop(now + 3.7);
+      osc.type = type; osc.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(peak, t + Math.min(0.15, dur * 0.3));
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(g); g.connect(dest || musicGain);
+      osc.start(t); osc.stop(t + dur + 0.05);
       _musicNodes.push(osc);
-      // occasional higher shimmer
-      if (Math.random() < 0.4) {
-        var f2 = PENTA[5 + Math.floor(Math.random() * 4)];
-        var o2 = ctx.createOscillator(); var g2 = ctx.createGain();
-        o2.type = 'triangle'; o2.frequency.value = f2;
-        g2.gain.setValueAtTime(0.0001, now + 0.3);
-        g2.gain.exponentialRampToValueAtTime(0.06, now + 0.5);
-        g2.gain.exponentialRampToValueAtTime(0.0001, now + 2.0);
-        o2.connect(g2); g2.connect(musicGain);
-        o2.start(now + 0.3); o2.stop(now + 2.1);
-        _musicNodes.push(o2);
-      }
     }
-    scheduleNote();
-    _musicTimer = setInterval(scheduleNote, 2600); // evolving, sparse
+
+    function playBar() {
+      if (!settingOn('music') || !ctx) return;
+      var now = ctx.currentTime + 0.05;
+      var ch = PROG[chordIdx % PROG.length];
+
+      // 1) BASS pulse — root on beats 1 and 3 (the heartbeat)
+      voice(ch.bass, now, beat * 1.6, 'triangle', 0.22);
+      voice(ch.bass, now + beat * 2, beat * 1.6, 'triangle', 0.20);
+
+      // 2) PAD — sustained chord under everything (warm sine), whole bar
+      ch.notes.forEach(function (f) { voice(f, now, barLen * 0.95, 'sine', 0.07); });
+
+      // 3) ARPEGGIO layer — chord notes cycled across the bar (the 'fuller' motion)
+      var arpSteps = 8;              // eighth notes
+      for (var s = 0; s < arpSteps; s++) {
+        var f = ch.notes[s % ch.notes.length] * (s >= ch.notes.length * 2 ? 2 : 1);
+        voice(f, now + s * (beat / 2), beat * 0.4, 'triangle', 0.05);
+      }
+
+      // 4) SPARSE melody — occasional higher note on a strong beat (kept rare + quiet)
+      if (Math.random() < 0.5) {
+        var mel = ch.notes[Math.floor(Math.random() * ch.notes.length)] * 2;
+        var when = now + beat * (Math.random() < 0.5 ? 0 : 2);
+        voice(mel, when, beat * 1.2, 'triangle', 0.08);
+      }
+
+      chordIdx++;
+      // prune old nodes occasionally
+      if (_musicNodes.length > 200) _musicNodes = _musicNodes.slice(-80);
+    }
+
+    playBar();
+    _musicTimer = setInterval(playBar, barLen * 1000);
   }
 
   function stopMusic() {
@@ -13004,6 +13035,19 @@ var AudioEngine = (function () {
     }
     window.addEventListener('pointerdown', once, true);
     window.addEventListener('keydown', once, true);
+  })();
+
+  // Resume audio + restart music when the page becomes visible again (e.g. tab switch,
+  // navigate away and back). Browsers suspend the AudioContext on hide; we resume on show.
+  (function registerVisibility() {
+    function onShow() {
+      if (!ctx) return;              // nothing created yet (no prior interaction)
+      try { if (ctx.state === 'suspended') ctx.resume(); } catch (e) {}
+      if (settingOn('music') && !_musicTimer && !_musicEl) startMusic();
+    }
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) onShow(); });
+    window.addEventListener('pageshow', onShow);
+    window.addEventListener('focus', onShow);
   })();
 
   return {
