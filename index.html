@@ -1144,7 +1144,7 @@ cursor: pointer; transition: all var(--transition);
 
 }
 
-.perm-option:hover { border-color: var(--green); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,255,136,0.15); }
+.perm-option:hover { border-color: var(--border-hover); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
 
 .perm-option.taken {
 
@@ -2431,7 +2431,7 @@ background: var(--cyan); color: var(--bg-deep);
 box-shadow: 0 0 20px rgba(0,228,255,0.2); transform: translateY(-1px);
 }
 /* Multi-pick perm overlay additions */
-.perm-option.perm-selected { border-color: var(--green) !important; background: rgba(0,255,136,0.06) !important; }
+.perm-option.perm-selected { border-color: var(--green) !important; background: rgba(0,255,136,0.12) !important; box-shadow: 0 0 12px rgba(0,255,136,0.35) !important; }
 .perm-option.perm-selected .upgrade-icon { transform: scale(1.1); }
 .perm-confirm-bar {
 position: sticky; bottom: 0; padding: 10px 0; background: var(--bg-deep);
@@ -2799,7 +2799,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v2.0.1-ach-fix</div>
+<div class="start-version" id="startVersion">v2.0.3-glow-fix</div>
 
 </div>
 
@@ -2834,7 +2834,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v2.0.1-ach-fix</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v2.0.3-glow-fix</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3693,10 +3693,10 @@ return sign + man.toFixed(0) + "e" + exp;
 
 /* ======================= [M2] GAMEDATA / DEFS ==============================*/
 /* Static game data + tunable constants. Carried verbatim from reference.
-   NOTE: STRATA_VERSION bumped to v2.0.1-ach-fix (judgment call). GREEK_ALPHABET kept
+   NOTE: STRATA_VERSION bumped to v2.0.3-glow-fix (judgment call). GREEK_ALPHABET kept
    (was slot-only; retained for possible player-roster labels). */
 
-var STRATA_VERSION = "v2.0.1-ach-fix";
+var STRATA_VERSION = "v2.0.3-glow-fix";
 
 var DEBUG_AUTO_BUY_ALL = false;
 
@@ -7921,7 +7921,7 @@ sortBtns[sb].classList.remove("active-sort");
 
 var mm = sortBtns[sb].getAttribute("onclick");
 
-if (mm && mm.indexOf(currentSelectionSort) >= 0) sortBtns[sb].classList.add("active-sort");
+var _m = mm && mm.match(/\'(\w+)\'/); if (_m && _m[1] === currentSelectionSort) sortBtns[sb].classList.add("active-sort");
 
 }
 
@@ -8030,7 +8030,7 @@ sortBtns[sb].classList.remove("active-sort");
 
 var mm = sortBtns[sb].getAttribute("onclick");
 
-if (mm && mm.indexOf(currentRestartSort) >= 0) sortBtns[sb].classList.add("active-sort");
+var _m = mm && mm.match(/\'(\w+)\'/); if (_m && _m[1] === currentRestartSort) sortBtns[sb].classList.add("active-sort");
 
 }
 
@@ -11735,10 +11735,11 @@ var _selectedDifficulty = null;
 /* NOTE: _selectedModifiers is declared in the 7a/verbatim region (showModifierScreen area). */
 
 /* ================= COMPLETION BRIDGE (reads PlayerStore) ================= */
-function markCompletion(difficulty, mods) { return PlayerStore.markCompletion(difficulty, mods); }
+function markCompletion(difficulty, mods) { var r = PlayerStore.markCompletion(difficulty, mods); completionHistory = PlayerStore.getCompletion(); return r; }
 function hasBeatenDifficulty(diff) { return PlayerStore.hasBeatenDifficulty(diff); }
 function hasBeatenModifier(diff, modId) { return PlayerStore.hasBeatenModifier(diff, modId); }
 function hasBeatenCombo(diff, n) { return PlayerStore.hasBeatenCombo(diff, n); }
+function loadCompletionHistory() { try { completionHistory = PlayerStore.getCompletion(); } catch(e) { completionHistory = {}; } }
 function isDifficultyUnlocked(difficulty) {
   var idx = DIFFICULTIES_ORDER.indexOf(difficulty);
   if (idx <= 1) return true;                     // easy + normal always available
@@ -11952,6 +11953,7 @@ function choosePlayer(id) {
   PlayerStore.setActivePlayer(id);
   try { loadSettings(); } catch (e) {}   // per-player
   try { loadTheme(); } catch (e) {}      // per-player
+  try { loadCompletionHistory(); } catch (e) {} // per-player badges/unlocks
   var ps = document.getElementById("playerSelectScreen"); if (ps) ps.classList.add("hidden");
   showStartScreen();
 }
@@ -12215,7 +12217,7 @@ function renderSlotOverflow() {
   for (var sb = 0; sb < sortBtns.length; sb++) {
     sortBtns[sb].classList.remove("active-sort");
     var mm = sortBtns[sb].getAttribute("onclick");
-    if (mm && mm.indexOf(_slotOverflow.sortMode) >= 0) sortBtns[sb].classList.add("active-sort");
+    var _m = mm && mm.match(/\'(\w+)\'/); if (_m && _m[1] === _slotOverflow.sortMode) sortBtns[sb].classList.add("active-sort");
   }
   var lvlBtn = document.querySelector('#slotOverflowSortBar .sort-btn[onclick*="level"]');
   if (lvlBtn) lvlBtn.textContent = _slotOverflow.sortMode === "level" ? (_slotOverflow.sortLevelAsc ? "Lv↑" : "Lv↓") : "Lv";
@@ -12801,6 +12803,7 @@ if (confirmTog) confirmTog.checked = gameSettings.confirmReset === "on";
     // 3) load active player's settings + theme
     try { loadSettings(); } catch (e) {}
     try { loadTheme(); } catch (e) {}
+    try { loadCompletionHistory(); } catch (e) {}
     // 4) version label
     var vl = document.getElementById("versionLabel"); if (vl) vl.textContent = STRATA_VERSION;
     try { recalcGlobalBoost(); } catch (e) {}
