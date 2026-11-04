@@ -2799,7 +2799,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v2.0.3-glow-fix</div>
+<div class="start-version" id="startVersion">v2.1.0-audio</div>
 
 </div>
 
@@ -2834,7 +2834,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v2.0.3-glow-fix</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v2.1.0-audio</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3444,9 +3444,9 @@ animSpeed: "normal",
 
 autoSave: "30",
 
-music: "off",
+music: "on",
 
-sfx: "off",
+sfx: "on",
 
 confirmReset: "on"
 
@@ -3693,10 +3693,10 @@ return sign + man.toFixed(0) + "e" + exp;
 
 /* ======================= [M2] GAMEDATA / DEFS ==============================*/
 /* Static game data + tunable constants. Carried verbatim from reference.
-   NOTE: STRATA_VERSION bumped to v2.0.3-glow-fix (judgment call). GREEK_ALPHABET kept
+   NOTE: STRATA_VERSION bumped to v2.1.0-audio (judgment call). GREEK_ALPHABET kept
    (was slot-only; retained for possible player-roster labels). */
 
-var STRATA_VERSION = "v2.0.3-glow-fix";
+var STRATA_VERSION = "v2.1.0-audio";
 
 var DEBUG_AUTO_BUY_ALL = false;
 
@@ -5746,7 +5746,7 @@ flashGenCard(index);
 
 gameStats.totalGeneratorsBought++;
 
-if (gen.tier === 2 && gen.bought === 1) showDiscovery('gen_cascade'); lastGenRenderKey = ""; renderGenerators(); }
+if (gen.tier === 2 && gen.bought === 1) showDiscovery('gen_cascade'); try{AudioEngine.sfx('buy');}catch(e){} lastGenRenderKey = ""; renderGenerators(); }
 
 }
 
@@ -5780,7 +5780,7 @@ bought = true;
 
 }
 
-if (bought) { lastGenRenderKey = ""; renderGenerators(); }
+if (bought) { try{var _n=0; for(var _bi=0;_bi<d.generators.length;_bi++){if(d.generators[_bi].bought>0)_n++;} AudioEngine.sfx('buyCascade',{count:_n});}catch(e){} lastGenRenderKey = ""; renderGenerators(); }
 
 }
 
@@ -5828,6 +5828,8 @@ if (hasBreakInfinity(d) ? false : bnGte(d.points, BASE_POINT_CAP)) return;
 
 var maxBuy = getMaxBuy(d);
 
+var _autoBought = 0;
+
 for (var b = 0; b < count; b++) {
 
 for (var i = 0; i < d.generators.length; i++) {
@@ -5838,11 +5840,14 @@ var cost = getCost(gen.tier, gen.bought, d);
 
 var cap = hasBreakInfinity(d) ? false : bnGte(d.points, BASE_POINT_CAP);
 
-if (bnGte(d.points, cost) && !cap) { d.points = bnSub(d.points, cost); gen.bought++; gameStats.totalGeneratorsBought++; }
+if (bnGte(d.points, cost) && !cap) { d.points = bnSub(d.points, cost); gen.bought++; gameStats.totalGeneratorsBought++; _autoBought++; }
 
 }
 
 }
+
+// Only the ACTIVE dimension's auto-buy makes sound, throttled to ~2-3/sec.
+if (_autoBought > 0 && dimIdx === activeDimIdx) { try { AudioEngine.autoBuyCascade(_autoBought); } catch(e){} }
 
 }
 
@@ -5855,6 +5860,8 @@ if (activeModifiers.indexOf("no_prestige") >= 0) { showSaveMsg("Prestige blocked
 if (!canPrestige()) return;
 
 if (isInChallenge()) return;
+
+try { AudioEngine.sfx('prestige'); } catch(e){}
 
 var _ppEarned = getPrestigeEarned();
 
@@ -9164,6 +9171,7 @@ function playNewRecordAnimation(oldExp, newExp, oldBoost, newBoost, onComplete) 
 }
 
 function playDimCompleteSequence(dimNum, callback) {
+  try { AudioEngine.sfx('dimComplete'); } catch(e){}
   var overlay = document.getElementById('dimCompleteOverlay');
   if (!overlay || overlay.classList.contains('active')) { if (callback) callback(); return; }
 
@@ -9527,6 +9535,7 @@ container.appendChild(popup);
 }
 
 function showAchievementPopup(achievement) {
+  try { AudioEngine.sfx('achievement'); } catch(e){}
   spawnStarBurst(window.innerWidth / 2, window.innerHeight / 2);
   var container = document.getElementById("discoveryContainer");
   if (!container) return;
@@ -10291,6 +10300,7 @@ showStartScreen();
 }
 
 function completeChallenge() {
+  try { AudioEngine.sfx('challengeComplete'); } catch(e){}
 
 spawnConfetti(40);
 showChallengeCompleteBanner();
@@ -11172,6 +11182,7 @@ if (_wasNewRecord) {
 }
 
 function startChallenge(idx) {
+  try { AudioEngine.sfx('challengeStart'); } catch(e){}
 
 var d = D();
 
@@ -11925,6 +11936,7 @@ function applySettings() {
   if (window._autoSaveInterval) clearInterval(window._autoSaveInterval);
   var interval = parseInt(gameSettings.autoSave) * 1000;
   if (interval > 0) window._autoSaveInterval = setInterval(function () { if (gameStarted) saveGame(); }, interval);
+  try { AudioEngine.applySettings(); } catch(e){}
 }
 
 /* ================= PLAYER-SELECT SCREEN ================= */
@@ -12788,6 +12800,221 @@ var confirmTog = document.getElementById("confirmResetToggle");
 if (confirmTog) confirmTog.checked = gameSettings.confirmReset === "on";
 
 }
+
+/* ======================= [M8] AUDIO ENGINE ================================*/
+/* Synthesized SFX + ambient music via Web Audio API. No audio files required.
+   A music-file hook (AudioEngine.music.setTrackUrl) is provided so a real
+   track can be dropped in later without code changes.
+
+   Design:
+   - Context is created lazily and resumed on first user gesture (browsers
+     block audio until interaction), so "on by default" works from first click.
+   - Master gain + a hard VOICE CAP prevent SFX from ever stacking into noise.
+   - Buy SFX: single blip for one buy; ascending ARPEGGIO CASCADE (scaled to
+     how many were bought) for Buy All and auto-buy. Auto-buy is RATE-THROTTLED
+     (~2-3 cascades/sec) so continuous auto-buy stays musical, not machine-gun.
+   - gameSettings.music / gameSettings.sfx gate playback (both default "on").
+*/
+
+var AudioEngine = (function () {
+  'use strict';
+
+  var ctx = null;
+  var master = null;
+  var musicGain = null;
+  var sfxGain = null;
+  var activeVoices = 0;
+  var MAX_VOICES = 12;          // hard cap — nothing can stack past this
+  var _musicNodes = [];
+  var _musicTimer = null;
+  var _musicTrackUrl = null;    // hook for a future real track
+  var _musicEl = null;          // <audio> element if a track url is set
+
+  // Pentatonic scale (A minor pentatonic) — always sounds consonant when stacked/arpeggiated
+  var PENTA = [220.00, 261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99];
+
+  function ensureCtx() {
+    if (ctx) return ctx;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      ctx = new AC();
+      master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination);
+      sfxGain = ctx.createGain(); sfxGain.gain.value = 0.6; sfxGain.connect(master);
+      musicGain = ctx.createGain(); musicGain.gain.value = 0.25; musicGain.connect(master);
+    } catch (e) { ctx = null; }
+    return ctx;
+  }
+
+  // Resume on first user gesture (autoplay policy)
+  function unlock() {
+    ensureCtx();
+    if (ctx && ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
+    // If music is on and not yet playing, start it now that we're unlocked.
+    if (settingOn('music') && !_musicTimer && !_musicEl) startMusic();
+  }
+
+  function settingOn(key) {
+    try { return gameSettings && gameSettings[key] !== 'off'; } catch (e) { return true; }
+  }
+
+  // ---- low-level voice ----------------------------------------------------
+  function tone(freq, startT, dur, type, peak) {
+    if (!ctx || activeVoices >= MAX_VOICES) return;
+    activeVoices++;
+    var osc = ctx.createOscillator();
+    var g = ctx.createGain();
+    osc.type = type || 'triangle';
+    osc.frequency.value = freq;
+    var t0 = startT || ctx.currentTime;
+    var a = 0.008, d = dur || 0.18, pk = (peak == null ? 0.5 : peak);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(pk, t0 + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d);
+    osc.connect(g); g.connect(sfxGain);
+    osc.start(t0);
+    osc.stop(t0 + a + d + 0.02);
+    osc.onended = function () { activeVoices--; try { osc.disconnect(); g.disconnect(); } catch (e) {} };
+  }
+
+  // ---- public SFX ---------------------------------------------------------
+  function sfx(name, opts) {
+    if (!settingOn('sfx')) return;
+    if (!ensureCtx()) return;
+    if (ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
+    opts = opts || {};
+    var now = ctx.currentTime;
+    switch (name) {
+      case 'buy': // single manual buy — one short bright blip
+        tone(PENTA[3], now, 0.10, 'triangle', 0.45);
+        break;
+      case 'buyCascade': { // Buy All / auto-buy — ascending arpeggio scaled to count
+        var count = Math.max(2, Math.min(opts.count || 4, 8)); // 2..8 notes
+        var step = 0.045;
+        for (var i = 0; i < count; i++) {
+          var f = PENTA[Math.min(i + 2, PENTA.length - 1)];
+          tone(f, now + i * step, 0.12, 'triangle', 0.38);
+        }
+        break;
+      }
+      case 'prestige': { // descending whoosh + shimmer
+        for (var p = 0; p < 6; p++) tone(PENTA[7 - p] || 200, now + p * 0.05, 0.22, 'sawtooth', 0.3);
+        tone(880, now + 0.32, 0.5, 'sine', 0.25);
+        break;
+      }
+      case 'achievement': { // bright 3-note ding
+        [PENTA[4], PENTA[6], PENTA[8]].forEach(function (f, i) { tone(f, now + i * 0.09, 0.25, 'triangle', 0.5); });
+        break;
+      }
+      case 'dimComplete': { // triumphant chord + rising tail
+        [PENTA[2], PENTA[4], PENTA[6], PENTA[8]].forEach(function (f) { tone(f, now, 0.6, 'triangle', 0.4); });
+        tone(PENTA[9], now + 0.25, 0.7, 'sine', 0.35);
+        break;
+      }
+      case 'challengeStart': { // tense low pulse
+        tone(130.81, now, 0.3, 'sawtooth', 0.4);
+        tone(138.59, now + 0.02, 0.3, 'square', 0.18);
+        break;
+      }
+      case 'challengeComplete': { // resolving upward motif
+        [PENTA[1], PENTA[3], PENTA[5], PENTA[7]].forEach(function (f, i) { tone(f, now + i * 0.1, 0.3, 'triangle', 0.45); });
+        break;
+      }
+    }
+  }
+
+  // ---- auto-buy throttle: collapse continuous auto-buy into ~2-3 cascades/sec
+  var _lastAutoCascade = 0;
+  var AUTO_INTERVAL = 400; // ms  (~2-3/sec)
+  function autoBuyCascade(count) {
+    if (!settingOn('sfx')) return;
+    var t = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (t - _lastAutoCascade < AUTO_INTERVAL) return; // throttled
+    _lastAutoCascade = t;
+    sfx('buyCascade', { count: Math.min(count || 4, 8) });
+  }
+
+  // ---- MUSIC: evolving generative ambient (or real track via setTrackUrl) --
+  function startMusic() {
+    if (!settingOn('music')) return;
+    if (!ensureCtx()) return;
+    if (ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
+    stopMusic(); // idempotent
+
+    if (_musicTrackUrl) { // real track hook
+      try {
+        _musicEl = new Audio(_musicTrackUrl);
+        _musicEl.loop = true; _musicEl.volume = 0.5;
+        _musicEl.play().catch(function () {});
+      } catch (e) {}
+      return;
+    }
+
+    // Generative ambient: a slow evolving pad + sparse arpeggio on the pentatonic.
+    function scheduleNote() {
+      if (!settingOn('music') || !ctx) return;
+      var now = ctx.currentTime;
+      // soft pad
+      var f = PENTA[Math.floor(Math.random() * 5)];
+      var osc = ctx.createOscillator(); var g = ctx.createGain();
+      osc.type = 'sine'; osc.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.exponentialRampToValueAtTime(0.14, now + 1.2);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 3.5);
+      osc.connect(g); g.connect(musicGain);
+      osc.start(now); osc.stop(now + 3.7);
+      _musicNodes.push(osc);
+      // occasional higher shimmer
+      if (Math.random() < 0.4) {
+        var f2 = PENTA[5 + Math.floor(Math.random() * 4)];
+        var o2 = ctx.createOscillator(); var g2 = ctx.createGain();
+        o2.type = 'triangle'; o2.frequency.value = f2;
+        g2.gain.setValueAtTime(0.0001, now + 0.3);
+        g2.gain.exponentialRampToValueAtTime(0.06, now + 0.5);
+        g2.gain.exponentialRampToValueAtTime(0.0001, now + 2.0);
+        o2.connect(g2); g2.connect(musicGain);
+        o2.start(now + 0.3); o2.stop(now + 2.1);
+        _musicNodes.push(o2);
+      }
+    }
+    scheduleNote();
+    _musicTimer = setInterval(scheduleNote, 2600); // evolving, sparse
+  }
+
+  function stopMusic() {
+    if (_musicTimer) { clearInterval(_musicTimer); _musicTimer = null; }
+    _musicNodes.forEach(function (n) { try { n.stop(); n.disconnect(); } catch (e) {} });
+    _musicNodes = [];
+    if (_musicEl) { try { _musicEl.pause(); } catch (e) {} _musicEl = null; }
+  }
+
+  // Called by Settings toggles to apply changes live.
+  function applyAudioSettings() {
+    if (settingOn('music')) { if (!_musicTimer && !_musicEl) startMusic(); }
+    else { stopMusic(); }
+    // sfx gate is checked per-call; nothing to start/stop.
+  }
+
+  // Register the one-time unlock on first interaction.
+  (function registerUnlock() {
+    function once() {
+      unlock();
+      window.removeEventListener('pointerdown', once, true);
+      window.removeEventListener('keydown', once, true);
+    }
+    window.addEventListener('pointerdown', once, true);
+    window.addEventListener('keydown', once, true);
+  })();
+
+  return {
+    sfx: sfx,
+    autoBuyCascade: autoBuyCascade,
+    music: { start: startMusic, stop: stopMusic, setTrackUrl: function (u) { _musicTrackUrl = u; } },
+    applySettings: applyAudioSettings,
+    unlock: unlock
+  };
+})();
+
 
 /* ======================= [M7] BOOT =========================================*/
 /* (Phase 8) init sequence wired to PlayerStore */
