@@ -2799,7 +2799,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v2.2.0-music</div>
+<div class="start-version" id="startVersion">v2.2.1-audiofix</div>
 
 </div>
 
@@ -2834,7 +2834,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v2.2.0-music</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v2.2.1-audiofix</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3694,10 +3694,10 @@ return sign + man.toFixed(0) + "e" + exp;
 
 /* ======================= [M2] GAMEDATA / DEFS ==============================*/
 /* Static game data + tunable constants. Carried verbatim from reference.
-   NOTE: STRATA_VERSION bumped to v2.2.0-music (judgment call). GREEK_ALPHABET kept
+   NOTE: STRATA_VERSION bumped to v2.2.1-audiofix (judgment call). GREEK_ALPHABET kept
    (was slot-only; retained for possible player-roster labels). */
 
-var STRATA_VERSION = "v2.2.0-music";
+var STRATA_VERSION = "v2.2.1-audiofix";
 
 var DEBUG_AUTO_BUY_ALL = false;
 
@@ -11942,6 +11942,8 @@ function applySettings() {
 
 /* ================= PLAYER-SELECT SCREEN ================= */
 function showPlayerSelect() {
+  // Kick audio as early as possible — music should play on ALL screens when toggled on.
+  try { AudioEngine.unlock(); } catch (e) {}
   // hide every other screen
   ["startScreen", "diffScreen", "modifierScreen"].forEach(function (id) { var e = document.getElementById(id); if (e) e.classList.add("hidden"); });
   var ps = document.getElementById("playerSelectScreen"); if (ps) ps.classList.remove("hidden");
@@ -12851,8 +12853,9 @@ var AudioEngine = (function () {
   function unlock() {
     ensureCtx();
     if (ctx && ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
-    // If music is on and not yet playing, start it now that we're unlocked.
-    if (settingOn('music') && !_musicTimer && !_musicEl) startMusic();
+    // Music should play on every screen when toggled on. startMusic() is idempotent
+    // (it stops any prior instance first), so calling it is always safe.
+    if (settingOn('music')) startMusic();
   }
 
   function settingOn(key) {
@@ -12887,14 +12890,14 @@ var AudioEngine = (function () {
     var now = ctx.currentTime;
     switch (name) {
       case 'buy': // single manual buy — one short bright blip
-        tone(PENTA[3], now, 0.10, 'triangle', 0.45);
+        tone(PENTA[3], now, 0.10, 'triangle', 0.225);
         break;
       case 'buyCascade': { // Buy All / auto-buy — ascending arpeggio scaled to count
         var count = Math.max(2, Math.min(opts.count || 4, 8)); // 2..8 notes
         var step = 0.045;
         for (var i = 0; i < count; i++) {
           var f = PENTA[Math.min(i + 2, PENTA.length - 1)];
-          tone(f, now + i * step, 0.12, 'triangle', 0.38);
+          tone(f, now + i * step, 0.12, 'triangle', 0.19);
         }
         break;
       }
@@ -13041,13 +13044,22 @@ var AudioEngine = (function () {
   // navigate away and back). Browsers suspend the AudioContext on hide; we resume on show.
   (function registerVisibility() {
     function onShow() {
-      if (!ctx) return;              // nothing created yet (no prior interaction)
+      ensureCtx();
+      if (!ctx) return;              // audio truly unavailable
       try { if (ctx.state === 'suspended') ctx.resume(); } catch (e) {}
-      if (settingOn('music') && !_musicTimer && !_musicEl) startMusic();
+      // Safari/iOS can invalidate audio on background while setInterval keeps ticking.
+      // Force a clean restart of music (startMusic is idempotent — it stops first).
+      if (settingOn('music')) startMusic();
     }
-    document.addEventListener('visibilitychange', function () { if (!document.hidden) onShow(); });
+    function onHide() {
+      // Proactively stop so a stale timer can't block the restart on return.
+      if (document.hidden) stopMusic();
+    }
+    document.addEventListener('visibilitychange', function () { if (document.hidden) onHide(); else onShow(); });
     window.addEventListener('pageshow', onShow);
     window.addEventListener('focus', onShow);
+    window.addEventListener('pagehide', stopMusic);
+    window.addEventListener('blur', function(){ /* keep playing on mere blur; only hide stops */ });
   })();
 
   return {
