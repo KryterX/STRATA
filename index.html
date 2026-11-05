@@ -2799,7 +2799,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="start-buttons" id="startButtons"></div>
 
-<div class="start-version" id="startVersion">v2.3.0-electron</div>
+<div class="start-version" id="startVersion">v2.5.0-warm</div>
 
 </div>
 
@@ -2834,7 +2834,7 @@ display: flex !important; /* override display:none so transition works */
 
 <div class="top-section">
 
-<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v2.3.0-electron</span></h1>
+<h1>Strata <span style="font-size:0.5em;color:var(--text-dim);font-weight:400;" id="versionLabel">v2.5.0-warm</span></h1>
 <div class="subtitle" id="difficultySubtitle" style="margin-bottom:2px;"></div>
 
 <div class="prestige-prompt hidden" id="prestigePrompt">
@@ -3694,10 +3694,10 @@ return sign + man.toFixed(0) + "e" + exp;
 
 /* ======================= [M2] GAMEDATA / DEFS ==============================*/
 /* Static game data + tunable constants. Carried verbatim from reference.
-   NOTE: STRATA_VERSION bumped to v2.3.0-electron (judgment call). GREEK_ALPHABET kept
+   NOTE: STRATA_VERSION bumped to v2.5.0-warm (judgment call). GREEK_ALPHABET kept
    (was slot-only; retained for possible player-roster labels). */
 
-var STRATA_VERSION = "v2.3.0-electron";
+var STRATA_VERSION = "v2.5.0-warm";
 
 var DEBUG_AUTO_BUY_ALL = false;
 
@@ -8664,6 +8664,7 @@ else btn.classList.remove('ready');
 }
 
 function quitChallenge() {
+  try { AudioEngine.music.setMode('ambient'); } catch(e){}
 
 var d = D();
 
@@ -10301,6 +10302,7 @@ showStartScreen();
 }
 
 function completeChallenge() {
+  try { AudioEngine.music.setMode('ambient'); } catch(e){}
   try { AudioEngine.sfx('challengeComplete'); } catch(e){}
 
 spawnConfetti(40);
@@ -10517,6 +10519,7 @@ if (cc < 5 && d.challenges.length <= cc) d.challenges.push(generateChallenge(cc 
 }
 
 function failChallenge() {
+  try { AudioEngine.music.setMode('ambient'); } catch(e){}
 
 var d = D();
 
@@ -11183,6 +11186,7 @@ if (_wasNewRecord) {
 }
 
 function startChallenge(idx) {
+  try { AudioEngine.music.setMode('boss'); } catch(e){}
   try { AudioEngine.sfx('challengeStart'); } catch(e){}
 
 var d = D();
@@ -12830,6 +12834,7 @@ var AudioEngine = (function () {
   var MAX_VOICES = 12;          // hard cap — nothing can stack past this
   var _musicNodes = [];
   var _musicTimer = null;
+  var _musicMode = 'ambient';   // 'ambient' | 'boss'
   var _musicTrackUrl = null;    // hook for a future real track
   var _musicEl = null;          // <audio> element if a track url is set
 
@@ -12864,21 +12869,52 @@ var AudioEngine = (function () {
 
   // ---- low-level voice ----------------------------------------------------
   function tone(freq, startT, dur, type, peak) {
+    // WARM voice: 3 layered oscillators (body + sub + faint shimmer, slightly
+    // detuned) through a lowpass filter with a soft fade-in attack. Rounder,
+    // less chiptune than a single raw oscillator. Signature unchanged so every
+    // SFX routes through this automatically. `type` is honored as the body wave.
     if (!ctx || activeVoices >= MAX_VOICES) return;
     activeVoices++;
-    var osc = ctx.createOscillator();
-    var g = ctx.createGain();
-    osc.type = type || 'triangle';
-    osc.frequency.value = freq;
     var t0 = startT || ctx.currentTime;
-    var a = 0.008, d = dur || 0.18, pk = (peak == null ? 0.5 : peak);
+    var a = 0.03, d = dur || 0.18, pk = (peak == null ? 0.5 : peak);
+    var body = type || 'triangle';
+
+    // lowpass softens the harsh upper harmonics; cutoff scales a bit with pitch
+    var filt = ctx.createGain && ctx.createBiquadFilter ? ctx.createBiquadFilter() : null;
+    var g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(pk, t0 + a);
+    g.gain.linearRampToValueAtTime(pk, t0 + a);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d);
-    osc.connect(g); g.connect(sfxGain);
-    osc.start(t0);
-    osc.stop(t0 + a + d + 0.02);
-    osc.onended = function () { activeVoices--; try { osc.disconnect(); g.disconnect(); } catch (e) {} };
+
+    var out = g;
+    if (filt) {
+      filt.type = 'lowpass';
+      filt.frequency.value = Math.max(1200, Math.min(5000, freq * 6 + 1200));
+      filt.Q.value = 0.6;
+      filt.connect(g);
+      out = filt;
+    }
+    g.connect(sfxGain);
+
+    // layers: [waveform, detune-cents, relative gain]
+    var layers = [[body, 0, 1.0], ['sine', -5, 0.5], ['sawtooth', 5, 0.16]];
+    var oscs = [];
+    layers.forEach(function (L) {
+      var o = ctx.createOscillator();
+      o.type = L[0];
+      o.frequency.value = freq;
+      o.detune.value = L[1];
+      var lg = ctx.createGain(); lg.gain.value = L[2];
+      o.connect(lg); lg.connect(out);
+      o.start(t0); o.stop(t0 + a + d + 0.04);
+      oscs.push(o);
+    });
+    // decrement the voice count once, when the primary (longest) osc ends
+    oscs[0].onended = function () {
+      activeVoices--;
+      oscs.forEach(function (o) { try { o.disconnect(); } catch (e) {} });
+      try { g.disconnect(); if (filt) filt.disconnect(); } catch (e) {}
+    };
   }
 
   // ---- public SFX ---------------------------------------------------------
@@ -12897,13 +12933,16 @@ var AudioEngine = (function () {
         var step = 0.045;
         for (var i = 0; i < count; i++) {
           var f = PENTA[Math.min(i + 2, PENTA.length - 1)];
-          tone(f, now + i * step, 0.12, 'triangle', 0.19);
+          tone(f, now + i * step, 0.12, 'triangle', 0.095);
         }
         break;
       }
-      case 'prestige': { // descending whoosh + shimmer
-        for (var p = 0; p < 6; p++) tone(PENTA[7 - p] || 200, now + p * 0.05, 0.22, 'sawtooth', 0.3);
-        tone(880, now + 0.32, 0.5, 'sine', 0.25);
+      case 'prestige': { // celebratory bell cluster (progress / reward feel)
+        var _pb = [PENTA[5], PENTA[7], PENTA[9]];
+        for (var p = 0; p < _pb.length; p++) {
+          tone(_pb[p], now + p * 0.06, 0.5, 'sine', 0.28);
+          tone(_pb[p] * 2, now + p * 0.06, 0.3, 'triangle', 0.10);
+        }
         break;
       }
       case 'achievement': { // bright 3-note ding
@@ -12915,9 +12954,11 @@ var AudioEngine = (function () {
         tone(PENTA[9], now + 0.25, 0.7, 'sine', 0.35);
         break;
       }
-      case 'challengeStart': { // tense low pulse
-        tone(130.81, now, 0.3, 'sawtooth', 0.4);
-        tone(138.59, now + 0.02, 0.3, 'square', 0.18);
+      case 'challengeStart': { // soft triangle chord swell — a mode-shift, not a jarring stab
+        tone(PENTA[1], now, 0.8, 'triangle', 0.16);
+        tone(PENTA[3], now, 0.8, 'triangle', 0.16);
+        tone(PENTA[5], now, 0.8, 'triangle', 0.16);
+        tone(PENTA[7], now + 0.3, 0.6, 'sine', 0.20);
         break;
       }
       case 'challengeComplete': { // resolving upward motif
@@ -12954,21 +12995,6 @@ var AudioEngine = (function () {
       return;
     }
 
-    // ---- FULLER generative music: tempo-locked bass + chord progression + pad
-    //      + arpeggio layer + sparse melody. Ambient but with a gentle groove. ----
-    // A minor: chord progression i - VI - III - VII  [Am - F - C - G feel], pentatonic-safe.
-    // Root frequencies (low octave) for each chord, plus the chord's note set (mid octave).
-    var PROG = [
-      { bass: 110.00, notes: [220.00, 261.63, 329.63] },   // Am (A, C, E)
-      { bass: 87.31,  notes: [174.61, 220.00, 261.63] },   // F (F, A, C)
-      { bass: 130.81, notes: [261.63, 329.63, 392.00] },   // C (C, E, G)
-      { bass: 98.00,  notes: [196.00, 246.94, 293.66] }    // G (G, B, D)
-    ];
-    var BPM = 76;
-    var beat = 60 / BPM;            // seconds per beat
-    var barLen = beat * 4;          // 4/4 bar per chord
-    var chordIdx = 0;
-
     function voice(freq, t, dur, type, peak, dest) {
       var osc = ctx.createOscillator(); var g = ctx.createGain();
       osc.type = type; osc.frequency.value = freq;
@@ -12980,39 +13006,71 @@ var AudioEngine = (function () {
       _musicNodes.push(osc);
     }
 
-    function playBar() {
-      if (!settingOn('music') || !ctx) return;
-      var now = ctx.currentTime + 0.05;
-      var ch = PROG[chordIdx % PROG.length];
+    var chordIdx = 0;
 
-      // 1) BASS pulse — root on beats 1 and 3 (the heartbeat)
+    // ===================== AMBIENT (normal) =====================
+    // A minor i - VI - III - VII [Am - F - C - G], 76 BPM, calm.
+    var AMB_PROG = [
+      { bass: 110.00, notes: [220.00, 261.63, 329.63] },
+      { bass: 87.31,  notes: [174.61, 220.00, 261.63] },
+      { bass: 130.81, notes: [261.63, 329.63, 392.00] },
+      { bass: 98.00,  notes: [196.00, 246.94, 293.66] }
+    ];
+    function playAmbientBar() {
+      if (!settingOn('music') || !ctx) return;
+      var BPM = 76, beat = 60 / BPM, barLen = beat * 4;
+      var now = ctx.currentTime + 0.05;
+      var ch = AMB_PROG[chordIdx % AMB_PROG.length];
       voice(ch.bass, now, beat * 1.6, 'triangle', 0.22);
       voice(ch.bass, now + beat * 2, beat * 1.6, 'triangle', 0.20);
-
-      // 2) PAD — sustained chord under everything (warm sine), whole bar
       ch.notes.forEach(function (f) { voice(f, now, barLen * 0.95, 'sine', 0.07); });
-
-      // 3) ARPEGGIO layer — chord notes cycled across the bar (the 'fuller' motion)
-      var arpSteps = 8;              // eighth notes
-      for (var s = 0; s < arpSteps; s++) {
+      for (var s = 0; s < 8; s++) {
         var f = ch.notes[s % ch.notes.length] * (s >= ch.notes.length * 2 ? 2 : 1);
         voice(f, now + s * (beat / 2), beat * 0.4, 'triangle', 0.05);
       }
-
-      // 4) SPARSE melody — occasional higher note on a strong beat (kept rare + quiet)
       if (Math.random() < 0.5) {
         var mel = ch.notes[Math.floor(Math.random() * ch.notes.length)] * 2;
-        var when = now + beat * (Math.random() < 0.5 ? 0 : 2);
-        voice(mel, when, beat * 1.2, 'triangle', 0.08);
+        voice(mel, now + beat * (Math.random() < 0.5 ? 0 : 2), beat * 1.2, 'triangle', 0.08);
       }
-
       chordIdx++;
-      // prune old nodes occasionally
       if (_musicNodes.length > 200) _musicNodes = _musicNodes.slice(-80);
     }
 
-    playBar();
-    _musicTimer = setInterval(playBar, barLen * 1000);
+    // ===================== BOSS (challenge) =====================
+    // Darker Am - Dm - E - Am, 112 BPM. Driving 8th bass + power stabs +
+    // pad + 16th arp + lead melody (the 'fuller' fight arrangement).
+    var BOSS_PROG = [
+      { bass: 110.00, notes: [220.00, 261.63, 329.63], lead: [440.00, 523.25, 392.00, 440.00] },
+      { bass: 146.83, notes: [293.66, 349.23, 440.00], lead: [587.33, 523.25, 440.00, 587.33] },
+      { bass: 164.81, notes: [329.63, 415.30, 493.88], lead: [659.25, 587.33, 493.88, 659.25] },
+      { bass: 110.00, notes: [220.00, 261.63, 329.63], lead: [440.00, 329.63, 392.00, 440.00] }
+    ];
+    function playBossBar() {
+      if (!settingOn('music') || !ctx) return;
+      var BPM = 112, beat = 60 / BPM, barLen = beat * 4;
+      var now = ctx.currentTime + 0.05;
+      var ch = BOSS_PROG[chordIdx % BOSS_PROG.length];
+      // driving bass on 8th notes
+      for (var e = 0; e < 8; e++) voice(ch.bass, now + e * (beat / 2), beat * 0.45, 'sawtooth', 0.16);
+      // power-chord stabs (root+fifth) each beat
+      for (var bt = 0; bt < 4; bt++) { voice(ch.bass * 2, now + bt * beat, beat * 0.3, 'square', 0.07); voice(ch.bass * 3, now + bt * beat, beat * 0.3, 'square', 0.05); }
+      // tense sustained pad
+      ch.notes.forEach(function (f) { voice(f, now, barLen * 0.9, 'triangle', 0.05); });
+      // 16th-note arp (motion)
+      for (var s = 0; s < 16; s++) voice(ch.notes[s % ch.notes.length] * (s % 4 >= 2 ? 1 : 2), now + s * (beat / 4), beat * 0.2, 'square', 0.03);
+      // lead melody (fills the space)
+      ch.lead.forEach(function (f, k) { voice(f, now + k * beat, beat * 0.8, 'triangle', 0.11); });
+      chordIdx++;
+      if (_musicNodes.length > 260) _musicNodes = _musicNodes.slice(-100);
+    }
+
+    if (_musicMode === 'boss') {
+      playBossBar();
+      _musicTimer = setInterval(playBossBar, (60 / 112) * 4 * 1000);
+    } else {
+      playAmbientBar();
+      _musicTimer = setInterval(playAmbientBar, (60 / 76) * 4 * 1000);
+    }
   }
 
   function stopMusic() {
@@ -13151,7 +13209,8 @@ var AudioEngine = (function () {
   return {
     sfx: sfx,
     autoBuyCascade: autoBuyCascade,
-    music: { start: startMusic, stop: stopMusic, setTrackUrl: function (u) { _musicTrackUrl = u; } },
+    music: { start: startMusic, stop: stopMusic, setTrackUrl: function (u) { _musicTrackUrl = u; },
+             setMode: function (mode) { var m2 = (mode === 'boss') ? 'boss' : 'ambient'; if (m2 === _musicMode) return; _musicMode = m2; if (settingOn('music')) startMusic(); } },
     applySettings: applyAudioSettings,
     unlock: unlock,
     status: status,
